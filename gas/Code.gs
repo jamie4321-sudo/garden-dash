@@ -68,19 +68,23 @@ const SEED = {
     ['윤아름', '파트타임', '성수 본점', 'active', '2025-01', '홀'],
   ],
 
-  // schedule: 하루에 여러 이벤트 → 행마다 하나씩 (date/day/today 반복)
-  schedule: [
-    ['date', 'day', 'today', 'time', 'text', 'cat'],
-    ['07/20', '월', false, '09:00', '성수 오픈', 'var(--accent)'],
-    ['07/20', '월', false, '13:00', '발주 마감', 'var(--blue)'],
-    ['07/21', '화', false, '10:00', '크루 교육', 'var(--violet)'],
-    ['07/22', '수', false, '11:00', '연남 점검', 'var(--accent)'],
-    ['07/22', '수', false, '15:00', '재고 실사', 'var(--amber)'],
-    ['07/23', '목', true, '11:30', '온보딩 미팅', 'var(--violet)'],
-    ['07/23', '목', true, '14:00', '정산 마감', 'var(--red)'],
-    ['07/23', '목', true, '18:30', '리포트 발송', 'var(--accent)'],
-    ['07/24', '금', false, '10:00', '판교 오픈', 'var(--accent)'],
-    ['07/24', '금', false, '16:00', '주간 회의', 'var(--blue)'],
+  // 영역별 주간 스케줄 — 영역 × 요일 (한 칸에 여러 항목은 " / " 로 구분)
+  board: [
+    ['area', 'color', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+    ['전용부', 'var(--accent)', '14A / 13A / 12A', '11A / 10A / 9A', '8A / 7A / 6A', '5A / 5B / 6B / 7B / 9B', '', ''],
+    ['공용부', 'var(--blue)', '3층 일부', '3층 전체', '2층 전체', '1층 전체 / 4층', '4층 / 지하1층 춘식도락', ''],
+    ['기타', 'var(--violet)', '', '', '', '', '', ''],
+  ],
+
+  // 주간 보드 메타 (요일 날짜 · 특이사항 등)
+  boardMeta: [
+    ['key', 'value'],
+    ['month', '2026년 7월'],
+    ['range', '7/20(월) – 7/25(토)'],
+    ['today', 'thu'],
+    ['note', '단기 인원 영업 진행 중'],
+    ['mon', '7/20'], ['tue', '7/21'], ['wed', '7/22'],
+    ['thu', '7/23'], ['fri', '7/24'], ['sat', '7/25'],
   ],
 };
 
@@ -120,15 +124,29 @@ function doGet(e) {
     return r;
   });
 
-  // schedule: date 기준 그룹화
-  const flat = rows_(ss, 'schedule');
-  const byDate = {};
-  const order = [];
-  flat.forEach(function (r) {
-    if (!byDate[r.date]) { byDate[r.date] = { date: r.date, day: r.day, today: boolify_(r.today), events: [] }; order.push(r.date); }
-    byDate[r.date].events.push({ time: r.time, text: r.text, cat: r.cat });
+  // weekBoard: 영역 × 요일 보드
+  const meta = kv_(ss, 'boardMeta');
+  const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const DAY_LABELS = { mon: '월', tue: '화', wed: '수', thu: '목', fri: '금', sat: '토' };
+  const days = DAY_KEYS.map(function (k) {
+    var o = { key: k, label: DAY_LABELS[k], date: meta[k] || '' };
+    if (meta.today === k) o.today = true;
+    return o;
   });
-  out.schedule = order.map(function (d) { return byDate[d]; });
+  const areas = rows_(ss, 'board').map(function (r) {
+    var cells = {};
+    DAY_KEYS.forEach(function (k) {
+      cells[k] = String(r[k] || '').split('/').map(function (s) { return s.trim(); }).filter(Boolean);
+    });
+    return { name: r.area, color: r.color || 'var(--accent)', cells: cells };
+  });
+  out.weekBoard = {
+    month: meta.month || '',
+    range: meta.range || '',
+    note: meta.note || '',
+    days: days,
+    areas: areas,
+  };
 
   return ContentService
     .createTextOutput(JSON.stringify(out))

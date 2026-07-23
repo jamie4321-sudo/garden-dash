@@ -53,27 +53,40 @@ window.DATA = {
     { name: "윤아름", role: "파트타임", store: "성수 본점", status: "active", since: "2025-01", tags: ["홀"] },
   ],
 
-  // 주간 스케줄 (월~금)
-  schedule: [
-    { date: "07/20", day: "월", today: false, events: [
-      { time: "09:00", text: "성수 오픈", cat: "var(--accent)" },
-      { time: "13:00", text: "발주 마감", cat: "var(--blue)" },
-    ]},
-    { date: "07/21", day: "화", today: false, events: [
-      { time: "10:00", text: "크루 교육", cat: "var(--violet)" },
-    ]},
-    { date: "07/22", day: "수", today: false, events: [
-      { time: "11:00", text: "연남 점검", cat: "var(--accent)" },
-      { time: "15:00", text: "재고 실사", cat: "var(--amber)" },
-    ]},
-    { date: "07/23", day: "목", today: true, events: [
-      { time: "11:30", text: "온보딩 미팅", cat: "var(--violet)" },
-      { time: "14:00", text: "정산 마감", cat: "var(--red)" },
-      { time: "18:30", text: "리포트 발송", cat: "var(--accent)" },
-    ]},
-    { date: "07/24", day: "금", today: false, events: [
-      { time: "10:00", text: "판교 오픈", cat: "var(--accent)" },
-      { time: "16:00", text: "주간 회의", cat: "var(--blue)" },
-    ]},
-  ],
+  // 미니 달력 (월~토 · 2026년 7월)
+  cal: {
+    title: "2026년 7월",
+    weeks: [
+      [{ d: 29, out: 1 }, { d: 30, out: 1 }, { d: 1 }, { d: 2 }, { d: 3 }, { d: 4 }],
+      [{ d: 6 }, { d: 7 }, { d: 8 }, { d: 9 }, { d: 10 }, { d: 11 }],
+      [{ d: 13 }, { d: 14 }, { d: 15 }, { d: 16 }, { d: 17 }, { d: 18 }],
+      [{ d: 20, act: 1 }, { d: 21, act: 1 }, { d: 22, act: 1 }, { d: 23, act: 1, today: 1 }, { d: 24, act: 1 }, { d: 25, act: 1 }],
+      [{ d: 27 }, { d: 28 }, { d: 29 }, { d: 30 }, { d: 31 }, { d: 1, out: 1 }],
+    ],
+  },
+
+  // 영역별 주간 작업 스케줄 (인라인 편집 가능)
+  weekBoard: {
+    month: "2026년 7월",
+    range: "7/20(월) – 7/25(토)",
+    days: [
+      { key: "mon", label: "월", date: "7/20" },
+      { key: "tue", label: "화", date: "7/21" },
+      { key: "wed", label: "수", date: "7/22" },
+      { key: "thu", label: "목", date: "7/23", today: true },
+      { key: "fri", label: "금", date: "7/24" },
+      { key: "sat", label: "토", date: "7/25" },
+    ],
+    areas: [
+      { name: "전용부", color: "var(--accent)", cells: {
+        mon: ["14A", "13A", "12A"], tue: ["11A", "10A", "9A"], wed: ["8A", "7A", "6A"],
+        thu: ["5A", "5B", "6B", "7B", "9B"], fri: [], sat: [] } },
+      { name: "공용부", color: "var(--blue)", cells: {
+        mon: ["3층 일부"], tue: ["3층 전체"], wed: ["2층 전체"],
+        thu: ["1층 전체", "4층"], fri: ["4층", "지하1층 춘식도락"], sat: [] } },
+      { name: "기타", color: "var(--violet)", cells: {
+        mon: [], tue: [], wed: [], thu: [], fri: [], sat: [] } },
+    ],
+    note: "단기 인원 영업 진행 중",
+  },
 };

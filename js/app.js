@@ -9,6 +9,7 @@
 
   /* ---------- helpers ---------- */
   const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const statusMap = {
     active: { cls: "badge--active", label: "재직", dot: "var(--green)" },
     leave:  { cls: "badge--leave",  label: "휴직", dot: "var(--amber)" },
@@ -168,27 +169,91 @@
     },
 
     schedule() {
-      const days = D.schedule.map((d) => {
-        const evs = d.events.map((e) =>
-          `<div class="evt"><span class="evt__cat" style="background:${e.cat}"></span>
-            <span class="evt__body"><span class="evt__time">${e.time}</span>
-            <span class="evt__text">${e.text}</span></span></div>`
-        ).join("");
-        return `<div class="day ${d.today ? "is-today" : ""}">
-          <div class="day__head"><span class="day__date">${d.date}<small>${d.day}</small></span>
-            <span class="day__count">${d.events.length}건</span></div>
-          <div class="day__body">${evs}</div>
+      const b = getBoard();
+      const cal = D.cal || { title: "", weeks: [] };
+
+      // 미니 달력
+      const calRows = cal.weeks.map((wk) =>
+        `<div class="mcal__row">` + wk.map((c) =>
+          `<span class="mcal__d ${c.out ? "is-out" : ""} ${c.act ? "is-act" : ""} ${c.today ? "is-today" : ""}">${c.d}</span>`
+        ).join("") + `</div>`
+      ).join("");
+      const calCard = `
+        <div class="mcal">
+          <div class="mcal__head">
+            <button class="mcal__nav" title="이전 달">‹</button>
+            <span class="mcal__title">${cal.title}</span>
+            <button class="mcal__nav" title="다음 달">›</button>
+          </div>
+          <div class="mcal__wd">${["월","화","수","목","금","토"].map((d)=>`<span>${d}</span>`).join("")}</div>
+          ${calRows}
         </div>`;
+
+      // 헤더 (요일)
+      const headCols = b.days.map((d) =>
+        `<th class="wb-th ${d.today ? "is-today" : ""}"><span class="wb-th__d">${d.label}</span><span class="wb-th__date">${d.date}</span></th>`
+      ).join("");
+
+      // 영역 행
+      const rows = b.areas.map((area, ai) => {
+        const cells = b.days.map((d) => {
+          const items = (area.cells[d.key] || []);
+          const lis = items.map((t, ii) =>
+            `<div class="wbitem">
+              <span class="wbitem__t" contenteditable="true" spellcheck="false"
+                    data-a="${ai}" data-day="${d.key}" data-i="${ii}"
+                    onblur="GARDEN.wbEdit(this)" onkeydown="GARDEN.wbKey(event,this)">${esc(t)}</span>
+              <button class="wbitem__x" title="삭제" onclick="GARDEN.wbDel(${ai},'${d.key}',${ii})">×</button>
+            </div>`
+          ).join("");
+          return `<td class="wbcell ${d.today ? "is-today" : ""}">
+            <div class="wbcell__body">${lis || '<span class="wbcell__empty">–</span>'}</div>
+            <button class="wbadd" title="항목 추가" onclick="GARDEN.wbAdd(${ai},'${d.key}')">＋</button>
+          </td>`;
+        }).join("");
+        return `<tr>
+          <th class="wb-area" style="--ac:${area.color}">
+            <span class="wb-area__t" contenteditable="true" spellcheck="false"
+                  data-a="${ai}" onblur="GARDEN.wbArea(this)" onkeydown="GARDEN.wbKey(event,this)">${esc(area.name)}</span>
+            <button class="wb-area__x" title="영역 삭제" onclick="GARDEN.wbDelArea(${ai})">×</button>
+          </th>${cells}
+        </tr>`;
       }).join("");
+
+      // 특이사항
+      const noteRow = `<tr>
+        <th class="wb-area wb-area--note">특이사항</th>
+        <td class="wbnote" colspan="${b.days.length}">
+          <span class="wbnote__t" contenteditable="true" spellcheck="false"
+                onblur="GARDEN.wbNote(this)">${esc(b.note || "")}</span>
+        </td>
+      </tr>`;
+
       return `
         <section class="view">
           <div class="page-head">
-            <div><p class="eyebrow">Operation</p><h2>주간 스케줄</h2>
-              <p class="sub">2026년 7월 4주차 · 월–금</p></div>
-            <button class="btn btn--primary btn--sm">＋ 일정 등록</button>
+            <div><p class="eyebrow">Operation</p><h2>영역별 주간 작업 스케줄</h2>
+              <p class="sub">${b.month} · ${b.range}</p></div>
+            <div class="seg">
+              <button class="btn btn--sm" onclick="GARDEN.wbReset()">초기화</button>
+              <button class="btn btn--primary btn--sm" onclick="GARDEN.wbAddArea()">＋ 영역 추가</button>
+            </div>
           </div>
-          <p class="week-label">This Week</p>
-          <div class="week">${days}</div>
+          <div class="wb-layout">
+            ${calCard}
+            <div class="wb-board">
+              <div class="wb-board__head">
+                <h3>주간 스케줄</h3>
+                <span class="asof">${b.range}</span>
+              </div>
+              <div class="wb-scroll">
+                <table class="wb-table">
+                  <thead><tr><th class="wb-corner">영역</th>${headCols}</tr></thead>
+                  <tbody>${rows}${noteRow}</tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </section>`;
     },
 
@@ -232,13 +297,82 @@
   function currentView() { return (location.hash || "#dashboard").replace("#", ""); }
   window.addEventListener("hashchange", () => render(currentView()));
 
-  /* ---------- crew filter ---------- */
+  /* ---------- weekBoard state (localStorage overlay) ---------- */
+  const WB_KEY = "garden-weekboard";
+  let _board = null;
+  function getBoard() {
+    if (_board) return _board;
+    try {
+      const saved = localStorage.getItem(WB_KEY);
+      if (saved) { _board = JSON.parse(saved); return _board; }
+    } catch (e) {}
+    _board = JSON.parse(JSON.stringify(D.weekBoard || { days: [], areas: [], note: "" }));
+    return _board;
+  }
+  function saveBoard() {
+    try { localStorage.setItem(WB_KEY, JSON.stringify(_board)); } catch (e) {}
+  }
+  function reBoard() { app.innerHTML = views.schedule(); }
+
+  /* ---------- crew filter + board editing ---------- */
   const GARDEN = {
     filterCrew(q) {
       q = q.trim().toLowerCase();
       document.querySelectorAll("#crewBody tr").forEach((tr) => {
         tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
       });
+    },
+
+    /* --- 항목 편집 --- */
+    wbEdit(elm) {
+      const b = getBoard();
+      const ai = +elm.dataset.a, day = elm.dataset.day, i = +elm.dataset.i;
+      const val = elm.textContent.trim();
+      if (!b.areas[ai]) return;
+      if (val === "") { b.areas[ai].cells[day].splice(i, 1); saveBoard(); reBoard(); return; }
+      b.areas[ai].cells[day][i] = val; saveBoard();
+    },
+    wbDel(ai, day, i) {
+      const b = getBoard();
+      b.areas[ai].cells[day].splice(i, 1); saveBoard(); reBoard();
+    },
+    wbAdd(ai, day) {
+      const b = getBoard();
+      (b.areas[ai].cells[day] = b.areas[ai].cells[day] || []).push("");
+      saveBoard(); reBoard();
+      // 새 항목에 포커스
+      const spans = document.querySelectorAll(`.wbitem__t[data-a="${ai}"][data-day="${day}"]`);
+      const last = spans[spans.length - 1];
+      if (last) { last.focus(); }
+    },
+    wbArea(elm) {
+      const b = getBoard();
+      const ai = +elm.dataset.a;
+      if (b.areas[ai]) { b.areas[ai].name = elm.textContent.trim(); saveBoard(); }
+    },
+    wbDelArea(ai) {
+      const b = getBoard();
+      if (b.areas.length <= 1) return;
+      b.areas.splice(ai, 1); saveBoard(); reBoard();
+    },
+    wbAddArea() {
+      const b = getBoard();
+      const palette = ["var(--accent)", "var(--blue)", "var(--violet)", "var(--amber)", "var(--green)"];
+      const cells = {}; b.days.forEach((d) => (cells[d.key] = []));
+      b.areas.push({ name: "새 영역", color: palette[b.areas.length % palette.length], cells });
+      saveBoard(); reBoard();
+    },
+    wbNote(elm) {
+      const b = getBoard();
+      b.note = elm.textContent.trim(); saveBoard();
+    },
+    wbReset() {
+      if (!confirm("주간 스케줄을 기본값으로 되돌릴까요? (편집 내용 삭제)")) return;
+      try { localStorage.removeItem(WB_KEY); } catch (e) {}
+      _board = null; reBoard();
+    },
+    wbKey(ev, elm) {
+      if (ev.key === "Enter") { ev.preventDefault(); elm.blur(); }
     },
   };
   window.GARDEN = GARDEN;
@@ -268,6 +402,10 @@
       .then((json) => {
         if (json && typeof json === "object") {
           Object.assign(D, json);   // 목 데이터를 실데이터로 교체 (참조 유지)
+          // 로컬 편집이 없으면 시트 데이터로 보드 갱신
+          let hasLocal = false;
+          try { hasLocal = !!localStorage.getItem(WB_KEY); } catch (e) {}
+          if (!hasLocal) _board = null;
           render(currentView());    // 다시 렌더
         }
       })

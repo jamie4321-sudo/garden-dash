@@ -10,6 +10,13 @@
   /* ---------- helpers ---------- */
   const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const DIS_COLORS = {
+    "발달장애": "var(--accent)", "자폐성장애": "var(--accent)", "지적장애": "var(--blue)",
+    "정신장애": "var(--green)", "지체장애": "var(--violet)", "뇌병변장애": "#ff9f43",
+    "청각장애": "var(--red)", "시각장애": "var(--amber)", "언어장애": "#26c6da",
+    "신장장애": "#26c6da", "심장장애": "#e0729a", "간장애": "#e0729a", "비장애": "var(--slate)",
+  };
+  const disColor = (d) => DIS_COLORS[d] || "var(--violet)";
   const statusMap = {
     active: { cls: "badge--active", label: "재직", dot: "var(--green)" },
     leave:  { cls: "badge--leave",  label: "휴직", dot: "var(--amber)" },
@@ -137,31 +144,108 @@
     },
 
     crew() {
-      const rows = D.crew.map((c) => {
-        const s = statusMap[c.status];
-        const tags = c.tags.map((t) => `<span class="tag">${t}</span>`).join("");
+      const crew = D.crew || [];
+      const total = crew.length;
+
+      // 장애 분류
+      const disType = (c) => (c.disability == null ? "" : String(c.disability).trim());
+      const isNon = (c) => disType(c) === "비장애";
+      const isDis = (c) => { const d = disType(c); return d && d !== "비장애"; };
+      const disList = crew.filter(isDis);
+      const nonList = crew.filter(isNon);
+      const unclCount = total - disList.length - nonList.length;
+      const pct = (n) => (total ? Math.round((n / total) * 1000) / 10 : 0);
+
+      // 유형별 집계
+      const typeMap = {};
+      disList.forEach((c) => { const d = disType(c); typeMap[d] = (typeMap[d] || 0) + 1; });
+      const types = Object.keys(typeMap).map((k) => [k, typeMap[k]]).sort((a, b) => b[1] - a[1]);
+
+      // --- 도넛 (장애 · 비장애 현황) ---
+      const segs = [
+        { label: "장애", val: disList.length, color: "var(--accent)" },
+        { label: "비장애", val: nonList.length, color: "var(--slate)" },
+      ];
+      if (unclCount > 0) segs.push({ label: "미분류", val: unclCount, color: "var(--line)" });
+      const dTotal = total || 1;
+      const RC = 2 * Math.PI * 70;
+      let off = 0;
+      const rings = segs.map((s) => {
+        const len = (s.val / dTotal) * RC;
+        const seg = `<circle cx="95" cy="95" r="70" fill="none" stroke="${s.color}" stroke-width="20"
+          stroke-dasharray="0 ${RC}" stroke-dashoffset="${-off}" data-len="${len}" transform="rotate(-90 95 95)"/>`;
+        off += len; return seg;
+      }).join("");
+      const legend = segs.map((s) =>
+        `<li class="dleg__row"><span class="dleg__dot" style="background:${s.color}"></span>
+          <span class="dleg__label">${s.label}</span>
+          <span class="dleg__val">${s.val}<small>명</small></span>
+          <span class="dleg__pct">${pct(s.val)}%</span></li>`
+      ).join("");
+      const donutCard = `
+        <div class="dash-card dash-card--donut">
+          <div class="card-head"><h3>장애 · 비장애 현황</h3><span class="chip-mono">${total}명</span>
+            <span class="asof" style="margin-left:auto">'26년 7월 기준</span></div>
+          <div class="donut-wrap">
+            <svg class="donut" viewBox="0 0 190 190">
+              ${rings}
+              <text class="donut__num" x="95" y="92" text-anchor="middle">${total}</text>
+              <text class="donut__unit" x="95" y="110" text-anchor="middle">전체 크루</text>
+            </svg>
+            <ul class="dleg">${legend}</ul>
+          </div>
+        </div>`;
+
+      // --- 바 (장애유형별 분포) ---
+      const maxT = types.length ? types[0][1] : 1;
+      const typeBars = types.length
+        ? types.map(([name, val]) =>
+            `<div class="tbar">
+              <span class="tbar__label"><span class="gdot" style="background:${disColor(name)}"></span>${esc(name)}</span>
+              <span class="tbar__track"><span class="tbar__fill" data-pct="${Math.round((val / maxT) * 100)}" style="background:${disColor(name)}"></span></span>
+              <span class="tbar__val">${val}<small>명</small></span>
+            </div>`
+          ).join("")
+        : `<p class="muted" style="margin:6px 0">장애 유형 데이터가 없습니다. 시트 <b>crew</b> 탭에 <b>disability</b> 컬럼을 채워주세요.</p>`;
+      const typeCard = `
+        <div class="dash-card">
+          <div class="card-head"><h3>장애유형별 분포</h3><span class="chip-mono">${disList.length}명</span></div>
+          <div class="tbars">${typeBars}</div>
+        </div>`;
+
+      // --- 테이블 ---
+      const rows = crew.map((c) => {
+        const s = statusMap[c.status] || statusMap.active;
+        const tags = (c.tags || []).map((t) => `<span class="tag">${t}</span>`).join("");
+        const d = disType(c);
+        const disCell = d
+          ? `<span class="dis" style="--dc:${disColor(d)}"><span class="dis__dot"></span>${esc(d)}</span>`
+          : `<span class="muted">—</span>`;
         return `<tr>
           <td class="crew-name"><span class="gdot" style="background:${s.dot}"></span>
-            <b>${c.name}</b><span class="t">${c.store}</span></td>
-          <td class="mono">${c.role}</td>
+            <b>${esc(c.name)}</b><span class="t">${esc(c.store)}</span></td>
+          <td class="mono">${esc(c.role)}</td>
           <td><span class="badge ${s.cls}">${s.label}</span></td>
+          <td>${disCell}</td>
           <td><div class="tagset">${tags}</div></td>
-          <td class="num muted">${c.since}</td>
+          <td class="num muted">${esc(c.since)}</td>
         </tr>`;
       }).join("");
+
       return `
         <section class="view">
           <div class="page-head">
             <div><p class="eyebrow">Crew</p><h2>크루 로스터</h2>
-              <p class="sub">재직 ${D.crew.filter(c=>c.status==="active").length} · 휴직 ${D.crew.filter(c=>c.status==="leave").length} · 퇴사 ${D.crew.filter(c=>c.status==="out").length}</p></div>
+              <p class="sub">재직 ${crew.filter(c=>c.status==="active").length} · 휴직 ${crew.filter(c=>c.status==="leave").length} · 퇴사 ${crew.filter(c=>c.status==="out").length}</p></div>
             <button class="btn btn--primary btn--sm">＋ 크루 등록</button>
           </div>
+          <div class="dash-grid">${donutCard}${typeCard}</div>
           <div class="toolbar-row">
-            <input class="searchbox" placeholder="이름 · 매장 · 태그 검색" oninput="GARDEN.filterCrew(this.value)"/>
+            <input class="searchbox" placeholder="이름 · 매장 · 태그 · 장애유형 검색" oninput="GARDEN.filterCrew(this.value)"/>
           </div>
           <div class="table-wrap">
             <table class="grid-table">
-              <thead><tr><th>이름 / 매장</th><th>구분</th><th>상태</th><th>태그</th><th class="num">입사</th></tr></thead>
+              <thead><tr><th>이름 / 매장</th><th>구분</th><th>상태</th><th>장애유형</th><th>태그</th><th class="num">입사</th></tr></thead>
               <tbody id="crewBody">${rows}</tbody>
             </table>
           </div>

@@ -307,6 +307,13 @@ button { font-family: inherit; }
 .badge--leave  { --c: var(--amber); }
 .badge--out    { --c: var(--slate); }
 
+.dleg__pct { font-size: 11px; color: var(--ink-3); width: 46px; text-align: right; font-family: var(--mono); }
+
+/* 장애유형 셀 */
+.dis { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink); white-space: nowrap; }
+.dis__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dc, var(--slate)); flex: none; }
+.tbar__label .gdot { margin-right: 8px; }
+
 .tagset { display: flex; flex-wrap: wrap; gap: 5px; }
 .tag { background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-2); font-size: 11px; padding: 2px 8px; border-radius: 6px; }
 .muted { color: var(--ink-3); }

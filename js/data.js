@@ -43,14 +43,14 @@ window.DATA = {
 
   // 크루 로스터
   crew: [
-    { name: "김서연", role: "매니저",   store: "성수 본점", status: "active", since: "2023-04", tags: ["바리스타","교육"] },
-    { name: "이준호", role: "정규직",   store: "성수 본점", status: "active", since: "2024-01", tags: ["베이킹"] },
-    { name: "박지민", role: "파트타임", store: "연남점",   status: "active", since: "2025-03", tags: ["홀"] },
-    { name: "최유나", role: "정규직",   store: "판교점",   status: "leave",  since: "2023-09", tags: ["바리스타"] },
-    { name: "정민석", role: "매니저",   store: "여의도점", status: "active", since: "2022-11", tags: ["바리스타","발주"] },
-    { name: "한소희", role: "파트타임", store: "연남점",   status: "active", since: "2025-06", tags: ["홀","신규"] },
-    { name: "오세훈", role: "정규직",   store: "판교점",   status: "out",    since: "2024-05", tags: ["베이킹"] },
-    { name: "윤아름", role: "파트타임", store: "성수 본점", status: "active", since: "2025-01", tags: ["홀"] },
+    { name: "김서연", role: "매니저",   store: "성수 본점", status: "active", since: "2023-04", disability: "비장애",     tags: ["바리스타","교육"] },
+    { name: "이준호", role: "정규직",   store: "성수 본점", status: "active", since: "2024-01", disability: "발달장애",   tags: ["베이킹"] },
+    { name: "박지민", role: "파트타임", store: "연남점",   status: "active", since: "2025-03", disability: "발달장애",   tags: ["홀"] },
+    { name: "최유나", role: "정규직",   store: "판교점",   status: "leave",  since: "2023-09", disability: "지적장애",   tags: ["바리스타"] },
+    { name: "정민석", role: "매니저",   store: "여의도점", status: "active", since: "2022-11", disability: "비장애",     tags: ["바리스타","발주"] },
+    { name: "한소희", role: "파트타임", store: "연남점",   status: "active", since: "2025-06", disability: "발달장애",   tags: ["홀","신규"] },
+    { name: "오세훈", role: "정규직",   store: "판교점",   status: "out",    since: "2024-05", disability: "청각장애",   tags: ["베이킹"] },
+    { name: "윤아름", role: "파트타임", store: "성수 본점", status: "active", since: "2025-01", disability: "지체장애",   tags: ["홀"] },
   ],
 
   // 미니 달력 (월~토 · 2026년 7월)

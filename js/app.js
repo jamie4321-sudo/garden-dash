@@ -436,7 +436,14 @@
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((json) => {
         if (json && typeof json === "object") {
-          Object.assign(D, json);   // 목 데이터를 실데이터로 교체 (참조 유지)
+          // 빈 값(빈 배열/빈 문자열)은 무시 → 백엔드 미설정 시 목 데이터 보존
+          Object.keys(json).forEach((k) => {
+            const v = json[k];
+            if (v == null) return;
+            if (Array.isArray(v) && v.length === 0) return;
+            if (typeof v === "string" && v === "") return;
+            D[k] = v;
+          });
           // 로컬 편집이 없으면 시트 데이터로 보드 갱신
           let hasLocal = false;
           try { hasLocal = !!localStorage.getItem(WB_KEY); } catch (e) {}

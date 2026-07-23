@@ -259,6 +259,22 @@
     if (saved) applyTheme(saved);
   } catch (e) {}
 
+  /* ---------- data source: Apps Script API → fallback mock ---------- */
+  function loadRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url) return; // API 미설정 → 목 데이터 유지
+    fetch(url, { redirect: "follow" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((json) => {
+        if (json && typeof json === "object") {
+          Object.assign(D, json);   // 목 데이터를 실데이터로 교체 (참조 유지)
+          render(currentView());    // 다시 렌더
+        }
+      })
+      .catch((err) => console.warn("[GARDEN] API 로드 실패, 목 데이터 사용:", err));
+  }
+
   /* ---------- boot ---------- */
   render(currentView());
+  loadRemote();
 })();

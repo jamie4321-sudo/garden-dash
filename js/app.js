@@ -311,8 +311,43 @@
   }
   function saveBoard() {
     try { localStorage.setItem(WB_KEY, JSON.stringify(_board)); } catch (e) {}
+    pushBoardRemote();
   }
   function reBoard() { app.innerHTML = views.schedule(); }
+
+  /* 시트 쓰기 (no-cors, debounce) */
+  let _pushT = null;
+  function pushBoardRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_board) return;
+    clearTimeout(_pushT);
+    _pushT = setTimeout(() => {
+      toast("시트에 저장 중…");
+      fetch(url, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "weekBoard", data: _board }),
+      })
+        .then(() => toast("시트에 저장됨 ✓"))
+        .catch((e) => { console.warn("[GARDEN] 시트 저장 실패:", e); toast("저장 실패 — 로컬만 저장됨", true); });
+    }, 700);
+  }
+
+  /* 토스트 */
+  let _toastEl = null, _toastT = null;
+  function toast(msg, err) {
+    if (!_toastEl) {
+      _toastEl = document.createElement("div");
+      _toastEl.className = "toast";
+      document.body.appendChild(_toastEl);
+    }
+    _toastEl.textContent = msg;
+    _toastEl.classList.toggle("toast--err", !!err);
+    _toastEl.classList.add("is-on");
+    clearTimeout(_toastT);
+    _toastT = setTimeout(() => _toastEl.classList.remove("is-on"), 2000);
+  }
 
   /* ---------- crew filter + board editing ---------- */
   const GARDEN = {

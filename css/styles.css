@@ -414,6 +414,19 @@ button { font-family: inherit; }
 }
 .wbnote__t:focus { background: color-mix(in srgb, var(--accent) 15%, transparent); box-shadow: 0 0 0 1px var(--accent); color: var(--ink); }
 
+/* toast */
+.toast {
+  position: fixed; right: 22px; bottom: 22px; z-index: 200;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-left: 3px solid var(--accent);
+  border-radius: var(--r-sm); box-shadow: var(--shadow);
+  padding: 11px 16px; font-family: var(--mono); font-size: 12px; letter-spacing: .3px;
+  opacity: 0; transform: translateY(8px); pointer-events: none;
+  transition: opacity .18s, transform .18s;
+}
+.toast.is-on { opacity: 1; transform: none; }
+.toast--err { border-left-color: var(--red); color: var(--red); }
+
 /* placeholder */
 .placeholder { display: grid; place-content: center; justify-items: start; min-height: 55vh; gap: 6px; }
 .placeholder .eyebrow { margin-bottom: 4px; }

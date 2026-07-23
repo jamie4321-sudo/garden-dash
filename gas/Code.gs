@@ -153,6 +153,74 @@ function doGet(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+/**
+ * 웹 앱 POST — 화면 편집 내용을 시트에 저장(쓰기)
+ * body(JSON): { type: 'weekBoard', data: {...weekBoard...} }
+ * (GitHub Pages 등 브라우저에서 no-cors 로 호출 → text/plain 본문)
+ */
+function doPost(e) {
+  try {
+    var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    if (body.type === 'weekBoard' && body.data) {
+      saveWeekBoard_(body.data);
+      return json_({ ok: true, saved: 'weekBoard' });
+    }
+    return json_({ ok: false, error: 'unknown type' });
+  } catch (err) {
+    return json_({ ok: false, error: String(err) });
+  }
+}
+
+/** weekBoard 객체를 board / boardMeta 탭에 기록 */
+function saveWeekBoard_(wb) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+    // --- board 탭 ---
+    var bSheet = ss.getSheetByName('board') || ss.insertSheet('board');
+    bSheet.clear();
+    var head = ['area', 'color'].concat(DAY_KEYS);
+    var rows = [head];
+    (wb.areas || []).forEach(function (a) {
+      var row = [a.name || '', a.color || 'var(--accent)'];
+      DAY_KEYS.forEach(function (k) {
+        var items = (a.cells && a.cells[k]) || [];
+        row.push(items.join(' / '));
+      });
+      rows.push(row);
+    });
+    bSheet.getRange(1, 1, rows.length, head.length).setValues(rows);
+    bSheet.setFrozenRows(1);
+    bSheet.getRange(1, 1, 1, head.length).setFontWeight('bold');
+
+    // --- boardMeta 탭 ---
+    var mSheet = ss.getSheetByName('boardMeta') || ss.insertSheet('boardMeta');
+    mSheet.clear();
+    var today = '';
+    (wb.days || []).forEach(function (d) { if (d.today) today = d.key; });
+    var meta = [
+      ['key', 'value'],
+      ['month', wb.month || ''],
+      ['range', wb.range || ''],
+      ['today', today],
+      ['note', wb.note || ''],
+    ];
+    (wb.days || []).forEach(function (d) { meta.push([d.key, d.date || '']); });
+    mSheet.getRange(1, 1, meta.length, 2).setValues(meta);
+    mSheet.setFrozenRows(1);
+    mSheet.getRange(1, 1, 1, 2).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function json_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
 /* ---------- helpers ---------- */
 function rows_(ss, name) {
   const sh = ss.getSheetByName(name);

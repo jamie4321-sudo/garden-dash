@@ -96,6 +96,8 @@ function setup() {
     if (!sh) sh = ss.insertSheet(name);
     sh.clear();
     const rows = SEED[name];
+    // 모든 값을 텍스트로 유지 (시트가 "09:00" · "7/20" · "2023-04" 등을 날짜로 자동 변환하지 않도록)
+    sh.getRange(1, 1, sh.getMaxRows(), rows[0].length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
     sh.setFrozenRows(1);
     sh.getRange(1, 1, 1, rows[0].length).setFontWeight('bold');
@@ -192,6 +194,7 @@ function saveWeekBoard_(wb) {
       });
       rows.push(row);
     });
+    bSheet.getRange(1, 1, bSheet.getMaxRows(), head.length).setNumberFormat('@');
     bSheet.getRange(1, 1, rows.length, head.length).setValues(rows);
     bSheet.setFrozenRows(1);
     bSheet.getRange(1, 1, 1, head.length).setFontWeight('bold');
@@ -209,6 +212,7 @@ function saveWeekBoard_(wb) {
       ['note', wb.note || ''],
     ];
     (wb.days || []).forEach(function (d) { meta.push([d.key, d.date || '']); });
+    mSheet.getRange(1, 1, mSheet.getMaxRows(), 2).setNumberFormat('@');
     mSheet.getRange(1, 1, meta.length, 2).setValues(meta);
     mSheet.setFrozenRows(1);
     mSheet.getRange(1, 1, 1, 2).setFontWeight('bold');

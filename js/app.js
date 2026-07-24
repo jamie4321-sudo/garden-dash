@@ -151,12 +151,34 @@
   function getPlants() {
     if (_plants) return _plants;
     try { const s = localStorage.getItem(PL_KEY); if (s) _plants = JSON.parse(s); } catch (e) {}
-    if (!_plants) _plants = { grades: JSON.parse(JSON.stringify(D.plantGrades || {})), issues: {} };
+    if (!_plants) {
+      if (D.plants && D.plants.grades && Object.keys(D.plants.grades).length) {
+        _plants = JSON.parse(JSON.stringify(D.plants));   // 시트 데이터
+      } else {
+        _plants = { grades: JSON.parse(JSON.stringify(D.plantGrades || {})), issues: {} }; // 시드
+      }
+    }
     _plants.grades = _plants.grades || {};
     _plants.issues = _plants.issues || {};
     return _plants;
   }
-  function savePlants() { try { localStorage.setItem(PL_KEY, JSON.stringify(_plants)); } catch (e) {} }
+  function savePlants() {
+    try { localStorage.setItem(PL_KEY, JSON.stringify(_plants)); } catch (e) {}
+    pushPlantsRemote();
+  }
+  let _pushPT = null;
+  function pushPlantsRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_plants) return;
+    clearTimeout(_pushPT);
+    _pushPT = setTimeout(() => {
+      fetch(url, {
+        method: "POST", mode: "no-cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "plants", data: _plants }),
+      }).catch((e) => console.warn("[GARDEN] 식물점검 시트 저장 실패:", e));
+    }, 700);
+  }
   function gradeOf(z, r) { const p = getPlants(); return (p.grades[z] && p.grades[z][r]) || ""; }
   function issueOf(z, r) { const p = getPlants(); return (p.issues[z] && p.issues[z][r]) || ""; }
   function curRound() {
@@ -854,6 +876,9 @@
           let hasLocal = false;
           try { hasLocal = !!localStorage.getItem(WB_KEY); } catch (e) {}
           if (!hasLocal) _board = null;
+          let hasPl = false;
+          try { hasPl = !!localStorage.getItem(PL_KEY); } catch (e) {}
+          if (!hasPl) _plants = null;   // 로컬 편집 없으면 시트 데이터로 갱신
           render(currentView());    // 다시 렌더
         }
       })

@@ -157,6 +157,9 @@ function doGet(e) {
     exceptions: exceptions,
   };
 
+  // 식물 상태 점검
+  out.plants = readPlants_(ss);
+
   return ContentService
     .createTextOutput(JSON.stringify(out))
     .setMimeType(ContentService.MimeType.JSON);
@@ -173,6 +176,10 @@ function doPost(e) {
     if (body.type === 'weekBoard' && body.data) {
       saveWeekBoard_(body.data);
       return json_({ ok: true, saved: 'weekBoard' });
+    }
+    if (body.type === 'plants' && body.data) {
+      savePlants_(body.data);
+      return json_({ ok: true, saved: 'plants' });
     }
     return json_({ ok: false, error: 'unknown type' });
   } catch (err) {
@@ -266,6 +273,53 @@ function floorKey_(name) {
   if (/^b/i.test(name)) return -1;          // B1 등 지하
   var m = String(name).match(/\d+/);
   return m ? parseInt(m[0], 10) : 999;
+}
+
+/** 식물 점검 읽기 — plants 탭(zone/round/grade/issue) → {grades, issues} */
+function readPlants_(ss) {
+  var grades = {}, issues = {};
+  var sh = ss.getSheetByName('plants');
+  if (!sh) return { grades: grades, issues: issues };
+  var vals = sh.getDataRange().getValues();
+  for (var i = 1; i < vals.length; i++) {
+    var z = vals[i][0], r = vals[i][1], g = vals[i][2], iss = vals[i][3];
+    if (!z || !r) continue;
+    z = String(z); r = String(r);
+    if (g !== '' && g != null) { grades[z] = grades[z] || {}; grades[z][r] = String(g); }
+    if (iss !== '' && iss != null) { issues[z] = issues[z] || {}; issues[z][r] = String(iss); }
+  }
+  return { grades: grades, issues: issues };
+}
+
+/** 식물 점검 쓰기 — {grades, issues} → plants 탭 */
+function savePlants_(p) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('plants') || ss.insertSheet('plants');
+    sh.clear();
+    var grades = p.grades || {}, issues = p.issues || {};
+    var map = {};
+    Object.keys(grades).forEach(function (z) {
+      Object.keys(grades[z]).forEach(function (r) {
+        var k = z + '' + r; map[k] = map[k] || { z: z, r: r }; map[k].g = grades[z][r];
+      });
+    });
+    Object.keys(issues).forEach(function (z) {
+      Object.keys(issues[z]).forEach(function (r) {
+        var k = z + '' + r; map[k] = map[k] || { z: z, r: r }; map[k].i = issues[z][r];
+      });
+    });
+    var rows = [['zone', 'round', 'grade', 'issue']];
+    Object.keys(map).forEach(function (k) { var e = map[k]; rows.push([e.z, e.r, e.g || '', e.i || '']); });
+    sh.getRange(1, 1, sh.getMaxRows(), 4).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, 4).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, 4).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* ---------- helpers ---------- */

@@ -11,4 +11,7 @@
 window.CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbxy7-AVZfzeE6jQpMHPyp1RvdwupBH9Kcm0OmbCVxdcVivHd2eh0D6ObsCTJST9e_mH/exec",
   WRITE_BACK: true,
+
+  // 초기화(스케줄·식물점검) 시 요구할 비밀번호. 원하는 값으로 바꾸세요. 비우면 비밀번호 없이 진행.
+  RESET_PASSWORD: "1234",
 };

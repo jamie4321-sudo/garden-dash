@@ -765,6 +765,16 @@
   }
   function reBoard() { app.innerHTML = views.schedule(); }
 
+  /* 초기화 비밀번호 확인 */
+  function checkResetPw() {
+    const pw = String((window.CONFIG && window.CONFIG.RESET_PASSWORD) || "").trim();
+    if (!pw) return true;
+    const input = window.prompt("초기화하려면 비밀번호를 입력하세요:");
+    if (input === null) return false;
+    if (input.trim() !== pw) { toast("비밀번호가 올바르지 않습니다", true); return false; }
+    return true;
+  }
+
   /* 시트 쓰기 (no-cors, debounce) */
   let _pushT = null;
   function pushBoardRemote() {
@@ -852,9 +862,9 @@
       b.note = elm.textContent.trim(); saveBoard();
     },
     wbReset() {
-      if (!confirm("주간 스케줄을 기본값으로 되돌릴까요? (편집 내용 삭제)")) return;
+      if (!checkResetPw()) return;
       try { localStorage.removeItem(WB_KEY); } catch (e) {}
-      _board = null; reBoard();
+      _board = null; reBoard(); toast("기본값으로 초기화됨");
     },
     wbKey(ev, elm) {
       if (ev.key === "Enter") { ev.preventDefault(); elm.blur(); }
@@ -937,9 +947,9 @@
       savePlants(); toast("이슈 저장됨 ✓");
     },
     plantReset() {
-      if (!confirm("식물 점검 데이터를 기본값으로 되돌릴까요? (입력 내용 삭제)")) return;
+      if (!checkResetPw()) return;
       try { localStorage.removeItem(PL_KEY); } catch (e) {}
-      _plants = null; rePlants();
+      _plants = null; rePlants(); toast("기본값으로 초기화됨");
     },
 
     wbException(dateStr) {

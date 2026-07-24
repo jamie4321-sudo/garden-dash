@@ -314,6 +314,54 @@ button { font-family: inherit; }
 .dis__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dc, var(--slate)); flex: none; }
 .tbar__label .gdot { margin-right: 8px; }
 
+/* 재직 기간 · 상태 액션 · 비고 · 퇴사행 */
+.mono-cell { font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.crew-ten { display: block; margin-top: 3px; font-size: 10.5px; color: var(--accent-text); font-family: var(--mono); }
+.crew-status__row { display: flex; align-items: center; gap: 8px; }
+.crew-left { font-family: var(--mono); font-size: 10.5px; color: var(--slate); white-space: nowrap; }
+.crew-acts { display: flex; gap: 5px; margin-top: 6px; opacity: 0; transition: opacity .12s; }
+tr:hover .crew-acts { opacity: 1; }
+.crew-act {
+  font-family: var(--mono); font-size: 10.5px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--ink-2);
+  padding: 3px 9px; border-radius: 999px; transition: border-color .12s, color .12s;
+}
+.crew-act:hover { border-color: color-mix(in srgb, var(--ink-3) 55%, transparent); color: var(--ink); }
+.crew-act--retire:hover { border-color: var(--red); color: var(--red); }
+.crew-out { opacity: .55; }
+.crew-out:hover { opacity: 1; }
+.crew-memo {
+  display: block; min-width: 120px; min-height: 20px; padding: 4px 7px; border-radius: 6px;
+  font-size: 12.5px; color: var(--ink); outline: none; border: 1px solid transparent; transition: border-color .12s, background .12s;
+}
+.crew-memo:hover { border-color: var(--line-soft); }
+.crew-memo:focus { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.crew-memo:empty::before { content: attr(data-ph); color: var(--ink-3); opacity: .55; }
+
+/* 모달 (크루 등록) */
+.gmodal { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; padding: 24px; }
+.gmodal__bd { position: absolute; inset: 0; background: color-mix(in srgb, #000 60%, transparent); backdrop-filter: blur(4px); animation: fade .16s ease; }
+.gmodal__card {
+  position: relative; z-index: 1; width: 100%; max-width: 460px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: var(--shadow); padding: 22px 24px; animation: pop .2s cubic-bezier(.2,.9,.3,1.2);
+}
+.gmodal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.gmodal__head h3 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -.4px; }
+.gmodal__x { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink-2); font-size: 17px; cursor: pointer; }
+.gmodal__x:hover { border-color: var(--red); color: var(--red); }
+.gform { display: grid; gap: 14px; }
+.fld { display: grid; gap: 6px; }
+.fld > span { font-family: var(--mono); font-size: 10.5px; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); }
+.fld input, .fld select {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-sm);
+  padding: 10px 12px; color: var(--ink); font-size: 13px; font-family: inherit; outline: none; transition: border-color .14s;
+}
+.fld input:focus, .fld select:focus { border-color: var(--accent); }
+.fld input::placeholder { color: var(--ink-3); }
+.fld-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.gmodal__foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
 .tagset { display: flex; flex-wrap: wrap; gap: 5px; }
 .tag { background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-2); font-size: 11px; padding: 2px 8px; border-radius: 6px; }
 .muted { color: var(--ink-3); }

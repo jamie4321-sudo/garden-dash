@@ -181,6 +181,10 @@ function doPost(e) {
       savePlants_(body.data);
       return json_({ ok: true, saved: 'plants' });
     }
+    if (body.type === 'crew' && body.data) {
+      saveCrewTab_(body.data);
+      return json_({ ok: true, saved: 'crew' });
+    }
     return json_({ ok: false, error: 'unknown type' });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
@@ -233,6 +237,30 @@ function saveWeekBoard_(wb) {
 
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** 크루 쓰기 — 크루 배열 → crew 탭 (입사/상태/장애/태그/퇴사일/비고) */
+function saveCrewTab_(arr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('crew') || ss.insertSheet('crew');
+    sh.clear();
+    var head = ['name', 'role', 'store', 'status', 'since', 'disability', 'tags', 'left', 'memo'];
+    var rows = [head];
+    (arr || []).forEach(function (c) {
+      var tags = Array.isArray(c.tags) ? c.tags.join(',') : (c.tags || '');
+      rows.push([c.name || '', c.role || '', c.store || '', c.status || 'active',
+        c.since || '', c.disability || '', tags, c.left || '', c.memo || '']);
+    });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /** 드라이브 권한 승인 + 폴더 확인용 (편집기에서 한 번 실행) */

@@ -20,7 +20,7 @@
 
   /* 크루 요약 카드 (대시보드 · 크루 공용) */
   function crewStatusCard(title) {
-    const crew = D.crew || [];
+    const crew = getCrew().filter((c) => c.status === "active");
     const total = crew.length;
     const dt = (c) => (c.disability == null ? "" : String(c.disability).trim());
     const disN = crew.filter((c) => { const d = dt(c); return d && d !== "비장애"; }).length;
@@ -56,7 +56,7 @@
       </div></div>`;
   }
   function crewTypeCard() {
-    const crew = D.crew || [];
+    const crew = getCrew().filter((c) => c.status === "active");
     const dt = (c) => (c.disability == null ? "" : String(c.disability).trim());
     const disList = crew.filter((c) => { const d = dt(c); return d && d !== "비장애"; });
     const typeMap = {};
@@ -72,6 +72,78 @@
     return `<div class="dash-card">
       <div class="card-head"><h3>장애유형별 분포</h3><span class="chip-mono">${disList.length}명</span></div>
       <div class="tbars">${bars}</div></div>`;
+  }
+
+  /* ===== 크루 로스터 상태 (localStorage 오버레이 + 시트 저장) ===== */
+  const CREW_KEY = "garden-crew";
+  let _crew = null, _pushCT = null;
+  function normalizeCrew(arr) {
+    return (arr || []).map((c) => ({
+      name: c.name || "", role: c.role || "", store: c.store || "",
+      status: c.status || "active", since: c.since || "", disability: c.disability || "",
+      tags: Array.isArray(c.tags) ? c.tags : String(c.tags || "").split(",").map((s) => s.trim()).filter(Boolean),
+      left: c.left || "", memo: c.memo || "",
+    }));
+  }
+  function getCrew() {
+    if (_crew) return _crew;
+    try { const s = localStorage.getItem(CREW_KEY); if (s) _crew = normalizeCrew(JSON.parse(s)); } catch (e) {}
+    if (!_crew) _crew = normalizeCrew(D.crew || []);
+    return _crew;
+  }
+  function saveCrew() {
+    try { localStorage.setItem(CREW_KEY, JSON.stringify(_crew)); } catch (e) {}
+    pushCrewRemote();
+  }
+  function pushCrewRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_crew) return;
+    clearTimeout(_pushCT);
+    _pushCT = setTimeout(() => {
+      fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "crew", data: _crew }) }).catch((e) => console.warn("[GARDEN] 크루 시트 저장 실패:", e));
+    }, 700);
+  }
+  function reCrew() { app.innerHTML = views.crew(); }
+
+  // 재직 기간: 입사일(YYYY-MM[-DD]) ~ (퇴사일 또는 오늘) → "N년 M개월"
+  function tenure(since, end) {
+    const p = (s) => { const m = String(s || "").match(/(\d{4})[-.\/\s]*(\d{1,2})?/); return m ? { y: +m[1], m: m[2] ? +m[2] : 1 } : null; };
+    const a = p(since); if (!a) return "";
+    const b = end ? p(end) : { y: _now.getFullYear(), m: _now.getMonth() + 1 };
+    if (!b) return "";
+    let months = (b.y - a.y) * 12 + (b.m - a.m);
+    if (months < 0) return "";
+    const yy = Math.floor(months / 12), mm = months % 12;
+    return (yy ? yy + "년 " : "") + mm + "개월";
+  }
+
+  function crewModal() {
+    return `<div class="gmodal" id="crewModal">
+      <div class="gmodal__bd" onclick="GARDEN.crewAddClose()"></div>
+      <div class="gmodal__card">
+        <div class="gmodal__head"><h3>크루 등록</h3><button class="gmodal__x" onclick="GARDEN.crewAddClose()">×</button></div>
+        <div class="gform">
+          <label class="fld"><span>이름 *</span><input id="cf_name" placeholder="이름"/></label>
+          <div class="fld-row">
+            <label class="fld"><span>매장</span><input id="cf_store" placeholder="예: 카카오"/></label>
+            <label class="fld"><span>구분</span><input id="cf_role" placeholder="예: 8h 가드너"/></label>
+          </div>
+          <div class="fld-row">
+            <label class="fld"><span>입사일</span><input id="cf_since" placeholder="예: 2026-07"/></label>
+            <label class="fld"><span>상태</span><select id="cf_status"><option value="active">재직</option><option value="leave">휴직</option><option value="out">퇴사</option></select></label>
+          </div>
+          <div class="fld-row">
+            <label class="fld"><span>장애유형</span><input id="cf_dis" placeholder="예: 발달장애 · 비장애"/></label>
+            <label class="fld"><span>태그</span><input id="cf_tags" placeholder="쉼표로 구분"/></label>
+          </div>
+          <label class="fld"><span>비고</span><input id="cf_memo" placeholder="메모(선택)"/></label>
+        </div>
+        <div class="gmodal__foot">
+          <button class="btn btn--sm" onclick="GARDEN.crewAddClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.crewAddSubmit()">등록</button>
+        </div>
+      </div></div>`;
   }
 
   /* ===== 각층 현황 (구글 드라이브) ===== */
@@ -368,42 +440,57 @@
     },
 
     crew() {
-      const crew = D.crew || [];
+      const list = getCrew();
       const disType = (c) => (c.disability == null ? "" : String(c.disability).trim());
+      const rank = { active: 0, leave: 1, out: 2 };
+      const order = list.map((c, i) => ({ c, i })).sort((a, b) => (rank[a.c.status] ?? 3) - (rank[b.c.status] ?? 3));
 
-      // --- 테이블 ---
-      const rows = crew.map((c) => {
+      const rows = order.map(({ c, i }) => {
         const s = statusMap[c.status] || statusMap.active;
-        const tags = (c.tags || []).map((t) => `<span class="tag">${t}</span>`).join("");
+        const tags = (c.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join("");
         const d = disType(c);
         const disCell = d
           ? `<span class="dis" style="--dc:${disColor(d)}"><span class="dis__dot"></span>${esc(d)}</span>`
           : `<span class="muted">—</span>`;
-        return `<tr>
+        const ten = tenure(c.since, c.status === "out" ? c.left : "");
+        const actions = c.status === "out"
+          ? `<button class="crew-act" onclick="GARDEN.crewStatus(${i},'active')">복직</button>`
+          : `<button class="crew-act crew-act--retire" onclick="GARDEN.crewRetire(${i})">퇴사</button>` +
+            (c.status === "active"
+              ? `<button class="crew-act" onclick="GARDEN.crewStatus(${i},'leave')">휴직</button>`
+              : `<button class="crew-act" onclick="GARDEN.crewStatus(${i},'active')">복직</button>`);
+        const leftInfo = (c.status === "out" && c.left) ? `<span class="crew-left">${esc(c.left)} 퇴사</span>` : "";
+        return `<tr class="${c.status === "out" ? "crew-out" : ""}">
           <td class="crew-name"><span class="gdot" style="background:${s.dot}"></span>
             <b>${esc(c.name)}</b><span class="t">${esc(c.store)}</span></td>
           <td class="mono">${esc(c.role)}</td>
-          <td><span class="badge ${s.cls}">${s.label}</span></td>
+          <td class="mono-cell">${esc(c.since) || "—"}${ten ? `<span class="crew-ten">${ten}</span>` : ""}</td>
+          <td class="crew-status">
+            <div class="crew-status__row"><span class="badge ${s.cls}">${s.label}</span>${leftInfo}</div>
+            <div class="crew-acts">${actions}</div>
+          </td>
           <td>${disCell}</td>
           <td><div class="tagset">${tags}</div></td>
-          <td class="num muted">${esc(c.since)}</td>
+          <td><span class="crew-memo" contenteditable="true" spellcheck="false" data-ph="메모"
+                onblur="GARDEN.crewMemo(${i}, this.textContent)">${esc(c.memo || "")}</span></td>
         </tr>`;
       }).join("");
+      const cnt = (st) => list.filter((c) => c.status === st).length;
 
       return `
         <section class="view">
           <div class="page-head">
             <div><p class="eyebrow">Crew</p><h2>크루 로스터</h2>
-              <p class="sub">재직 ${crew.filter(c=>c.status==="active").length} · 휴직 ${crew.filter(c=>c.status==="leave").length} · 퇴사 ${crew.filter(c=>c.status==="out").length}</p></div>
-            <button class="btn btn--primary btn--sm">＋ 크루 등록</button>
+              <p class="sub">재직 ${cnt("active")} · 휴직 ${cnt("leave")} · 퇴사 ${cnt("out")}</p></div>
+            <button class="btn btn--primary btn--sm" onclick="GARDEN.crewAddOpen()">＋ 크루 등록</button>
           </div>
-          <div class="dash-grid">${crewStatusCard("장애 · 비장애 현황")}${crewTypeCard()}</div>
+          <div class="dash-grid">${crewStatusCard("근무 인원 현황")}${crewTypeCard()}</div>
           <div class="toolbar-row">
             <input class="searchbox" placeholder="이름 · 매장 · 태그 · 장애유형 검색" oninput="GARDEN.filterCrew(this.value)"/>
           </div>
           <div class="table-wrap">
             <table class="grid-table">
-              <thead><tr><th>이름 / 매장</th><th>구분</th><th>상태</th><th>장애유형</th><th>태그</th><th class="num">입사</th></tr></thead>
+              <thead><tr><th>이름 / 매장</th><th>구분</th><th class="num">입사 · 재직</th><th>상태</th><th>장애유형</th><th>태그</th><th>비고</th></tr></thead>
               <tbody id="crewBody">${rows}</tbody>
             </table>
           </div>
@@ -783,6 +870,41 @@
     },
 
     /* --- 변동사항 추가/수정/삭제 --- */
+    /* --- 크루 로스터 --- */
+    crewMemo(i, val) {
+      const cr = getCrew(); if (!cr[i]) return;
+      cr[i].memo = String(val).trim(); saveCrew();
+    },
+    crewStatus(i, s) {
+      const cr = getCrew(); if (!cr[i]) return;
+      cr[i].status = s; if (s !== "out") cr[i].left = "";
+      saveCrew(); toast("상태 변경됨 ✓"); reCrew();
+    },
+    crewRetire(i) {
+      const cr = getCrew(); if (!cr[i]) return;
+      const d = window.prompt("퇴사일을 입력하세요 (예: 2026-07)", cr[i].left || "");
+      if (d === null) return;
+      cr[i].status = "out"; cr[i].left = String(d).trim();
+      saveCrew(); toast("퇴사 처리됨 ✓"); reCrew();
+    },
+    crewAddOpen() {
+      if (document.getElementById("crewModal")) return;
+      document.body.insertAdjacentHTML("beforeend", crewModal());
+      const n = document.getElementById("cf_name"); if (n) n.focus();
+    },
+    crewAddClose() { const m = document.getElementById("crewModal"); if (m) m.remove(); },
+    crewAddSubmit() {
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const name = v("cf_name");
+      if (!name) { const n = document.getElementById("cf_name"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      const cr = getCrew();
+      cr.push(normalizeCrew([{
+        name, store: v("cf_store"), role: v("cf_role"), since: v("cf_since"),
+        status: v("cf_status") || "active", disability: v("cf_dis"), tags: v("cf_tags"), memo: v("cf_memo"),
+      }])[0]);
+      saveCrew(); this.crewAddClose(); reCrew(); toast("크루 등록됨 ✓");
+    },
+
     /* --- 각층 현황 --- */
     loadFloors(force) {
       const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
@@ -879,6 +1001,9 @@
           let hasPl = false;
           try { hasPl = !!localStorage.getItem(PL_KEY); } catch (e) {}
           if (!hasPl) _plants = null;   // 로컬 편집 없으면 시트 데이터로 갱신
+          let hasCr = false;
+          try { hasCr = !!localStorage.getItem(CREW_KEY); } catch (e) {}
+          if (!hasCr) _crew = null;
           render(currentView());    // 다시 렌더
         }
       })

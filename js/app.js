@@ -74,6 +74,43 @@
       <div class="tbars">${bars}</div></div>`;
   }
 
+  /* ===== 각층 현황 (구글 드라이브) ===== */
+  const FLOOR_PARENT = "1JF5VTpU-ldB2jbIZlQUBlPXYof56Bp1s";
+  let _floorsCache = null;
+
+  function floorsRender(floors) {
+    if (!floors || !floors.length) return floorsEmpty("아직 등록된 층 폴더가 없습니다.");
+    const cards = floors.map((f) => {
+      const cover = f.photos && f.photos[0];
+      const thumbs = (f.photos || []).slice(0, 6).map((p) =>
+        `<a class="fl-thumb" href="${p.view}" target="_blank" rel="noopener" title="${esc(p.name)}"
+          style="background-image:url('${p.thumb}')"></a>`).join("");
+      const coverHtml = cover
+        ? `<a class="fl-card__cover" href="${cover.view}" target="_blank" rel="noopener" style="background-image:url('${cover.thumb}')">
+            <span class="fl-card__date">${esc(cover.updated)}</span></a>`
+        : `<a class="fl-card__cover fl-card__cover--empty" href="${f.folderUrl}" target="_blank" rel="noopener"><span>＋ 사진 추가</span></a>`;
+      return `<div class="fl-card">
+        ${coverHtml}
+        <div class="fl-card__body">
+          <div class="fl-card__head"><span class="fl-card__name">${esc(f.name)}</span>
+            <span class="fl-card__count">${f.count}장</span></div>
+          <div class="fl-thumbs">${thumbs || '<span class="fl-none">담당자가 사진을 올리면 표시됩니다</span>'}</div>
+          <a class="fl-card__link" href="${f.folderUrl}" target="_blank" rel="noopener">폴더 열기 ↗</a>
+        </div>
+      </div>`;
+    }).join("");
+    return `<div class="fl-grid">${cards}</div>`;
+  }
+  function floorsSkeleton() {
+    return `<div class="fl-grid">` + Array.from({ length: 6 }).map(() =>
+      `<div class="fl-card"><div class="fl-sk fl-sk--cover"></div>
+        <div class="fl-card__body"><div class="fl-sk fl-sk--line"></div><div class="fl-sk fl-sk--thumbs"></div></div></div>`).join("") + `</div>`;
+  }
+  function floorsEmpty(msg) {
+    return `<div class="fl-empty"><p>${esc(msg)}</p>
+      <a class="btn btn--sm" href="https://drive.google.com/drive/folders/${FLOOR_PARENT}" target="_blank" rel="noopener">드라이브 폴더 열기</a></div>`;
+  }
+
   /* ===== 식물 상태 점검 ===== */
   const PL_KEY = "garden-plants";
   const PLANT_GRADES = ["A", "B", "C", "D"];
@@ -445,12 +482,28 @@
           ${body}
         </section>`;
     },
+
+    floors() {
+      return `
+        <section class="view">
+          <div class="page-head">
+            <div><p class="eyebrow">Crew · 시설</p><h2>각층 현황</h2>
+              <p class="sub">층별 현장 사진을 구글 드라이브에서 불러옵니다 · 담당자 업로드 즉시 반영</p></div>
+            <div class="seg">
+              <a class="btn btn--sm" href="https://drive.google.com/drive/folders/${FLOOR_PARENT}" target="_blank" rel="noopener">드라이브 열기</a>
+              <button class="btn btn--primary btn--sm" onclick="GARDEN.loadFloors(true)">↻ 새로고침</button>
+            </div>
+          </div>
+          <div id="floorsBody">${_floorsCache ? floorsRender(_floorsCache) : floorsSkeleton()}</div>
+        </section>`;
+    },
   };
 
   const crumbMap = {
     dashboard: "MAIN / DASHBOARD",
     crew: "CREW / ROSTER",
     plants: "CREW / PLANT CHECK",
+    floors: "CREW / FLOOR STATUS",
     schedule: "OPERATION / SCHEDULE",
     sales: "OPERATION / SALES",
   };
@@ -470,6 +523,7 @@
         c.setAttribute("stroke-dasharray", `${c.dataset.len} ${C}`);
       });
     });
+    if (view === "floors") GARDEN.loadFloors();
     window.scrollTo(0, 0);
   }
 
@@ -676,6 +730,19 @@
     },
 
     /* --- 변동사항 추가/수정/삭제 --- */
+    /* --- 각층 현황 --- */
+    loadFloors(force) {
+      const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+      const body = document.getElementById("floorsBody");
+      if (!url) { if (body) body.innerHTML = floorsEmpty("API가 연결되지 않았습니다. js/config.js의 API_URL을 확인하세요."); return; }
+      if (_floorsCache && !force) { if (body) body.innerHTML = floorsRender(_floorsCache); return; }
+      if (body) body.innerHTML = floorsSkeleton();
+      fetch(url + "?action=floors&cb=" + Date.now())
+        .then((r) => r.json())
+        .then((j) => { _floorsCache = j.floors || []; const b = document.getElementById("floorsBody"); if (b) b.innerHTML = floorsRender(_floorsCache); })
+        .catch((e) => { console.warn("[GARDEN] 각층 현황 로드 실패:", e); const b = document.getElementById("floorsBody"); if (b) b.innerHTML = floorsEmpty("불러오기에 실패했습니다. 새로고침을 눌러주세요."); });
+    },
+
     /* --- 식물 상태 점검 --- */
     plantTab(t) { _plantTab = t; rePlants(); },
     plantRound(r) { _plantRound = r; rePlants(); },

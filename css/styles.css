@@ -571,6 +571,68 @@ button { font-family: inherit; }
   .prow__issue { grid-column: 1 / -1; }
 }
 
+/* =========================================================
+   FLOOR STATUS (각층 현황 · 구글 드라이브)
+   ========================================================= */
+.fl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr)); gap: 16px; }
+.fl-card {
+  display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 16px; background: var(--card-bg);
+  box-shadow: var(--shadow); transition: transform .14s, border-color .14s;
+}
+.fl-card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.fl-card__cover {
+  position: relative; display: block; aspect-ratio: 16 / 10;
+  background: var(--panel-2) center/cover no-repeat; border-bottom: 1px solid var(--line-soft);
+}
+.fl-card__cover--empty {
+  display: grid; place-items: center; color: var(--ink-3);
+  background: repeating-linear-gradient(45deg, var(--panel-2), var(--panel-2) 10px, var(--panel) 10px, var(--panel) 20px);
+  font-family: var(--mono); font-size: 12.5px;
+}
+.fl-card__cover--empty:hover { color: var(--accent-text); }
+.fl-card__date {
+  position: absolute; right: 10px; bottom: 10px;
+  font-family: var(--mono); font-size: 10.5px; color: #fff;
+  background: color-mix(in srgb, #000 55%, transparent); backdrop-filter: blur(4px);
+  padding: 3px 9px; border-radius: 999px;
+}
+.fl-card__body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.fl-card__head { display: flex; align-items: center; justify-content: space-between; }
+.fl-card__name { font-weight: 800; font-size: 15px; letter-spacing: -.3px; }
+.fl-card__count {
+  font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  padding: 3px 9px; border-radius: 999px;
+}
+.fl-thumbs { display: flex; gap: 6px; flex-wrap: wrap; min-height: 44px; align-items: center; }
+.fl-thumb {
+  width: 44px; height: 44px; border-radius: 9px; flex: none;
+  background: var(--panel-2) center/cover no-repeat; border: 1px solid var(--line-soft);
+  transition: transform .1s, border-color .12s;
+}
+.fl-thumb:hover { transform: scale(1.08); border-color: var(--accent); }
+.fl-none { color: var(--ink-3); font-size: 12px; }
+.fl-card__link {
+  margin-top: auto; font-family: var(--mono); font-size: 11.5px; color: var(--ink-3);
+  transition: color .12s;
+}
+.fl-card__link:hover { color: var(--accent-text); }
+
+.fl-empty {
+  display: grid; place-items: center; gap: 14px; min-height: 40vh; text-align: center;
+  border: 1px dashed var(--line); border-radius: 16px; color: var(--ink-3);
+}
+.fl-empty p { margin: 0; font-size: 13.5px; }
+
+/* 스켈레톤 */
+.fl-sk { background: linear-gradient(90deg, var(--panel-2) 25%, var(--line-soft) 37%, var(--panel-2) 63%); background-size: 400% 100%; animation: flShimmer 1.3s ease infinite; border-radius: 8px; }
+.fl-sk--cover { aspect-ratio: 16 / 10; border-radius: 0; }
+.fl-sk--line { height: 16px; width: 45%; margin: 14px 16px 0; }
+.fl-sk--thumbs { height: 44px; margin: 12px 16px 16px; }
+@keyframes flShimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
 /* toast */
 .toast {
   position: fixed; right: 22px; bottom: 22px; z-index: 200;

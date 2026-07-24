@@ -14,6 +14,9 @@
 // GARDEN — Ops Data 스프레드시트 ID (자동 연결됨)
 const SHEET_ID = '1t7ivyi9udBQ7hIJQXDd1jddgFi4wcHPcmDs4ikSebaU';
 
+// GARDEN 각층 현황 드라이브 폴더 ID (층별 하위폴더 자동 인식)
+const FLOOR_FOLDER_ID = '1JF5VTpU-ldB2jbIZlQUBlPXYof56Bp1s';
+
 /* ---------- 시드 데이터 (js/data.js 와 동일 구조) ---------- */
 const SEED = {
   meta: [['key', 'value'], ['asOf', '2026-07-23']],
@@ -105,6 +108,11 @@ function setup() {
 
 /** 웹 앱 GET — 전체 데이터를 JSON 으로 반환 */
 function doGet(e) {
+  // 각층 현황(드라이브 사진) 전용 응답
+  if (e && e.parameter && e.parameter.action === 'floors') {
+    return json_({ floors: listFloors_() });
+  }
+
   const ss = SpreadsheetApp.openById(SHEET_ID);
   const out = {};
 
@@ -218,6 +226,46 @@ function saveWeekBoard_(wb) {
 
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/** 각층 현황 — 드라이브 부모 폴더의 하위폴더(층)별 사진 목록 */
+function listFloors_() {
+  var out = [];
+  try {
+    var parent = DriveApp.getFolderById(FLOOR_FOLDER_ID);
+    var it = parent.getFolders();
+    var folders = [];
+    while (it.hasNext()) folders.push(it.next());
+    folders.sort(function (a, b) { return floorKey_(a.getName()) - floorKey_(b.getName()); });
+    folders.forEach(function (f) {
+      var photos = [];
+      var files = f.getFiles();
+      while (files.hasNext()) {
+        var file = files.next();
+        var mt = file.getMimeType() || '';
+        if (mt.indexOf('image/') === 0) {
+          var id = file.getId();
+          photos.push({
+            id: id,
+            name: file.getName(),
+            thumb: 'https://drive.google.com/thumbnail?id=' + id + '&sz=w800',
+            view: 'https://drive.google.com/file/d/' + id + '/view',
+            updated: Utilities.formatDate(file.getLastUpdated(), Session.getScriptTimeZone(), 'yyyy-MM-dd')
+          });
+        }
+      }
+      photos.sort(function (a, b) { return a.updated < b.updated ? 1 : -1; });
+      out.push({ name: f.getName(), folderUrl: f.getUrl(), count: photos.length, photos: photos });
+    });
+  } catch (err) {
+    return [];
+  }
+  return out;
+}
+function floorKey_(name) {
+  if (/^b/i.test(name)) return -1;          // B1 등 지하
+  var m = String(name).match(/\d+/);
+  return m ? parseInt(m[0], 10) : 999;
 }
 
 /* ---------- helpers ---------- */

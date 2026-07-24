@@ -468,6 +468,109 @@ button { font-family: inherit; }
 }
 .wbnote__t:focus { background: color-mix(in srgb, var(--accent) 15%, transparent); box-shadow: 0 0 0 1px var(--accent); color: var(--ink); }
 
+/* =========================================================
+   PLANT CHECK (식물 상태 점검)
+   ========================================================= */
+.phead {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  border: 1px solid var(--line); border-radius: 18px; background: var(--card-bg);
+  padding: 16px 20px; margin-bottom: 18px; box-shadow: var(--shadow);
+}
+.phead__prog { display: flex; align-items: center; gap: 14px; }
+.pring { width: 60px; height: 60px; flex: none; }
+.pring__bg { fill: none; stroke: var(--line-soft); stroke-width: 7; }
+.pring__fg { fill: none; stroke: var(--accent); stroke-width: 7; stroke-linecap: round; transition: stroke-dasharray .6s cubic-bezier(.2,.9,.3,1); }
+.pring__t { font-family: var(--mono); font-size: 15px; font-weight: 800; fill: var(--ink); }
+.phead__round { font-weight: 800; font-size: 15px; letter-spacing: -.3px; }
+.phead__done { color: var(--ink-3); font-size: 12.5px; margin-top: 3px; }
+.phead__done b { color: var(--accent-text); font-family: var(--mono); }
+
+.ptabs { display: flex; gap: 4px; margin-left: auto; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 12px; padding: 4px; }
+.ptab {
+  border: none; background: transparent; color: var(--ink-3); cursor: pointer;
+  font-size: 12.5px; font-weight: 600; padding: 8px 14px; border-radius: 9px;
+  transition: color .14s, background .14s;
+}
+.ptab:hover { color: var(--ink); }
+.ptab.is-on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+.proundbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.proundbar__lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-3); margin-right: 4px; }
+.pround {
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--ink-2);
+  font-family: var(--mono); font-size: 12px; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+  transition: border-color .14s, color .14s;
+}
+.pround:hover { border-color: color-mix(in srgb, var(--ink-3) 55%, transparent); color: var(--ink); }
+.pround.is-on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
+
+/* 점검 입력 */
+.pgroup { border: 1px solid var(--line-soft); border-radius: var(--r-lg); background: var(--card-bg); overflow: hidden; margin-bottom: 14px; }
+.pgroup__head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; background: var(--panel); border-bottom: 1px solid var(--line-soft);
+}
+.pgroup__name { font-weight: 800; font-size: 13.5px; letter-spacing: -.2px; }
+.pgroup__n { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); }
+.prow {
+  display: grid; grid-template-columns: 1fr auto 1.1fr; align-items: center; gap: 14px;
+  padding: 10px 18px; border-bottom: 1px solid var(--line-soft); transition: background .12s;
+}
+.prow:last-child { border-bottom: none; }
+.prow:hover { background: var(--panel-2); }
+.prow__z { font-size: 13px; color: var(--ink); }
+.pgrades { display: flex; gap: 5px; }
+.pgrade {
+  width: 34px; height: 30px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel-2);
+  font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--ink-3);
+  transition: all .12s;
+}
+.pgrade:hover { border-color: var(--gc); color: var(--gc); }
+.pgrade.is-on { background: var(--gc); border-color: var(--gc); color: #fff; box-shadow: 0 3px 10px color-mix(in srgb, var(--gc) 35%, transparent); }
+.pgrade--clr { color: var(--ink-3); font-weight: 500; }
+.pgrade--clr.is-on { background: var(--line); border-color: var(--line); color: var(--ink-2); box-shadow: none; }
+.prow__issue {
+  background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm);
+  padding: 8px 11px; color: var(--ink); font-size: 12.5px; outline: none; transition: border-color .14s;
+}
+.prow__issue:focus { border-color: var(--accent); }
+.prow__issue::placeholder { color: var(--ink-3); }
+
+/* 통계 요약 */
+.pstats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.pstat {
+  border: 1px solid var(--line-soft); border-left: 3px solid var(--gc, var(--line));
+  border-radius: var(--r); padding: 16px 18px; background: var(--card-bg);
+}
+.pstat--none { --gc: var(--line); }
+.pstat__g { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--gc, var(--ink-3)); text-transform: uppercase; }
+.pstat--none .pstat__g { color: var(--ink-3); }
+.pstat__n { font-family: var(--mono); font-size: 26px; font-weight: 700; letter-spacing: -1px; margin-top: 8px; }
+.pstat__n small { font-size: 12px; color: var(--ink-3); font-weight: 500; margin-left: 2px; }
+.pissue { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+.pissue:last-child { border-bottom: none; }
+.pissue b { min-width: 130px; }
+.pissue span:last-child { color: var(--ink-2); }
+
+/* 현황 매트릭스 */
+.pm-table th, .pm-table td { text-align: center; }
+.pm-table .pm-z { text-align: left; white-space: nowrap; }
+.pm-r.is-cur, .pm-cell.is-cur { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.pm-table th.is-cur { color: var(--accent-text); }
+.pm-sec td { text-align: left !important; background: var(--panel); font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: 1px; color: var(--ink-2); text-transform: uppercase; padding: 9px 18px; }
+.pgrade-dot {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 7px;
+  font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: #fff;
+  background: var(--gc, var(--slate));
+}
+
+@media (max-width: 900px) {
+  .pstats { grid-template-columns: repeat(3, 1fr); }
+  .prow { grid-template-columns: 1fr auto; }
+  .prow__issue { grid-column: 1 / -1; }
+}
+
 /* toast */
 .toast {
   position: fixed; right: 22px; bottom: 22px; z-index: 200;

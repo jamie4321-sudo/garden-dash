@@ -17,6 +17,154 @@
     "신장장애": "#26c6da", "심장장애": "#e0729a", "간장애": "#e0729a", "비장애": "var(--slate)",
   };
   const disColor = (d) => DIS_COLORS[d] || "var(--violet)";
+
+  /* 크루 요약 카드 (대시보드 · 크루 공용) */
+  function crewStatusCard(title) {
+    const crew = D.crew || [];
+    const total = crew.length;
+    const dt = (c) => (c.disability == null ? "" : String(c.disability).trim());
+    const disN = crew.filter((c) => { const d = dt(c); return d && d !== "비장애"; }).length;
+    const nonN = crew.filter((c) => dt(c) === "비장애").length;
+    const uncl = total - disN - nonN;
+    const pct = (n) => (total ? Math.round((n / total) * 1000) / 10 : 0);
+    const segs = [
+      { label: "장애", val: disN, color: "var(--accent)" },
+      { label: "비장애", val: nonN, color: "var(--slate)" },
+    ];
+    if (uncl > 0) segs.push({ label: "미분류", val: uncl, color: "var(--line)" });
+    const RC = 2 * Math.PI * 70, dTotal = total || 1;
+    let off = 0;
+    const rings = segs.map((s) => {
+      const len = (s.val / dTotal) * RC;
+      const seg = `<circle cx="95" cy="95" r="70" fill="none" stroke="${s.color}" stroke-width="20"
+        stroke-dasharray="0 ${RC}" stroke-dashoffset="${-off}" data-len="${len}" transform="rotate(-90 95 95)"/>`;
+      off += len; return seg;
+    }).join("");
+    const legend = segs.map((s) =>
+      `<li class="dleg__row"><span class="dleg__dot" style="background:${s.color}"></span>
+        <span class="dleg__label">${s.label}</span>
+        <span class="dleg__val">${s.val}<small>명</small></span>
+        <span class="dleg__pct">${pct(s.val)}%</span></li>`).join("");
+    return `<div class="dash-card dash-card--donut">
+      <div class="card-head"><h3>${title}</h3><span class="chip-mono">${total}명</span>
+        <span class="asof" style="margin-left:auto">'26년 7월 기준</span></div>
+      <div class="donut-wrap">
+        <svg class="donut" viewBox="0 0 190 190">${rings}
+          <text class="donut__num" x="95" y="92" text-anchor="middle">${total}</text>
+          <text class="donut__unit" x="95" y="110" text-anchor="middle">근무 인원</text></svg>
+        <ul class="dleg">${legend}</ul>
+      </div></div>`;
+  }
+  function crewTypeCard() {
+    const crew = D.crew || [];
+    const dt = (c) => (c.disability == null ? "" : String(c.disability).trim());
+    const disList = crew.filter((c) => { const d = dt(c); return d && d !== "비장애"; });
+    const typeMap = {};
+    disList.forEach((c) => { const d = dt(c); typeMap[d] = (typeMap[d] || 0) + 1; });
+    const types = Object.keys(typeMap).map((k) => [k, typeMap[k]]).sort((a, b) => b[1] - a[1]);
+    const maxT = types.length ? types[0][1] : 1;
+    const bars = types.length
+      ? types.map(([name, val]) =>
+          `<div class="tbar"><span class="tbar__label"><span class="gdot" style="background:${disColor(name)}"></span>${esc(name)}</span>
+            <span class="tbar__track"><span class="tbar__fill" data-pct="${Math.round((val / maxT) * 100)}" style="background:${disColor(name)}"></span></span>
+            <span class="tbar__val">${val}<small>명</small></span></div>`).join("")
+      : `<p class="muted" style="margin:6px 0">장애 유형 데이터가 없습니다. 시트 <b>crew</b> 탭에 <b>disability</b> 컬럼을 채워주세요.</p>`;
+    return `<div class="dash-card">
+      <div class="card-head"><h3>장애유형별 분포</h3><span class="chip-mono">${disList.length}명</span></div>
+      <div class="tbars">${bars}</div></div>`;
+  }
+
+  /* ===== 식물 상태 점검 ===== */
+  const PL_KEY = "garden-plants";
+  const PLANT_GRADES = ["A", "B", "C", "D"];
+  const GRADE_COLORS = { A: "var(--green)", B: "var(--blue)", C: "var(--amber)", D: "var(--red)" };
+  let _plants = null, _plantTab = "input", _plantRound = null;
+
+  function getPlants() {
+    if (_plants) return _plants;
+    try { const s = localStorage.getItem(PL_KEY); if (s) _plants = JSON.parse(s); } catch (e) {}
+    if (!_plants) _plants = { grades: JSON.parse(JSON.stringify(D.plantGrades || {})), issues: {} };
+    _plants.grades = _plants.grades || {};
+    _plants.issues = _plants.issues || {};
+    return _plants;
+  }
+  function savePlants() { try { localStorage.setItem(PL_KEY, JSON.stringify(_plants)); } catch (e) {} }
+  function gradeOf(z, r) { const p = getPlants(); return (p.grades[z] && p.grades[z][r]) || ""; }
+  function issueOf(z, r) { const p = getPlants(); return (p.issues[z] && p.issues[z][r]) || ""; }
+  function curRound() {
+    if (_plantRound) return _plantRound;
+    const rounds = D.plantRounds || [];
+    const mk = (_now.getMonth() + 1) + "월";
+    _plantRound = rounds.indexOf(mk) >= 0 ? mk : (rounds[rounds.length - 1] || "");
+    return _plantRound;
+  }
+  function rePlants() { app.innerHTML = views.plants(); }
+
+  function plantInputBody(round) {
+    return (D.plantZones || []).map((g) => {
+      const rows = g.zones.map((z) => {
+        const cur = gradeOf(z, round);
+        const segs = PLANT_GRADES.map((gr) =>
+          `<button class="pgrade ${cur === gr ? "is-on" : ""}" style="--gc:${GRADE_COLORS[gr]}"
+            onclick="GARDEN.plantGrade('${esc(z)}','${round}','${gr}')">${gr}</button>`).join("");
+        const clr = `<button class="pgrade pgrade--clr ${!cur ? "is-on" : ""}" title="미점검"
+          onclick="GARDEN.plantGrade('${esc(z)}','${round}','')">—</button>`;
+        return `<div class="prow">
+          <span class="prow__z">${esc(z)}</span>
+          <span class="pgrades">${segs}${clr}</span>
+          <input class="prow__issue" placeholder="이슈 메모 (선택)" value="${esc(issueOf(z, round))}"
+            onchange="GARDEN.plantIssue('${esc(z)}','${round}',this.value)"/>
+        </div>`;
+      }).join("");
+      const gdone = g.zones.filter((z) => gradeOf(z, round)).length;
+      return `<div class="pgroup">
+        <div class="pgroup__head"><span class="pgroup__name">${esc(g.area)}</span>
+          <span class="pgroup__n">${gdone} / ${g.zones.length}</span></div>
+        ${rows}
+      </div>`;
+    }).join("");
+  }
+  function plantMatrixBody() {
+    const rounds = D.plantRounds || [];
+    const cr = curRound();
+    const head = `<th class="pm-z">구역</th>` + rounds.map((r) =>
+      `<th class="pm-r ${r === cr ? "is-cur" : ""}">${r}</th>`).join("");
+    const body = (D.plantZones || []).map((g) => {
+      const sec = `<tr class="pm-sec"><td colspan="${rounds.length + 1}">${esc(g.area)}</td></tr>`;
+      const rows = g.zones.map((z) => {
+        const cells = rounds.map((r) => {
+          const gr = gradeOf(z, r);
+          return `<td class="pm-cell ${r === cr ? "is-cur" : ""}">${gr
+            ? `<span class="pgrade-dot" style="--gc:${GRADE_COLORS[gr]}">${gr}</span>`
+            : '<span class="muted">—</span>'}</td>`;
+        }).join("");
+        return `<tr><td class="pm-z">${esc(z)}</td>${cells}</tr>`;
+      }).join("");
+      return sec + rows;
+    }).join("");
+    return `<div class="table-wrap"><table class="grid-table pm-table">
+      <thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  }
+  function plantStatsBody(round) {
+    const allZones = (D.plantZones || []).flatMap((g) => g.zones);
+    const counts = { A: 0, B: 0, C: 0, D: 0, none: 0 };
+    allZones.forEach((z) => { const gr = gradeOf(z, round); if (gr) counts[gr] = (counts[gr] || 0) + 1; else counts.none++; });
+    const cards = PLANT_GRADES.map((gr) =>
+      `<div class="pstat" style="--gc:${GRADE_COLORS[gr]}"><div class="pstat__g">${gr}</div>
+        <div class="pstat__n">${counts[gr] || 0}<small>개</small></div></div>`).join("")
+      + `<div class="pstat pstat--none"><div class="pstat__g">미점검</div>
+        <div class="pstat__n">${counts.none}<small>개</small></div></div>`;
+    const issues = [];
+    allZones.forEach((z) => { const t = issueOf(z, round); if (t) issues.push({ z, t, g: gradeOf(z, round) }); });
+    const issueHtml = issues.length
+      ? issues.map((i) => `<div class="pissue"><span class="pgrade-dot" style="--gc:${GRADE_COLORS[i.g] || "var(--slate)"}">${i.g || "—"}</span>
+          <b>${esc(i.z)}</b><span>${esc(i.t)}</span></div>`).join("")
+      : `<p class="muted" style="margin:6px 0">기록된 이슈가 없습니다.</p>`;
+    return `<div class="pstats">${cards}</div>
+      <div class="dash-card" style="margin-top:16px">
+        <div class="card-head"><h3>이슈 기록</h3><span class="chip-mono">${issues.length}건</span></div>
+        ${issueHtml}</div>`;
+  }
   const statusMap = {
     active: { cls: "badge--active", label: "재직", dot: "var(--green)" },
     leave:  { cls: "badge--leave",  label: "휴직", dot: "var(--amber)" },
@@ -116,102 +264,22 @@
   /* ---------- VIEWS ---------- */
   const views = {
     dashboard() {
-      const stats = D.kpi.map((k) =>
-        `<div class="stat ${k.variant ? "stat--" + k.variant : ""}">
-          <div class="stat__num">${k.num}<small>${k.unit}</small></div>
-          <div class="stat__label">${k.label}</div>
-          <div class="stat__sub ${k.trend}">${k.sub}</div>
-        </div>`
-      ).join("");
       return `
         <section class="view">
           <div class="page-head">
             <div>
-              <p class="eyebrow">Overview · ${D.asOf}</p>
+              <p class="eyebrow">Overview · ${D.asOf || ""}</p>
               <h2>운영 대시보드</h2>
-              <p class="sub">SNACK &amp; GARDEN 전 매장 현황을 한눈에</p>
-            </div>
-            <div class="seg">
-              <button class="btn btn--sm">주간</button>
-              <button class="btn btn--sm is-on">월간</button>
-              <button class="btn btn--primary btn--sm">＋ 리포트</button>
+              <p class="sub">근무 인원 · 장애유형 현황</p>
             </div>
           </div>
-          <div class="stats">${stats}</div>
-          <div class="dash-grid">${donut(D.crewMix)}${bars(D.storeSales)}</div>
-          <div class="split-2">${spark(D.weekTrend)}${todos(D.todos)}</div>
+          <div class="dash-grid">${crewStatusCard("근무 인원 현황")}${crewTypeCard()}</div>
         </section>`;
     },
 
     crew() {
       const crew = D.crew || [];
-      const total = crew.length;
-
-      // 장애 분류
       const disType = (c) => (c.disability == null ? "" : String(c.disability).trim());
-      const isNon = (c) => disType(c) === "비장애";
-      const isDis = (c) => { const d = disType(c); return d && d !== "비장애"; };
-      const disList = crew.filter(isDis);
-      const nonList = crew.filter(isNon);
-      const unclCount = total - disList.length - nonList.length;
-      const pct = (n) => (total ? Math.round((n / total) * 1000) / 10 : 0);
-
-      // 유형별 집계
-      const typeMap = {};
-      disList.forEach((c) => { const d = disType(c); typeMap[d] = (typeMap[d] || 0) + 1; });
-      const types = Object.keys(typeMap).map((k) => [k, typeMap[k]]).sort((a, b) => b[1] - a[1]);
-
-      // --- 도넛 (장애 · 비장애 현황) ---
-      const segs = [
-        { label: "장애", val: disList.length, color: "var(--accent)" },
-        { label: "비장애", val: nonList.length, color: "var(--slate)" },
-      ];
-      if (unclCount > 0) segs.push({ label: "미분류", val: unclCount, color: "var(--line)" });
-      const dTotal = total || 1;
-      const RC = 2 * Math.PI * 70;
-      let off = 0;
-      const rings = segs.map((s) => {
-        const len = (s.val / dTotal) * RC;
-        const seg = `<circle cx="95" cy="95" r="70" fill="none" stroke="${s.color}" stroke-width="20"
-          stroke-dasharray="0 ${RC}" stroke-dashoffset="${-off}" data-len="${len}" transform="rotate(-90 95 95)"/>`;
-        off += len; return seg;
-      }).join("");
-      const legend = segs.map((s) =>
-        `<li class="dleg__row"><span class="dleg__dot" style="background:${s.color}"></span>
-          <span class="dleg__label">${s.label}</span>
-          <span class="dleg__val">${s.val}<small>명</small></span>
-          <span class="dleg__pct">${pct(s.val)}%</span></li>`
-      ).join("");
-      const donutCard = `
-        <div class="dash-card dash-card--donut">
-          <div class="card-head"><h3>장애 · 비장애 현황</h3><span class="chip-mono">${total}명</span>
-            <span class="asof" style="margin-left:auto">'26년 7월 기준</span></div>
-          <div class="donut-wrap">
-            <svg class="donut" viewBox="0 0 190 190">
-              ${rings}
-              <text class="donut__num" x="95" y="92" text-anchor="middle">${total}</text>
-              <text class="donut__unit" x="95" y="110" text-anchor="middle">전체 크루</text>
-            </svg>
-            <ul class="dleg">${legend}</ul>
-          </div>
-        </div>`;
-
-      // --- 바 (장애유형별 분포) ---
-      const maxT = types.length ? types[0][1] : 1;
-      const typeBars = types.length
-        ? types.map(([name, val]) =>
-            `<div class="tbar">
-              <span class="tbar__label"><span class="gdot" style="background:${disColor(name)}"></span>${esc(name)}</span>
-              <span class="tbar__track"><span class="tbar__fill" data-pct="${Math.round((val / maxT) * 100)}" style="background:${disColor(name)}"></span></span>
-              <span class="tbar__val">${val}<small>명</small></span>
-            </div>`
-          ).join("")
-        : `<p class="muted" style="margin:6px 0">장애 유형 데이터가 없습니다. 시트 <b>crew</b> 탭에 <b>disability</b> 컬럼을 채워주세요.</p>`;
-      const typeCard = `
-        <div class="dash-card">
-          <div class="card-head"><h3>장애유형별 분포</h3><span class="chip-mono">${disList.length}명</span></div>
-          <div class="tbars">${typeBars}</div>
-        </div>`;
 
       // --- 테이블 ---
       const rows = crew.map((c) => {
@@ -239,7 +307,7 @@
               <p class="sub">재직 ${crew.filter(c=>c.status==="active").length} · 휴직 ${crew.filter(c=>c.status==="leave").length} · 퇴사 ${crew.filter(c=>c.status==="out").length}</p></div>
             <button class="btn btn--primary btn--sm">＋ 크루 등록</button>
           </div>
-          <div class="dash-grid">${donutCard}${typeCard}</div>
+          <div class="dash-grid">${crewStatusCard("장애 · 비장애 현황")}${crewTypeCard()}</div>
           <div class="toolbar-row">
             <input class="searchbox" placeholder="이름 · 매장 · 태그 · 장애유형 검색" oninput="GARDEN.filterCrew(this.value)"/>
           </div>
@@ -334,11 +402,55 @@
           <div class="dash-grid">${bars(D.storeSales)}${spark(D.weekTrend)}</div>
         </section>`;
     },
+
+    plants() {
+      const round = curRound();
+      const allZones = (D.plantZones || []).flatMap((g) => g.zones);
+      const total = allZones.length;
+      const done = allZones.filter((z) => gradeOf(z, round)).length;
+      const pctDone = total ? Math.round((done / total) * 100) : 0;
+      const RCR = 2 * Math.PI * 30;
+
+      const tabs = [["input", "점검 입력"], ["matrix", "현황 매트릭스"], ["stats", "통계 요약"]]
+        .map(([k, l]) => `<button class="ptab ${_plantTab === k ? "is-on" : ""}" onclick="GARDEN.plantTab('${k}')">${l}</button>`).join("");
+      const roundSel = (D.plantRounds || [])
+        .map((r) => `<button class="pround ${r === round ? "is-on" : ""}" onclick="GARDEN.plantRound('${r}')">${r}</button>`).join("");
+
+      let body;
+      if (_plantTab === "matrix") body = plantMatrixBody();
+      else if (_plantTab === "stats") body = `<div class="proundbar"><span class="proundbar__lbl">회차</span>${roundSel}</div>${plantStatsBody(round)}`;
+      else body = `<div class="proundbar"><span class="proundbar__lbl">점검 회차</span>${roundSel}</div>${plantInputBody(round)}`;
+
+      return `
+        <section class="view">
+          <div class="page-head">
+            <div><p class="eyebrow">Crew · 식물 관리</p><h2>식물 상태 점검</h2>
+              <p class="sub">구역별 체크리스트로 점검하고 이슈를 기록합니다 · 2개월 주기 (2·4·7·10·12월)</p></div>
+            <button class="btn btn--sm" onclick="GARDEN.plantReset()">초기화</button>
+          </div>
+          <div class="phead">
+            <div class="phead__prog">
+              <svg class="pring" viewBox="0 0 72 72">
+                <circle class="pring__bg" cx="36" cy="36" r="30"/>
+                <circle class="pring__fg" cx="36" cy="36" r="30" stroke-dasharray="${(pctDone / 100) * RCR} ${RCR}" transform="rotate(-90 36 36)"/>
+                <text class="pring__t" x="36" y="40" text-anchor="middle">${pctDone}%</text>
+              </svg>
+              <div class="phead__meta">
+                <div class="phead__round">${round} 점검</div>
+                <div class="phead__done">완료 <b>${done}</b> / ${total}개 구역</div>
+              </div>
+            </div>
+            <div class="ptabs">${tabs}</div>
+          </div>
+          ${body}
+        </section>`;
+    },
   };
 
   const crumbMap = {
     dashboard: "MAIN / DASHBOARD",
     crew: "CREW / ROSTER",
+    plants: "CREW / PLANT CHECK",
     schedule: "OPERATION / SCHEDULE",
     sales: "OPERATION / SALES",
   };
@@ -564,6 +676,27 @@
     },
 
     /* --- 변동사항 추가/수정/삭제 --- */
+    /* --- 식물 상태 점검 --- */
+    plantTab(t) { _plantTab = t; rePlants(); },
+    plantRound(r) { _plantRound = r; rePlants(); },
+    plantGrade(z, r, g) {
+      const p = getPlants();
+      p.grades[z] = p.grades[z] || {};
+      if (g === "") delete p.grades[z][r]; else p.grades[z][r] = g;
+      savePlants(); toast("점검 저장됨 ✓"); rePlants();
+    },
+    plantIssue(z, r, v) {
+      const p = getPlants();
+      p.issues[z] = p.issues[z] || {};
+      if (String(v).trim() === "") delete p.issues[z][r]; else p.issues[z][r] = String(v).trim();
+      savePlants(); toast("이슈 저장됨 ✓");
+    },
+    plantReset() {
+      if (!confirm("식물 점검 데이터를 기본값으로 되돌릴까요? (입력 내용 삭제)")) return;
+      try { localStorage.removeItem(PL_KEY); } catch (e) {}
+      _plants = null; rePlants();
+    },
+
     wbException(dateStr) {
       const b = getBoard();
       b.exceptions = b.exceptions || [];

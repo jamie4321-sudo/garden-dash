@@ -80,35 +80,66 @@
 
   function floorsRender(floors) {
     if (!floors || !floors.length) return floorsEmpty("아직 등록된 층 폴더가 없습니다.");
-    const cards = floors.map((f) => {
-      const cover = f.photos && f.photos[0];
-      const thumbs = (f.photos || []).slice(0, 6).map((p) =>
-        `<a class="fl-thumb" href="${p.view}" target="_blank" rel="noopener" title="${esc(p.name)}"
-          style="background-image:url('${p.thumb}')"></a>`).join("");
-      const coverHtml = cover
-        ? `<a class="fl-card__cover" href="${cover.view}" target="_blank" rel="noopener" style="background-image:url('${cover.thumb}')">
-            <span class="fl-card__date">${esc(cover.updated)}</span></a>`
-        : `<a class="fl-card__cover fl-card__cover--empty" href="${f.folderUrl}" target="_blank" rel="noopener"><span>＋ 사진 추가</span></a>`;
-      return `<div class="fl-card">
-        ${coverHtml}
-        <div class="fl-card__body">
-          <div class="fl-card__head"><span class="fl-card__name">${esc(f.name)}</span>
-            <span class="fl-card__count">${f.count}장</span></div>
-          <div class="fl-thumbs">${thumbs || '<span class="fl-none">담당자가 사진을 올리면 표시됩니다</span>'}</div>
-          <a class="fl-card__link" href="${f.folderUrl}" target="_blank" rel="noopener">폴더 열기 ↗</a>
-        </div>
+    const rows = floors.map((f, fi) => {
+      const thumbs = (f.photos || []).slice(0, 12).map((p, pi) =>
+        `<button class="flb-thumb" title="${esc(p.name)}" style="background-image:url('${p.thumb}')"
+          onclick="GARDEN.flOpen(${fi},${pi})"></button>`).join("");
+      const body = f.count
+        ? `<div class="flb-thumbs">${thumbs}${f.count > 12 ? `<span class="flb-more">+${f.count - 12}</span>` : ""}</div>`
+        : `<div class="flb-thumbs"><a class="flb-empty" href="${f.folderUrl}" target="_blank" rel="noopener">＋ 사진 추가</a></div>`;
+      const date = f.photos && f.photos[0] ? f.photos[0].updated : "—";
+      return `<div class="flb-row">
+        <div class="flb-head"><span class="flb-name">${esc(f.name)}</span><span class="flb-count">${f.count}</span></div>
+        ${body}
+        <div class="flb-meta"><span class="flb-date">${esc(date)}</span>
+          <a class="flb-folder" href="${f.folderUrl}" target="_blank" rel="noopener">폴더 ↗</a></div>
       </div>`;
     }).join("");
-    return `<div class="fl-grid">${cards}</div>`;
+    return `<div class="fl-board">${rows}</div>`;
   }
   function floorsSkeleton() {
-    return `<div class="fl-grid">` + Array.from({ length: 6 }).map(() =>
-      `<div class="fl-card"><div class="fl-sk fl-sk--cover"></div>
-        <div class="fl-card__body"><div class="fl-sk fl-sk--line"></div><div class="fl-sk fl-sk--thumbs"></div></div></div>`).join("") + `</div>`;
+    return `<div class="fl-board">` + Array.from({ length: 6 }).map(() =>
+      `<div class="flb-row"><div class="flb-head"><span class="fl-sk fl-sk--name"></span></div>
+        <div class="fl-sk fl-sk--strip"></div><div></div></div>`).join("") + `</div>`;
   }
   function floorsEmpty(msg) {
     return `<div class="fl-empty"><p>${esc(msg)}</p>
       <a class="btn btn--sm" href="https://drive.google.com/drive/folders/${FLOOR_PARENT}" target="_blank" rel="noopener">드라이브 폴더 열기</a></div>`;
+  }
+
+  /* 라이트박스 팝업 */
+  let _lb = { fi: 0, pi: 0 };
+  function flPhotos(fi) { return (_floorsCache && _floorsCache[fi] && _floorsCache[fi].photos) || []; }
+  function flKey(e) {
+    if (e.key === "Escape") GARDEN.flClose();
+    else if (e.key === "ArrowLeft") GARDEN.flNav(-1);
+    else if (e.key === "ArrowRight") GARDEN.flNav(1);
+  }
+  function flShow() {
+    const floor = _floorsCache && _floorsCache[_lb.fi];
+    const ph = flPhotos(_lb.fi);
+    const p = ph[_lb.pi];
+    if (!floor || !p) return;
+    let elm = document.getElementById("lightbox");
+    if (!elm) {
+      elm = document.createElement("div");
+      elm.id = "lightbox"; elm.className = "lightbox";
+      document.body.appendChild(elm);
+      document.addEventListener("keydown", flKey);
+    }
+    const big = "https://drive.google.com/thumbnail?id=" + p.id + "&sz=w1600";
+    const nav = ph.length > 1;
+    elm.innerHTML = `
+      <div class="lightbox__backdrop" onclick="GARDEN.flClose()"></div>
+      <button class="lightbox__close" onclick="GARDEN.flClose()" title="닫기 (Esc)">×</button>
+      ${nav ? `<button class="lightbox__nav lightbox__nav--prev" onclick="GARDEN.flNav(-1)" title="이전">‹</button>` : ""}
+      <figure class="lightbox__fig">
+        <img class="lightbox__img" src="${big}" alt="${esc(p.name)}"/>
+        <figcaption class="lightbox__cap"><b>${esc(floor.name)}</b> · ${esc(p.name)}
+          <span>${esc(p.updated)} · ${_lb.pi + 1}/${ph.length}</span>
+          <a href="${p.view}" target="_blank" rel="noopener">원본 열기 ↗</a></figcaption>
+      </figure>
+      ${nav ? `<button class="lightbox__nav lightbox__nav--next" onclick="GARDEN.flNav(1)" title="다음">›</button>` : ""}`;
   }
 
   /* ===== 식물 상태 점검 ===== */
@@ -742,6 +773,9 @@
         .then((j) => { _floorsCache = j.floors || []; const b = document.getElementById("floorsBody"); if (b) b.innerHTML = floorsRender(_floorsCache); })
         .catch((e) => { console.warn("[GARDEN] 각층 현황 로드 실패:", e); const b = document.getElementById("floorsBody"); if (b) b.innerHTML = floorsEmpty("불러오기에 실패했습니다. 새로고침을 눌러주세요."); });
     },
+    flOpen(fi, pi) { _lb = { fi, pi }; flShow(); },
+    flNav(d) { const ph = flPhotos(_lb.fi); if (!ph.length) return; _lb.pi = (_lb.pi + d + ph.length) % ph.length; flShow(); },
+    flClose() { const el = document.getElementById("lightbox"); if (el) el.remove(); document.removeEventListener("keydown", flKey); },
 
     /* --- 식물 상태 점검 --- */
     plantTab(t) { _plantTab = t; rePlants(); },

@@ -126,6 +126,9 @@ function doGet(e) {
   out.todos      = rows_(ss, 'todos').map(function (r) { r.done = boolify_(r.done); return r; });
   out.crew       = rows_(ss, 'crew').map(function (r) {
     r.tags = String(r.tags || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    // 시트 셀이 자동으로 날짜 형식으로 바뀌어도(직접 입력 시 흔함) 문자열로 정규화
+    r.since = dateStr_(r.since);
+    r.left = dateStr_(r.left);
     return r;
   });
 
@@ -386,4 +389,8 @@ function numify_(keys) {
 }
 function boolify_(v) {
   return v === true || v === 'true' || v === 'TRUE' || v === 1 || v === '1';
+}
+function dateStr_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  return v == null ? '' : String(v);
 }

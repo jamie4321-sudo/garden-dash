@@ -146,6 +146,47 @@
       </div></div>`;
   }
 
+  function crewDetailModal(i) {
+    const c = getCrew()[i];
+    if (!c) return "";
+    const st = (v) => (c.status === v ? "selected" : "");
+    return `<div class="gmodal" id="crewDetailModal">
+      <div class="gmodal__bd" onclick="GARDEN.crewDetailClose()"></div>
+      <div class="gmodal__card">
+        <div class="gmodal__head"><h3>크루 정보</h3><button class="gmodal__x" onclick="GARDEN.crewDetailClose()">×</button></div>
+        <div class="gform">
+          <label class="fld"><span>이름 *</span><input id="cd_name" value="${esc(c.name)}" placeholder="이름"/></label>
+          <div class="fld-row">
+            <label class="fld"><span>매장</span><input id="cd_store" value="${esc(c.store)}" placeholder="예: 카카오"/></label>
+            <label class="fld"><span>구분</span><input id="cd_role" value="${esc(c.role)}" placeholder="예: 8h 가드너"/></label>
+          </div>
+          <div class="fld-row">
+            <label class="fld"><span>입사일</span><input id="cd_since" value="${esc(c.since)}" placeholder="예: 2026-07"/></label>
+            <label class="fld"><span>상태</span><select id="cd_status" onchange="GARDEN.crewDetailStatusChange(this)">
+              <option value="active" ${st("active")}>재직</option>
+              <option value="leave" ${st("leave")}>휴직</option>
+              <option value="out" ${st("out")}>퇴사</option>
+            </select></label>
+          </div>
+          <div class="fld-row">
+            <label class="fld"><span>장애유형</span><input id="cd_dis" value="${esc(c.disability)}" placeholder="예: 발달장애 · 비장애"/></label>
+            <label class="fld"><span>태그</span><input id="cd_tags" value="${esc((c.tags || []).join(", "))}" placeholder="쉼표로 구분"/></label>
+          </div>
+          <div class="fld-row">
+            <label class="fld" id="cd_left_fld" style="${c.status === "out" ? "" : "display:none"}">
+              <span>퇴사일</span><input id="cd_left" value="${esc(c.left)}" placeholder="예: 2026-07"/></label>
+            <label class="fld"><span>비고</span><input id="cd_memo" value="${esc(c.memo)}" placeholder="메모(선택)"/></label>
+          </div>
+        </div>
+        <div class="gmodal__foot">
+          <button class="btn btn--sm btn--danger" onclick="GARDEN.crewDetailDelete(${i})">삭제</button>
+          <span class="gmodal__spacer"></span>
+          <button class="btn btn--sm" onclick="GARDEN.crewDetailClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.crewDetailSave(${i})">저장</button>
+        </div>
+      </div></div>`;
+  }
+
   /* ===== 각층 현황 (구글 드라이브) ===== */
   const FLOOR_PARENT = "1JF5VTpU-ldB2jbIZlQUBlPXYof56Bp1s";
   let _floorsCache = null;
@@ -462,9 +503,14 @@
         const leftInfo = (c.status === "out" && c.left) ? `<span class="crew-left">${esc(c.left)} 퇴사</span>` : "";
         return `<tr class="${c.status === "out" ? "crew-out" : ""}">
           <td class="crew-name"><span class="gdot" style="background:${s.dot}"></span>
-            <b>${esc(c.name)}</b><span class="t">${esc(c.store)}</span></td>
+            <button class="crew-name-btn" onclick="GARDEN.crewOpen(${i})" title="정보 보기 · 수정 · 삭제">${esc(c.name)}</button>
+            <span class="t">${esc(c.store)}</span></td>
           <td class="mono">${esc(c.role)}</td>
-          <td class="mono-cell">${esc(c.since) || "—"}${ten ? `<span class="crew-ten">${ten}</span>` : ""}</td>
+          <td class="mono-cell">
+            <span class="crew-since" contenteditable="true" spellcheck="false" data-ph="입사일"
+              onblur="GARDEN.crewSince(${i}, this.textContent)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${esc(c.since || "")}</span>
+            ${ten ? `<span class="crew-ten">${ten}</span>` : ""}
+          </td>
           <td class="crew-status">
             <div class="crew-status__row"><span class="badge ${s.cls}">${s.label}</span>${leftInfo}</div>
             <div class="crew-acts">${actions}</div>
@@ -885,6 +931,10 @@
       const cr = getCrew(); if (!cr[i]) return;
       cr[i].memo = String(val).trim(); saveCrew();
     },
+    crewSince(i, val) {
+      const cr = getCrew(); if (!cr[i]) return;
+      cr[i].since = String(val).trim(); saveCrew(); reCrew();
+    },
     crewStatus(i, s) {
       const cr = getCrew(); if (!cr[i]) return;
       cr[i].status = s; if (s !== "out") cr[i].left = "";
@@ -903,6 +953,35 @@
       const n = document.getElementById("cf_name"); if (n) n.focus();
     },
     crewAddClose() { const m = document.getElementById("crewModal"); if (m) m.remove(); },
+
+    /* --- 크루 정보 보기 · 수정 · 삭제 --- */
+    crewOpen(i) {
+      if (document.getElementById("crewDetailModal")) return;
+      document.body.insertAdjacentHTML("beforeend", crewDetailModal(i));
+    },
+    crewDetailClose() { const m = document.getElementById("crewDetailModal"); if (m) m.remove(); },
+    crewDetailStatusChange(sel) {
+      const fld = document.getElementById("cd_left_fld");
+      if (fld) fld.style.display = sel.value === "out" ? "" : "none";
+    },
+    crewDetailSave(i) {
+      const cr = getCrew(); if (!cr[i]) return;
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const name = v("cd_name");
+      if (!name) { const n = document.getElementById("cd_name"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      const status = v("cd_status") || "active";
+      cr[i] = normalizeCrew([{
+        name, store: v("cd_store"), role: v("cd_role"), since: v("cd_since"),
+        status, disability: v("cd_dis"), tags: v("cd_tags"),
+        left: status === "out" ? v("cd_left") : "", memo: v("cd_memo"),
+      }])[0];
+      saveCrew(); this.crewDetailClose(); reCrew(); toast("크루 정보 저장됨 ✓");
+    },
+    crewDetailDelete(i) {
+      const cr = getCrew(); if (!cr[i]) return;
+      if (!window.confirm(`${cr[i].name}님을 명단에서 삭제할까요? 되돌릴 수 없습니다.`)) return;
+      cr.splice(i, 1); saveCrew(); this.crewDetailClose(); reCrew(); toast("크루 삭제됨 ✓");
+    },
     crewAddSubmit() {
       const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
       const name = v("cf_name");
@@ -1011,9 +1090,10 @@
           let hasPl = false;
           try { hasPl = !!localStorage.getItem(PL_KEY); } catch (e) {}
           if (!hasPl) _plants = null;   // 로컬 편집 없으면 시트 데이터로 갱신
-          let hasCr = false;
-          try { hasCr = !!localStorage.getItem(CREW_KEY); } catch (e) {}
-          if (!hasCr) _crew = null;
+          // 크루는 시트가 항상 최신 소스 — 로컬 캐시가 있어도 새로 불러온 시트 데이터로 갱신
+          // (편집은 어차피 즉시 시트로 저장되므로, 로컬 캐시를 우선하면 시트 직접 수정분이 반영되지 않음)
+          _crew = null;
+          try { localStorage.removeItem(CREW_KEY); } catch (e) {}
           render(currentView());    // 다시 렌더
         }
       })

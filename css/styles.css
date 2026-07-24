@@ -290,6 +290,11 @@ button { font-family: inherit; }
 .grid-table tbody tr:hover { background: var(--panel-2); }
 
 .crew-name b { font-weight: 700; white-space: nowrap; }
+.crew-name-btn {
+  font: inherit; font-weight: 700; white-space: nowrap; background: none; border: none; padding: 0;
+  color: var(--ink); cursor: pointer; text-align: left;
+}
+.crew-name-btn:hover { color: var(--accent-text); text-decoration: underline; }
 .grid-table td:first-child { white-space: nowrap; }
 .crew-name span.t { display: block; color: var(--ink-2); font-family: var(--mono); font-size: 10.5px; margin-top: 2px; }
 .gdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 9px; vertical-align: middle; flex: none; }
@@ -337,6 +342,14 @@ tr:hover .crew-acts { opacity: 1; }
 .crew-memo:hover { border-color: var(--line-soft); }
 .crew-memo:focus { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .crew-memo:empty::before { content: attr(data-ph); color: var(--ink-3); opacity: .55; }
+.crew-since {
+  display: inline-block; min-width: 74px; min-height: 18px; padding: 3px 6px; border-radius: 6px;
+  font-family: var(--mono); font-size: 12px; color: var(--ink-2); outline: none; border: 1px solid transparent;
+  transition: border-color .12s, background .12s;
+}
+.crew-since:hover { border-color: var(--line-soft); }
+.crew-since:focus { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.crew-since:empty::before { content: attr(data-ph); color: var(--ink-3); opacity: .55; }
 
 /* 모달 (크루 등록) */
 .gmodal { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; padding: 24px; }
@@ -360,7 +373,10 @@ tr:hover .crew-acts { opacity: 1; }
 .fld input:focus, .fld select:focus { border-color: var(--accent); }
 .fld input::placeholder { color: var(--ink-3); }
 .fld-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.gmodal__foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.gmodal__foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.gmodal__spacer { flex: 1; }
+.btn--danger { color: var(--red); border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
+.btn--danger:hover { background: color-mix(in srgb, var(--red) 12%, transparent); border-color: var(--red); }
 
 .tagset { display: flex; flex-wrap: wrap; gap: 5px; }
 .tag { background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-2); font-size: 11px; padding: 2px 8px; border-radius: 6px; }

@@ -103,6 +103,8 @@ button { font-family: inherit; }
   position: sticky; top: 0; height: 100vh;
 }
 .brand { padding: 26px 22px 20px; display: block; border-bottom: 1px solid var(--line-soft); }
+.brand__row { display: flex; align-items: center; gap: 9px; }
+.brand__icon { width: 24px; height: 24px; border-radius: 7px; flex: none; display: block; }
 .brand__mark { font-weight: 800; font-size: 19px; letter-spacing: -.6px; color: var(--ink); display: block; line-height: 1; }
 .brand__mark em { color: var(--accent-text); font-style: normal; margin: 0 2px; }
 .brand__sub {
@@ -319,37 +321,16 @@ button { font-family: inherit; }
 .dis__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dc, var(--slate)); flex: none; }
 .tbar__label .gdot { margin-right: 8px; }
 
-/* 재직 기간 · 상태 액션 · 비고 · 퇴사행 */
-.mono-cell { font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: nowrap; }
-.crew-ten { display: block; margin-top: 3px; font-size: 10.5px; color: var(--accent-text); font-family: var(--mono); }
-.crew-status__row { display: flex; align-items: center; gap: 8px; }
+/* 재직 기간 · 상태 · 비고 · 퇴사행 */
+.mono-cell { font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: nowrap; padding-top: 16px; padding-bottom: 16px; }
+.crew-since { display: block; color: var(--ink); }
+.crew-ten { display: block; margin-top: 6px; font-size: 10.5px; color: var(--accent-text); font-family: var(--mono); }
+.crew-status { padding-top: 16px; padding-bottom: 16px; }
+.crew-status__row { display: flex; align-items: center; gap: 10px; }
 .crew-left { font-family: var(--mono); font-size: 10.5px; color: var(--slate); white-space: nowrap; }
-.crew-acts { display: flex; gap: 5px; margin-top: 6px; opacity: 0; transition: opacity .12s; }
-tr:hover .crew-acts { opacity: 1; }
-.crew-act {
-  font-family: var(--mono); font-size: 10.5px; cursor: pointer;
-  border: 1px solid var(--line); background: var(--panel-2); color: var(--ink-2);
-  padding: 3px 9px; border-radius: 999px; transition: border-color .12s, color .12s;
-}
-.crew-act:hover { border-color: color-mix(in srgb, var(--ink-3) 55%, transparent); color: var(--ink); }
-.crew-act--retire:hover { border-color: var(--red); color: var(--red); }
 .crew-out { opacity: .55; }
 .crew-out:hover { opacity: 1; }
-.crew-memo {
-  display: block; min-width: 120px; min-height: 20px; padding: 4px 7px; border-radius: 6px;
-  font-size: 12.5px; color: var(--ink); outline: none; border: 1px solid transparent; transition: border-color .12s, background .12s;
-}
-.crew-memo:hover { border-color: var(--line-soft); }
-.crew-memo:focus { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.crew-memo:empty::before { content: attr(data-ph); color: var(--ink-3); opacity: .55; }
-.crew-since {
-  display: inline-block; min-width: 74px; min-height: 18px; padding: 3px 6px; border-radius: 6px;
-  font-family: var(--mono); font-size: 12px; color: var(--ink-2); outline: none; border: 1px solid transparent;
-  transition: border-color .12s, background .12s;
-}
-.crew-since:hover { border-color: var(--line-soft); }
-.crew-since:focus { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.crew-since:empty::before { content: attr(data-ph); color: var(--ink-3); opacity: .55; }
+.crew-memo { display: block; color: var(--ink); }
 
 /* 모달 (크루 등록) */
 .gmodal { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; padding: 24px; }
@@ -705,6 +686,89 @@ tr:hover .crew-acts { opacity: 1; }
   .flb-row { grid-template-columns: 1fr; gap: 10px; }
   .flb-meta { justify-content: flex-start; }
   .lightbox__nav { width: 40px; height: 40px; }
+}
+
+/* =========================================================
+   SAFETY & HEALTH (산업안전보건 — 안전매뉴얼 · 주간회의 · 정기점검 게시판)
+   ========================================================= */
+.sf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.sf-folder {
+  margin-left: auto; font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+  color: var(--ink-2); background: var(--panel-2); border: 1px solid var(--line);
+  padding: 4px 10px; border-radius: 999px; transition: border-color .12s, color .12s;
+}
+.sf-folder:hover { border-color: var(--accent); color: var(--accent-text); }
+
+/* 문서 확장자 배지 (이모지 대신) */
+.sf-ext {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  font-family: var(--mono); font-weight: 800; letter-spacing: .3px; color: var(--accent-ink);
+  background: var(--accent); border-radius: 7px;
+  min-width: 34px; height: 22px; padding: 0 6px; font-size: 10px;
+}
+.sf-list { display: flex; flex-direction: column; gap: 6px; }
+.sf-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2);
+  transition: border-color .12s, background .12s;
+}
+.sf-row:hover { border-color: color-mix(in srgb, var(--ink-3) 55%, transparent); background: var(--panel); }
+.sf-name { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: auto; }
+.sf-date { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); flex: none; }
+.sf-open { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--accent-text); flex: none; }
+.sf-open:hover { text-decoration: underline; }
+
+.sf-empty {
+  display: grid; place-items: center; gap: 12px; text-align: center; padding: 24px 12px;
+  border: 1px dashed var(--line); border-radius: var(--r); color: var(--ink-3);
+}
+.sf-empty p { margin: 0; font-size: 12.5px; line-height: 1.5; }
+
+/* 주간 정기회의 게시판 */
+.tf-board { display: flex; flex-direction: column; gap: 10px; }
+.tf-card {
+  display: flex; align-items: flex-start; gap: 14px; padding: 14px;
+  border: 1px solid var(--line); border-radius: var(--r); background: var(--panel-2);
+  transition: border-color .12s, background .12s;
+}
+.tf-card:hover { border-color: color-mix(in srgb, var(--ink-3) 55%, transparent); background: var(--panel); }
+.tf-date { display: flex; flex-direction: column; align-items: center; flex: none; width: 52px; font-family: var(--mono); }
+.tf-date b { font-size: 16px; font-weight: 800; letter-spacing: -.3px; color: var(--ink); }
+.tf-date span { font-size: 10px; color: var(--ink-3); margin-top: 2px; }
+.tf-body { flex: 1; min-width: 0; }
+.tf-tag {
+  display: inline-block; font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+  color: var(--blue); background: color-mix(in srgb, var(--blue) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--blue) 34%, transparent);
+  padding: 3px 9px; border-radius: 999px; margin-bottom: 7px;
+}
+.tf-title { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.4; }
+.tf-attendees { margin: 5px 0 0; font-size: 11.5px; color: var(--ink-3); }
+.tf-acts { display: flex; flex-direction: column; gap: 6px; flex: none; }
+
+/* 정기 안전점검 게시판 */
+.chk-board { display: flex; flex-direction: column; gap: 12px; }
+.chk-card { padding: 14px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel-2); }
+.chk-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.chk-title { margin: 0; font-size: 14px; font-weight: 800; letter-spacing: -.2px; margin-right: auto; }
+.chk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
+.chk-grid b { display: block; margin-top: 3px; font-size: 13px; }
+.chk-label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .4px; text-transform: uppercase; color: var(--ink-3); }
+.chk-row { margin-bottom: 10px; }
+.chk-row p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-2); }
+.chk-row--sent { display: flex; align-items: center; gap: 10px; margin-bottom: 0; }
+.chk-row--sent .chk-label { flex: none; }
+.chk-sent { font-family: var(--mono); font-size: 12px; font-weight: 700; margin-right: auto; }
+.chk-sent--ok { color: var(--green); }
+.chk-sent--warn { color: var(--amber); }
+
+@media (max-width: 900px) {
+  .sf-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .tf-card { flex-direction: column; }
+  .tf-date { flex-direction: row; gap: 6px; width: auto; }
+  .chk-grid { grid-template-columns: 1fr; gap: 8px; }
 }
 
 /* toast */

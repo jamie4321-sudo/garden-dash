@@ -112,6 +112,15 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.action === 'floors') {
     return json_({ floors: listFloors_() });
   }
+  // 산업안전보건(안전매뉴얼 · 시정조치자료, 드라이브) 전용 응답
+  if (e && e.parameter && e.parameter.action === 'safety') {
+    const f = safetyFolders_();
+    return json_({
+      manual: listFilesIn_(f.manual),
+      docs: listFilesIn_(f.docs),
+      folderUrls: { manual: f.manual.getUrl(), docs: f.docs.getUrl() },
+    });
+  }
 
   const ss = SpreadsheetApp.openById(SHEET_ID);
   const out = {};
@@ -163,6 +172,19 @@ function doGet(e) {
   // 식물 상태 점검
   out.plants = readPlants_(ss);
 
+  // 산업안전보건 — 주간 정기회의
+  out.safetyMeetings = rows_(ss, 'safety').map(function (r) {
+    r.date = dateStr_(r.date);
+    return r;
+  });
+  // 산업안전보건 — 정기 안전점검
+  out.safetyChecks = rows_(ss, 'safetyChecks').map(function (r) {
+    r.date = dateStr_(r.date);
+    r.sentDate = dateStr_(r.sentDate);
+    r.done = boolify_(r.done);
+    return r;
+  });
+
   return ContentService
     .createTextOutput(JSON.stringify(out))
     .setMimeType(ContentService.MimeType.JSON);
@@ -187,6 +209,14 @@ function doPost(e) {
     if (body.type === 'crew' && body.data) {
       saveCrewTab_(body.data);
       return json_({ ok: true, saved: 'crew' });
+    }
+    if (body.type === 'safetyMeetings' && body.data) {
+      saveSafetyMeetings_(body.data);
+      return json_({ ok: true, saved: 'safetyMeetings' });
+    }
+    if (body.type === 'safetyChecks' && body.data) {
+      saveSafetyChecks_(body.data);
+      return json_({ ok: true, saved: 'safetyChecks' });
     }
     return json_({ ok: false, error: 'unknown type' });
   } catch (err) {
@@ -264,6 +294,84 @@ function saveCrewTab_(arr) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/** 산업안전보건 — 주간 정기회의 쓰기 */
+function saveSafetyMeetings_(arr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('safety') || ss.insertSheet('safety');
+    sh.clear();
+    var head = ['date', 'org', 'title', 'attendees'];
+    var rows = [head];
+    (arr || []).forEach(function (m) {
+      rows.push([m.date || '', m.org || '', m.title || '', m.attendees || '']);
+    });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 산업안전보건 — 정기 안전점검 쓰기 */
+function saveSafetyChecks_(arr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('safetyChecks') || ss.insertSheet('safetyChecks');
+    sh.clear();
+    var head = ['title', 'date', 'org', 'result', 'action', 'sentDate', 'driveUrl', 'done'];
+    var rows = [head];
+    (arr || []).forEach(function (c) {
+      rows.push([c.title || '', c.date || '', c.org || '', c.result || '', c.action || '',
+        c.sentDate || '', c.driveUrl || '', c.done ? 'TRUE' : 'FALSE']);
+    });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 산업안전보건 — 안전매뉴얼 · 시정조치자료 드라이브 폴더 (최초 호출 시 자동 생성) */
+function safetyFolders_() {
+  var root = getOrCreateFolder_(DriveApp.getRootFolder(), 'GARDEN 산업안전보건');
+  return {
+    root: root,
+    manual: getOrCreateFolder_(root, '안전매뉴얼'),
+    docs: getOrCreateFolder_(root, '시정조치자료'),
+  };
+}
+function getOrCreateFolder_(parent, name) {
+  var it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+/** 폴더 내 파일 목록(최신순) — 안전매뉴얼 · 시정조치자료 등 문서용 */
+function listFilesIn_(folder) {
+  var out = [];
+  var files = folder.getFiles();
+  while (files.hasNext()) {
+    var f = files.next();
+    var id = f.getId();
+    out.push({
+      id: id,
+      name: f.getName(),
+      mimeType: f.getMimeType(),
+      view: 'https://drive.google.com/file/d/' + id + '/view',
+      download: 'https://drive.google.com/uc?export=download&id=' + id,
+      updated: Utilities.formatDate(f.getLastUpdated(), Session.getScriptTimeZone(), 'yyyy-MM-dd'),
+    });
+  }
+  out.sort(function (a, b) { return a.updated < b.updated ? 1 : -1; });
+  return out;
 }
 
 /** 드라이브 권한 승인 + 폴더 확인용 (편집기에서 한 번 실행) */

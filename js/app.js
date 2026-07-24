@@ -255,6 +255,198 @@
       ${nav ? `<button class="lightbox__nav lightbox__nav--next" onclick="GARDEN.flNav(1)" title="다음">›</button>` : ""}`;
   }
 
+  /* ===== 산업안전보건 (주간 정기회의 · 정기 안전점검 — 시트 / 안전매뉴얼 — 드라이브) ===== */
+  let _safetyCache = null; // { manual:[], folderUrls:{} }
+  const extBadge = (name, mime) => {
+    const m = String(name || "").match(/\.([a-zA-Z0-9]+)$/);
+    if (m) return m[1].toUpperCase();
+    mime = mime || "";
+    if (mime.indexOf("pdf") >= 0) return "PDF";
+    if (mime.indexOf("image/") === 0) return "IMG";
+    if (mime.indexOf("spreadsheet") >= 0) return "XLS";
+    if (mime.indexOf("document") >= 0 || mime.indexOf("word") >= 0) return "DOC";
+    return "FILE";
+  };
+  function safetyManualBody(files, folderUrl) {
+    if (!files || !files.length) {
+      return `<div class="sf-empty">
+        <p>아직 등록된 안전매뉴얼이 없습니다. 드라이브 폴더에 파일을 올리면 게시판에 자동으로 추가됩니다.</p>
+        <a class="btn btn--primary btn--sm" href="${folderUrl}" target="_blank" rel="noopener">＋ 매뉴얼 업로드</a>
+      </div>`;
+    }
+    return `<div class="sf-list">${files.map((f) => `<div class="sf-row">
+      <span class="sf-ext">${extBadge(f.name, f.mimeType)}</span>
+      <span class="sf-name" title="${esc(f.name)}">${esc(f.name)}</span>
+      <span class="sf-date">${esc(f.updated)}</span>
+      <a class="sf-open" href="${f.view}" target="_blank" rel="noopener">열기</a>
+    </div>`).join("")}</div>`;
+  }
+  function safetySkeleton() {
+    return `<div class="sf-list">` + Array.from({ length: 2 }).map(() =>
+      `<div class="sf-row"><span class="fl-sk fl-sk--name"></span><div class="fl-sk fl-sk--strip" style="flex:1;margin:0 12px"></div></div>`).join("") + `</div>`;
+  }
+
+  /* 주간 정기회의 (게시판) */
+  const SAFETY_KEY = "garden-safety-meetings";
+  let _safetyMeetings = null;
+  function normalizeSafetyMeetings(arr) {
+    return (arr || []).map((m) => ({ date: m.date || "", org: m.org || "", title: m.title || "", attendees: m.attendees || "" }));
+  }
+  function getSafetyMeetings() {
+    if (_safetyMeetings) return _safetyMeetings;
+    try { const s = localStorage.getItem(SAFETY_KEY); if (s) _safetyMeetings = normalizeSafetyMeetings(JSON.parse(s)); } catch (e) {}
+    if (!_safetyMeetings) _safetyMeetings = normalizeSafetyMeetings(D.safetyMeetings || []);
+    return _safetyMeetings;
+  }
+  function saveSafetyMeetings() {
+    try { localStorage.setItem(SAFETY_KEY, JSON.stringify(_safetyMeetings)); } catch (e) {}
+    pushSafetyMeetingsRemote();
+  }
+  let _pushSMT = null;
+  function pushSafetyMeetingsRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_safetyMeetings) return;
+    clearTimeout(_pushSMT);
+    _pushSMT = setTimeout(() => {
+      fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "safetyMeetings", data: _safetyMeetings }) })
+        .catch((e) => console.warn("[GARDEN] 산업안전보건 회의기록 저장 실패:", e));
+    }, 700);
+  }
+  function reSafety() { app.innerHTML = views.safety(); }
+
+  function safetyMeetingCard(m, i) {
+    const [mm, dd] = (m.date || "").split("-").slice(1);
+    return `<div class="tf-card">
+      <div class="tf-date"><b>${mm && dd ? `${mm}/${dd}` : "—"}</b><span>${(m.date || "").slice(0, 4)}</span></div>
+      <div class="tf-body">
+        ${m.org ? `<span class="tf-tag">${esc(m.org)}</span>` : ""}
+        <p class="tf-title">${esc(m.title) || "제목 없음"}</p>
+        ${m.attendees ? `<p class="tf-attendees">참석자 · ${esc(m.attendees)}</p>` : ""}
+      </div>
+      <div class="tf-acts">
+        <button class="btn btn--sm" onclick="GARDEN.safetyMeetingOpen(${i})">수정</button>
+        <button class="btn btn--sm btn--danger" onclick="GARDEN.safetyMeetingQuickDelete(${i})">삭제</button>
+      </div>
+    </div>`;
+  }
+  function safetyMeetingModal(i) {
+    const isNew = i == null;
+    const m = isNew ? { date: "", org: "", title: "", attendees: "" } : getSafetyMeetings()[i];
+    if (!m) return "";
+    return `<div class="gmodal" id="safetyMeetingModal">
+      <div class="gmodal__bd" onclick="GARDEN.safetyMeetingClose()"></div>
+      <div class="gmodal__card">
+        <div class="gmodal__head"><h3>${isNew ? "회의 기록 추가" : "회의 기록 수정"}</h3>
+          <button class="gmodal__x" onclick="GARDEN.safetyMeetingClose()">×</button></div>
+        <div class="gform">
+          <div class="fld-row">
+            <label class="fld"><span>회의일</span><input id="sm_date" value="${esc(m.date)}" placeholder="예: 2026-07-21"/></label>
+            <label class="fld"><span>주관/협의체</span><input id="sm_org" value="${esc(m.org)}" placeholder="예: 카카오안전보건협의체"/></label>
+          </div>
+          <label class="fld"><span>안건</span><input id="sm_title" value="${esc(m.title)}" placeholder="예: 4월 안전보건 이슈사항 공유"/></label>
+          <label class="fld"><span>참석자</span><input id="sm_attendees" value="${esc(m.attendees)}" placeholder="쉼표로 구분 (예: 제이미, 데이지)"/></label>
+        </div>
+        <div class="gmodal__foot">
+          ${isNew ? "" : `<button class="btn btn--sm btn--danger" onclick="GARDEN.safetyMeetingDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
+          <button class="btn btn--sm" onclick="GARDEN.safetyMeetingClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.safetyMeetingSave(${isNew ? "null" : i})">저장</button>
+        </div>
+      </div></div>`;
+  }
+
+  /* 정기 안전점검 (게시판) */
+  const CHECK_KEY = "garden-safety-checks";
+  const CHECK_RESULTS = { "양호": "var(--green)", "일부개선필요": "var(--amber)", "미흡": "var(--red)" };
+  let _safetyChecks = null;
+  function normalizeSafetyChecks(arr) {
+    return (arr || []).map((c) => ({
+      title: c.title || "", date: c.date || "", org: c.org || "", result: c.result || "양호",
+      action: c.action || "", sentDate: c.sentDate || "", driveUrl: c.driveUrl || "", done: !!c.done,
+    }));
+  }
+  function getSafetyChecks() {
+    if (_safetyChecks) return _safetyChecks;
+    try { const s = localStorage.getItem(CHECK_KEY); if (s) _safetyChecks = normalizeSafetyChecks(JSON.parse(s)); } catch (e) {}
+    if (!_safetyChecks) _safetyChecks = normalizeSafetyChecks(D.safetyChecks || []);
+    return _safetyChecks;
+  }
+  function saveSafetyChecks() {
+    try { localStorage.setItem(CHECK_KEY, JSON.stringify(_safetyChecks)); } catch (e) {}
+    pushSafetyChecksRemote();
+  }
+  let _pushSCT = null;
+  function pushSafetyChecksRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_safetyChecks) return;
+    clearTimeout(_pushSCT);
+    _pushSCT = setTimeout(() => {
+      fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "safetyChecks", data: _safetyChecks }) })
+        .catch((e) => console.warn("[GARDEN] 산업안전보건 점검기록 저장 실패:", e));
+    }, 700);
+  }
+
+  function safetyCheckCard(c, i) {
+    const sent = c.sentDate
+      ? `<span class="chk-sent chk-sent--ok">${esc(c.sentDate)}</span>`
+      : `<span class="chk-sent chk-sent--warn">미송부</span>`;
+    const driveBtn = c.driveUrl
+      ? `<a class="btn btn--sm" href="${esc(c.driveUrl)}" target="_blank" rel="noopener">자료 링크</a>`
+      : `<a class="btn btn--sm" href="${(_safetyCache && _safetyCache.folderUrls && _safetyCache.folderUrls.docs) || "#"}" target="_blank" rel="noopener">자료 링크</a>`;
+    return `<div class="chk-card">
+      <div class="chk-head">
+        <p class="chk-title">${esc(c.title) || "제목 없음"}</p>
+        <span class="badge ${c.done ? "badge--active" : "badge--leave"}">${c.done ? "완료" : "진행중"}</span>
+        <button class="btn btn--sm" onclick="GARDEN.safetyCheckOpen(${i})">수정</button>
+        <button class="btn btn--sm btn--danger" onclick="GARDEN.safetyCheckQuickDelete(${i})">삭제</button>
+      </div>
+      <div class="chk-grid">
+        <div><span class="chk-label">점검일</span><b>${esc(c.date) || "—"}</b></div>
+        <div><span class="chk-label">점검지 / 기관</span><b>${esc(c.org) || "—"}</b></div>
+        <div><span class="chk-label">점검 결과</span><b style="color:${CHECK_RESULTS[c.result] || "var(--ink)"}">${esc(c.result) || "—"}</b></div>
+      </div>
+      <div class="chk-row"><span class="chk-label">개선 사항</span><p>${esc(c.action) || "해당 없음"}</p></div>
+      <div class="chk-row chk-row--sent"><span class="chk-label">개선자료 송부일</span>${sent}${driveBtn}</div>
+    </div>`;
+  }
+  function safetyCheckModal(i) {
+    const isNew = i == null;
+    const c = isNew ? { title: "", date: "", org: "", result: "양호", action: "", sentDate: "", driveUrl: "", done: false } : getSafetyChecks()[i];
+    if (!c) return "";
+    const opt = (v) => `<option value="${v}" ${c.result === v ? "selected" : ""}>${v}</option>`;
+    return `<div class="gmodal" id="safetyCheckModal">
+      <div class="gmodal__bd" onclick="GARDEN.safetyCheckClose()"></div>
+      <div class="gmodal__card">
+        <div class="gmodal__head"><h3>${isNew ? "점검 기록 추가" : "점검 기록 수정"}</h3>
+          <button class="gmodal__x" onclick="GARDEN.safetyCheckClose()">×</button></div>
+        <div class="gform">
+          <label class="fld"><span>제목</span><input id="chk_title" value="${esc(c.title)}" placeholder="예: 카카오안전보건협의체"/></label>
+          <div class="fld-row">
+            <label class="fld"><span>점검일</span><input id="chk_date" value="${esc(c.date)}" placeholder="예: 2026-06-08"/></label>
+            <label class="fld"><span>점검지 / 기관</span><input id="chk_org" value="${esc(c.org)}" placeholder="예: 카카오 켄드릭"/></label>
+          </div>
+          <div class="fld-row">
+            <label class="fld"><span>점검 결과</span><select id="chk_result">${opt("양호")}${opt("일부개선필요")}${opt("미흡")}</select></label>
+            <label class="fld"><span>진행 상태</span><select id="chk_done">
+              <option value="1" ${c.done ? "selected" : ""}>완료</option>
+              <option value="0" ${!c.done ? "selected" : ""}>진행중</option>
+            </select></label>
+          </div>
+          <label class="fld"><span>개선 사항</span><input id="chk_action" value="${esc(c.action)}" placeholder="예: 안전관련 사이니지 정리 및 안전장비 관리 개선"/></label>
+          <div class="fld-row">
+            <label class="fld"><span>개선자료 송부일</span><input id="chk_sent" value="${esc(c.sentDate)}" placeholder="비우면 미송부로 표시"/></label>
+            <label class="fld"><span>드라이브 링크</span><input id="chk_drive" value="${esc(c.driveUrl)}" placeholder="구글 드라이브 공유 링크(선택)"/></label>
+          </div>
+        </div>
+        <div class="gmodal__foot">
+          ${isNew ? "" : `<button class="btn btn--sm btn--danger" onclick="GARDEN.safetyCheckDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
+          <button class="btn btn--sm" onclick="GARDEN.safetyCheckClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.safetyCheckSave(${isNew ? "null" : i})">저장</button>
+        </div>
+      </div></div>`;
+  }
+
   /* ===== 식물 상태 점검 ===== */
   const PL_KEY = "garden-plants";
   const PLANT_GRADES = ["A", "B", "C", "D"];
@@ -494,12 +686,6 @@
           ? `<span class="dis" style="--dc:${disColor(d)}"><span class="dis__dot"></span>${esc(d)}</span>`
           : `<span class="muted">—</span>`;
         const ten = tenure(c.since, c.status === "out" ? c.left : "");
-        const actions = c.status === "out"
-          ? `<button class="crew-act" onclick="GARDEN.crewStatus(${i},'active')">복직</button>`
-          : `<button class="crew-act crew-act--retire" onclick="GARDEN.crewRetire(${i})">퇴사</button>` +
-            (c.status === "active"
-              ? `<button class="crew-act" onclick="GARDEN.crewStatus(${i},'leave')">휴직</button>`
-              : `<button class="crew-act" onclick="GARDEN.crewStatus(${i},'active')">복직</button>`);
         const leftInfo = (c.status === "out" && c.left) ? `<span class="crew-left">${esc(c.left)} 퇴사</span>` : "";
         return `<tr class="${c.status === "out" ? "crew-out" : ""}">
           <td class="crew-name"><span class="gdot" style="background:${s.dot}"></span>
@@ -507,18 +693,15 @@
             <span class="t">${esc(c.store)}</span></td>
           <td class="mono">${esc(c.role)}</td>
           <td class="mono-cell">
-            <span class="crew-since" contenteditable="true" spellcheck="false" data-ph="입사일"
-              onblur="GARDEN.crewSince(${i}, this.textContent)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${esc(c.since || "")}</span>
+            <span class="crew-since">${esc(c.since) || "—"}</span>
             ${ten ? `<span class="crew-ten">${ten}</span>` : ""}
           </td>
           <td class="crew-status">
             <div class="crew-status__row"><span class="badge ${s.cls}">${s.label}</span>${leftInfo}</div>
-            <div class="crew-acts">${actions}</div>
           </td>
           <td>${disCell}</td>
           <td><div class="tagset">${tags}</div></td>
-          <td><span class="crew-memo" contenteditable="true" spellcheck="false" data-ph="메모"
-                onblur="GARDEN.crewMemo(${i}, this.textContent)">${esc(c.memo || "")}</span></td>
+          <td><span class="crew-memo">${esc(c.memo) || "—"}</span></td>
         </tr>`;
       }).join("");
       const cnt = (st) => list.filter((c) => c.status === st).length;
@@ -683,6 +866,49 @@
           <div id="floorsBody">${_floorsCache ? floorsRender(_floorsCache) : floorsSkeleton()}</div>
         </section>`;
     },
+
+    safety() {
+      const manual = _safetyCache && _safetyCache.manual;
+      const urls = (_safetyCache && _safetyCache.folderUrls) || {};
+      const meetingList = getSafetyMeetings();
+      const meetings = meetingList.map((m, i) => ({ m, i })).sort((a, b) => (a.m.date < b.m.date ? 1 : -1));
+      const meetingCards = meetings.length
+        ? meetings.map(({ m, i }) => safetyMeetingCard(m, i)).join("")
+        : `<p class="muted" style="margin:6px 0">등록된 회의 기록이 없습니다.</p>`;
+      const checkList = getSafetyChecks();
+      const checks = checkList.map((c, i) => ({ c, i })).sort((a, b) => (a.c.date < b.c.date ? 1 : -1));
+      const checkCards = checks.length
+        ? checks.map(({ c, i }) => safetyCheckCard(c, i)).join("")
+        : `<p class="muted" style="margin:6px 0">등록된 점검 기록이 없습니다.</p>`;
+
+      return `
+        <section class="view">
+          <div class="page-head">
+            <div><p class="eyebrow">Crew · 안전</p><h2>산업안전보건</h2>
+              <p class="sub">주간 정기회의 · 정기 안전점검 · 안전매뉴얼</p></div>
+            <button class="btn btn--primary btn--sm" onclick="GARDEN.loadSafetyFiles(true)">↻ 새로고침</button>
+          </div>
+
+          <div class="dash-card sf-card">
+            <div class="card-head"><h3>안전매뉴얼</h3>
+              ${urls.manual ? `<a class="chip-mono sf-folder" href="${urls.manual}" target="_blank" rel="noopener">드라이브 폴더</a>` : ""}</div>
+            <div id="safetyManualBody">${manual ? safetyManualBody(manual, urls.manual) : safetySkeleton()}</div>
+          </div>
+
+          <div class="sf-grid" style="margin-top:16px">
+            <div class="dash-card">
+              <div class="card-head"><h3>주간 정기회의</h3>
+                <button class="btn btn--primary btn--sm" style="margin-left:auto" onclick="GARDEN.safetyMeetingOpen(null)">＋ 회의 기록</button></div>
+              <div class="tf-board">${meetingCards}</div>
+            </div>
+            <div class="dash-card">
+              <div class="card-head"><h3>정기 안전점검</h3>
+                <button class="btn btn--primary btn--sm" style="margin-left:auto" onclick="GARDEN.safetyCheckOpen(null)">＋ 점검 기록</button></div>
+              <div class="chk-board">${checkCards}</div>
+            </div>
+          </div>
+        </section>`;
+    },
   };
 
   const crumbMap = {
@@ -690,6 +916,7 @@
     crew: "CREW / ROSTER",
     plants: "CREW / PLANT CHECK",
     floors: "CREW / FLOOR STATUS",
+    safety: "CREW / SAFETY & HEALTH",
     schedule: "OPERATION / SCHEDULE",
     sales: "OPERATION / SALES",
   };
@@ -710,6 +937,7 @@
       });
     });
     if (view === "floors") GARDEN.loadFloors();
+    if (view === "safety") GARDEN.loadSafetyFiles();
     window.scrollTo(0, 0);
   }
 
@@ -781,13 +1009,15 @@
     const wd = ["월", "화", "수", "목", "금", "토", "일"].map((w, i) =>
       `<span class="${i >= 5 ? "is-wknd" : ""}">${w}</span>`).join("");
 
-    const exList = (b.exceptions || []).slice().sort((a, c) => a.date.localeCompare(c.date));
+    // 변동사항 목록은 현재 달력에 표시 중인 달(y-m)의 항목만 노출
+    const ym = `${y}-${_pad(m + 1)}`;
+    const exList = (b.exceptions || []).filter((e) => e.date.indexOf(ym) === 0).slice().sort((a, c) => a.date.localeCompare(c.date));
     const exHtml = exList.length
       ? `<div class="mc__ex">` + exList.map((e) =>
           `<button class="mc__exrow" onclick="GARDEN.wbException('${e.date}')" title="수정 / 삭제">
             <i class="mc__exdot"></i><b>${e.date.slice(5).replace("-", "/")}</b><span>${esc(e.label)}</span>
           </button>`).join("") + `</div>`
-      : `<p class="mc__hint">변동사항이 없습니다.<br>날짜를 눌러 연휴·변경을 추가하세요.</p>`;
+      : `<p class="mc__hint">이번 달 변동사항이 없습니다.<br>날짜를 눌러 연휴·변경을 추가하세요.</p>`;
 
     return `
       <div class="mcal">
@@ -811,14 +1041,25 @@
   }
   function reBoard() { app.innerHTML = views.schedule(); }
 
-  /* 초기화 비밀번호 확인 */
-  function checkResetPw() {
-    const pw = String((window.CONFIG && window.CONFIG.RESET_PASSWORD) || "").trim();
+  /* 비밀번호 확인 공통 헬퍼 */
+  function checkPassword(pw, message) {
     if (!pw) return true;
-    const input = window.prompt("초기화하려면 비밀번호를 입력하세요:");
+    const input = window.prompt(message || "비밀번호를 입력하세요:");
     if (input === null) return false;
     if (input.trim() !== pw) { toast("비밀번호가 올바르지 않습니다", true); return false; }
     return true;
+  }
+  function checkResetPw() {
+    const pw = String((window.CONFIG && window.CONFIG.RESET_PASSWORD) || "").trim();
+    return checkPassword(pw, "초기화하려면 비밀번호를 입력하세요:");
+  }
+  function checkCrewPw() {
+    const pw = String((window.CONFIG && window.CONFIG.CREW_PASSWORD) || "").trim();
+    return checkPassword(pw, "크루 정보를 수정/삭제하려면 비밀번호를 입력하세요:");
+  }
+  function checkSafetyPw() {
+    const pw = String((window.CONFIG && window.CONFIG.SAFETY_PASSWORD) || "").trim();
+    return checkPassword(pw, "회의 기록을 수정/삭제하려면 비밀번호를 입력하세요:");
   }
 
   /* 시트 쓰기 (no-cors, debounce) */
@@ -927,26 +1168,6 @@
 
     /* --- 변동사항 추가/수정/삭제 --- */
     /* --- 크루 로스터 --- */
-    crewMemo(i, val) {
-      const cr = getCrew(); if (!cr[i]) return;
-      cr[i].memo = String(val).trim(); saveCrew();
-    },
-    crewSince(i, val) {
-      const cr = getCrew(); if (!cr[i]) return;
-      cr[i].since = String(val).trim(); saveCrew(); reCrew();
-    },
-    crewStatus(i, s) {
-      const cr = getCrew(); if (!cr[i]) return;
-      cr[i].status = s; if (s !== "out") cr[i].left = "";
-      saveCrew(); toast("상태 변경됨 ✓"); reCrew();
-    },
-    crewRetire(i) {
-      const cr = getCrew(); if (!cr[i]) return;
-      const d = window.prompt("퇴사일을 입력하세요 (예: 2026-07)", cr[i].left || "");
-      if (d === null) return;
-      cr[i].status = "out"; cr[i].left = String(d).trim();
-      saveCrew(); toast("퇴사 처리됨 ✓"); reCrew();
-    },
     crewAddOpen() {
       if (document.getElementById("crewModal")) return;
       document.body.insertAdjacentHTML("beforeend", crewModal());
@@ -966,6 +1187,7 @@
     },
     crewDetailSave(i) {
       const cr = getCrew(); if (!cr[i]) return;
+      if (!checkCrewPw()) return;
       const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
       const name = v("cd_name");
       if (!name) { const n = document.getElementById("cd_name"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
@@ -979,6 +1201,7 @@
     },
     crewDetailDelete(i) {
       const cr = getCrew(); if (!cr[i]) return;
+      if (!checkCrewPw()) return;
       if (!window.confirm(`${cr[i].name}님을 명단에서 삭제할까요? 되돌릴 수 없습니다.`)) return;
       cr.splice(i, 1); saveCrew(); this.crewDetailClose(); reCrew(); toast("크루 삭제됨 ✓");
     },
@@ -1009,6 +1232,89 @@
     flOpen(fi, pi) { _lb = { fi, pi }; flShow(); },
     flNav(d) { const ph = flPhotos(_lb.fi); if (!ph.length) return; _lb.pi = (_lb.pi + d + ph.length) % ph.length; flShow(); },
     flClose() { const el = document.getElementById("lightbox"); if (el) el.remove(); document.removeEventListener("keydown", flKey); },
+
+    /* --- 산업안전보건 --- */
+    loadSafetyFiles(force) {
+      const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+      const mBody = document.getElementById("safetyManualBody");
+      if (!url) {
+        if (mBody) mBody.innerHTML = `<p class="muted">API가 연결되지 않았습니다. js/config.js의 API_URL을 확인하세요.</p>`;
+        return;
+      }
+      if (_safetyCache && !force) {
+        if (mBody) mBody.innerHTML = safetyManualBody(_safetyCache.manual, _safetyCache.folderUrls.manual);
+        return;
+      }
+      if (mBody) mBody.innerHTML = safetySkeleton();
+      fetch(url + "?action=safety&cb=" + Date.now())
+        .then((r) => r.json())
+        .then((j) => {
+          _safetyCache = { manual: j.manual || [], folderUrls: j.folderUrls || {} };
+          const mb = document.getElementById("safetyManualBody"); if (mb) mb.innerHTML = safetyManualBody(_safetyCache.manual, _safetyCache.folderUrls.manual);
+        })
+        .catch((e) => {
+          console.warn("[GARDEN] 산업안전보건 자료 로드 실패:", e);
+          const mb = document.getElementById("safetyManualBody"); if (mb) mb.innerHTML = `<p class="muted">불러오기에 실패했습니다. 새로고침을 눌러주세요.</p>`;
+        });
+    },
+    safetyMeetingOpen(i) {
+      if (document.getElementById("safetyMeetingModal")) return;
+      document.body.insertAdjacentHTML("beforeend", safetyMeetingModal(i));
+    },
+    safetyMeetingClose() { const m = document.getElementById("safetyMeetingModal"); if (m) m.remove(); },
+    safetyMeetingSave(i) {
+      if (!checkSafetyPw()) return;
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const date = v("sm_date");
+      if (!date) { const n = document.getElementById("sm_date"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      const rec = { date, org: v("sm_org"), title: v("sm_title"), attendees: v("sm_attendees") };
+      const list = getSafetyMeetings();
+      if (i == null) list.push(rec); else if (list[i]) list[i] = rec; else return;
+      saveSafetyMeetings(); this.safetyMeetingClose(); reSafety(); toast("회의 기록 저장됨 ✓");
+    },
+    safetyMeetingDelete(i) {
+      if (!checkSafetyPw()) return;
+      const list = getSafetyMeetings(); if (!list[i]) return;
+      if (!window.confirm("이 회의 기록을 삭제할까요? 되돌릴 수 없습니다.")) return;
+      list.splice(i, 1); saveSafetyMeetings(); this.safetyMeetingClose(); reSafety(); toast("회의 기록 삭제됨 ✓");
+    },
+    safetyMeetingQuickDelete(i) {
+      if (!checkSafetyPw()) return;
+      const list = getSafetyMeetings(); if (!list[i]) return;
+      if (!window.confirm("이 회의 기록을 삭제할까요? 되돌릴 수 없습니다.")) return;
+      list.splice(i, 1); saveSafetyMeetings(); reSafety(); toast("회의 기록 삭제됨 ✓");
+    },
+
+    safetyCheckOpen(i) {
+      if (document.getElementById("safetyCheckModal")) return;
+      document.body.insertAdjacentHTML("beforeend", safetyCheckModal(i));
+    },
+    safetyCheckClose() { const m = document.getElementById("safetyCheckModal"); if (m) m.remove(); },
+    safetyCheckSave(i) {
+      if (!checkSafetyPw()) return;
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const title = v("chk_title");
+      if (!title) { const n = document.getElementById("chk_title"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      const rec = {
+        title, date: v("chk_date"), org: v("chk_org"), result: v("chk_result"),
+        action: v("chk_action"), sentDate: v("chk_sent"), driveUrl: v("chk_drive"), done: v("chk_done") === "1",
+      };
+      const list = getSafetyChecks();
+      if (i == null) list.push(rec); else if (list[i]) list[i] = rec; else return;
+      saveSafetyChecks(); this.safetyCheckClose(); reSafety(); toast("점검 기록 저장됨 ✓");
+    },
+    safetyCheckDelete(i) {
+      if (!checkSafetyPw()) return;
+      const list = getSafetyChecks(); if (!list[i]) return;
+      if (!window.confirm("이 점검 기록을 삭제할까요? 되돌릴 수 없습니다.")) return;
+      list.splice(i, 1); saveSafetyChecks(); this.safetyCheckClose(); reSafety(); toast("점검 기록 삭제됨 ✓");
+    },
+    safetyCheckQuickDelete(i) {
+      if (!checkSafetyPw()) return;
+      const list = getSafetyChecks(); if (!list[i]) return;
+      if (!window.confirm("이 점검 기록을 삭제할까요? 되돌릴 수 없습니다.")) return;
+      list.splice(i, 1); saveSafetyChecks(); reSafety(); toast("점검 기록 삭제됨 ✓");
+    },
 
     /* --- 식물 상태 점검 --- */
     plantTab(t) { _plantTab = t; rePlants(); },
@@ -1094,6 +1400,11 @@
           // (편집은 어차피 즉시 시트로 저장되므로, 로컬 캐시를 우선하면 시트 직접 수정분이 반영되지 않음)
           _crew = null;
           try { localStorage.removeItem(CREW_KEY); } catch (e) {}
+          // 산업안전보건 회의·점검 기록도 시트가 항상 최신 소스
+          _safetyMeetings = null;
+          try { localStorage.removeItem(SAFETY_KEY); } catch (e) {}
+          _safetyChecks = null;
+          try { localStorage.removeItem(CHECK_KEY); } catch (e) {}
           render(currentView());    // 다시 렌더
         }
       })

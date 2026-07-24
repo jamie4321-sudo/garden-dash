@@ -9,6 +9,6 @@
                (API_URL 이 설정돼 있어야 동작)
    ========================================================= */
 window.CONFIG = {
-  API_URL: "https://script.google.com/macros/s/AKfycbznC6keAC4QeARItHUSJhQUAdU9m5DHkOQhst0IcrAbcQ9vSdOmHw1RIhm_ZjJBTUQJHg/exec",
+  API_URL: "https://script.google.com/macros/s/AKfycbxy7-AVZfzeE6jQpMHPyp1RvdwupBH9Kcm0OmbCVxdcVivHd2eh0D6ObsCTJST9e_mH/exec",
   WRITE_BACK: true,
 };

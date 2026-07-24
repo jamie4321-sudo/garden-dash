@@ -235,6 +235,16 @@ function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** 드라이브 권한 승인 + 폴더 확인용 (편집기에서 한 번 실행) */
+function authorizeDrive() {
+  var f = DriveApp.getFolderById(FLOOR_FOLDER_ID);
+  var subs = f.getFolders();
+  var names = [];
+  while (subs.hasNext()) names.push(subs.next().getName());
+  Logger.log('OK: "' + f.getName() + '" 하위폴더 ' + names.length + '개 → ' + names.join(', '));
+  return names;
+}
+
 /** 각층 현황 — 드라이브 부모 폴더의 하위폴더(층)별 사진 목록 */
 function listFloors_() {
   var out = [];

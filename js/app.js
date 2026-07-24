@@ -255,8 +255,17 @@
       ${nav ? `<button class="lightbox__nav lightbox__nav--next" onclick="GARDEN.flNav(1)" title="다음">›</button>` : ""}`;
   }
 
-  /* ===== 산업안전보건 (주간 정기회의 · 정기 안전점검 — 시트 / 안전매뉴얼 — 드라이브) ===== */
-  let _safetyCache = null; // { manual:[], folderUrls:{} }
+  /* ===== 산업안전보건 (정기회의 · 정기 안전점검 — 시트 / 안전매뉴얼 — 드라이브) ===== */
+  let _safetyCache = null; // { manual:[], folderUrl:"" }
+  const SAFETY_MANUAL_LIMIT = 5;
+  const SAFETY_BOARD_LIMIT = 3;
+  // 목록별 "더보기" 펼침 상태
+  let _safetyExpand = { manual: false, meetings: false, checks: false };
+  function moreToggleBtn(key, total, limit) {
+    if (total <= limit) return "";
+    const expanded = !!_safetyExpand[key];
+    return `<button class="board-more" onclick="GARDEN.safetyToggle('${key}')">${expanded ? "접기" : `더보기 (${total - limit}건 더)`}</button>`;
+  }
   const extBadge = (name, mime) => {
     const m = String(name || "").match(/\.([a-zA-Z0-9]+)$/);
     if (m) return m[1].toUpperCase();
@@ -274,19 +283,21 @@
         <a class="btn btn--primary btn--sm" href="${folderUrl}" target="_blank" rel="noopener">＋ 매뉴얼 업로드</a>
       </div>`;
     }
-    return `<div class="sf-list">${files.map((f) => `<div class="sf-row">
+    const shown = _safetyExpand.manual ? files : files.slice(0, SAFETY_MANUAL_LIMIT);
+    const rows = shown.map((f) => `<div class="sf-row">
       <span class="sf-ext">${extBadge(f.name, f.mimeType)}</span>
       <span class="sf-name" title="${esc(f.name)}">${esc(f.name)}</span>
       <span class="sf-date">${esc(f.updated)}</span>
       <a class="sf-open" href="${f.view}" target="_blank" rel="noopener">열기</a>
-    </div>`).join("")}</div>`;
+    </div>`).join("");
+    return `<div class="sf-list">${rows}</div>${moreToggleBtn("manual", files.length, SAFETY_MANUAL_LIMIT)}`;
   }
   function safetySkeleton() {
     return `<div class="sf-list">` + Array.from({ length: 2 }).map(() =>
       `<div class="sf-row"><span class="fl-sk fl-sk--name"></span><div class="fl-sk fl-sk--strip" style="flex:1;margin:0 12px"></div></div>`).join("") + `</div>`;
   }
 
-  /* 주간 정기회의 (게시판) */
+  /* 정기회의 (게시판) */
   const SAFETY_KEY = "garden-safety-meetings";
   let _safetyMeetings = null;
   function normalizeSafetyMeetings(arr) {
@@ -393,7 +404,7 @@
       : `<span class="chk-sent chk-sent--warn">미송부</span>`;
     const driveBtn = c.driveUrl
       ? `<a class="btn btn--sm" href="${esc(c.driveUrl)}" target="_blank" rel="noopener">자료 링크</a>`
-      : `<a class="btn btn--sm" href="${(_safetyCache && _safetyCache.folderUrls && _safetyCache.folderUrls.docs) || "#"}" target="_blank" rel="noopener">자료 링크</a>`;
+      : `<span class="muted" style="font-size:11px">링크 없음</span>`;
     return `<div class="chk-card">
       <div class="chk-head">
         <p class="chk-title">${esc(c.title) || "제목 없음"}</p>
@@ -869,42 +880,46 @@
 
     safety() {
       const manual = _safetyCache && _safetyCache.manual;
-      const urls = (_safetyCache && _safetyCache.folderUrls) || {};
+      const folderUrl = (_safetyCache && _safetyCache.folderUrl) || "";
       const meetingList = getSafetyMeetings();
-      const meetings = meetingList.map((m, i) => ({ m, i })).sort((a, b) => (a.m.date < b.m.date ? 1 : -1));
-      const meetingCards = meetings.length
-        ? meetings.map(({ m, i }) => safetyMeetingCard(m, i)).join("")
+      const meetingsAll = meetingList.map((m, i) => ({ m, i })).sort((a, b) => (a.m.date < b.m.date ? 1 : -1));
+      const meetingsShown = _safetyExpand.meetings ? meetingsAll : meetingsAll.slice(0, SAFETY_BOARD_LIMIT);
+      const meetingCards = meetingsShown.length
+        ? meetingsShown.map(({ m, i }) => safetyMeetingCard(m, i)).join("")
         : `<p class="muted" style="margin:6px 0">등록된 회의 기록이 없습니다.</p>`;
       const checkList = getSafetyChecks();
-      const checks = checkList.map((c, i) => ({ c, i })).sort((a, b) => (a.c.date < b.c.date ? 1 : -1));
-      const checkCards = checks.length
-        ? checks.map(({ c, i }) => safetyCheckCard(c, i)).join("")
+      const checksAll = checkList.map((c, i) => ({ c, i })).sort((a, b) => (a.c.date < b.c.date ? 1 : -1));
+      const checksShown = _safetyExpand.checks ? checksAll : checksAll.slice(0, SAFETY_BOARD_LIMIT);
+      const checkCards = checksShown.length
+        ? checksShown.map(({ c, i }) => safetyCheckCard(c, i)).join("")
         : `<p class="muted" style="margin:6px 0">등록된 점검 기록이 없습니다.</p>`;
 
       return `
         <section class="view">
           <div class="page-head">
             <div><p class="eyebrow">Crew · 안전</p><h2>산업안전보건</h2>
-              <p class="sub">주간 정기회의 · 정기 안전점검 · 안전매뉴얼</p></div>
+              <p class="sub">정기회의 · 정기 안전점검 · 안전매뉴얼</p></div>
             <button class="btn btn--primary btn--sm" onclick="GARDEN.loadSafetyFiles(true)">↻ 새로고침</button>
           </div>
 
           <div class="dash-card sf-card">
             <div class="card-head"><h3>안전매뉴얼</h3>
-              ${urls.manual ? `<a class="chip-mono sf-folder" href="${urls.manual}" target="_blank" rel="noopener">드라이브 폴더</a>` : ""}</div>
-            <div id="safetyManualBody">${manual ? safetyManualBody(manual, urls.manual) : safetySkeleton()}</div>
+              ${folderUrl ? `<a class="chip-mono sf-folder" href="${folderUrl}" target="_blank" rel="noopener">드라이브 폴더</a>` : ""}</div>
+            <div id="safetyManualBody">${manual ? safetyManualBody(manual, folderUrl) : safetySkeleton()}</div>
           </div>
 
           <div class="sf-grid" style="margin-top:16px">
             <div class="dash-card">
-              <div class="card-head"><h3>주간 정기회의</h3>
+              <div class="card-head"><h3>정기회의</h3>
                 <button class="btn btn--primary btn--sm" style="margin-left:auto" onclick="GARDEN.safetyMeetingOpen(null)">＋ 회의 기록</button></div>
               <div class="tf-board">${meetingCards}</div>
+              ${moreToggleBtn("meetings", meetingsAll.length, SAFETY_BOARD_LIMIT)}
             </div>
             <div class="dash-card">
               <div class="card-head"><h3>정기 안전점검</h3>
                 <button class="btn btn--primary btn--sm" style="margin-left:auto" onclick="GARDEN.safetyCheckOpen(null)">＋ 점검 기록</button></div>
               <div class="chk-board">${checkCards}</div>
+              ${moreToggleBtn("checks", checksAll.length, SAFETY_BOARD_LIMIT)}
             </div>
           </div>
         </section>`;
@@ -1242,20 +1257,29 @@
         return;
       }
       if (_safetyCache && !force) {
-        if (mBody) mBody.innerHTML = safetyManualBody(_safetyCache.manual, _safetyCache.folderUrls.manual);
+        if (mBody) mBody.innerHTML = safetyManualBody(_safetyCache.manual, _safetyCache.folderUrl);
         return;
       }
       if (mBody) mBody.innerHTML = safetySkeleton();
       fetch(url + "?action=safety&cb=" + Date.now())
         .then((r) => r.json())
         .then((j) => {
-          _safetyCache = { manual: j.manual || [], folderUrls: j.folderUrls || {} };
-          const mb = document.getElementById("safetyManualBody"); if (mb) mb.innerHTML = safetyManualBody(_safetyCache.manual, _safetyCache.folderUrls.manual);
+          _safetyCache = { manual: j.manual || [], folderUrl: j.folderUrl || "" };
+          const mb = document.getElementById("safetyManualBody"); if (mb) mb.innerHTML = safetyManualBody(_safetyCache.manual, _safetyCache.folderUrl);
         })
         .catch((e) => {
           console.warn("[GARDEN] 산업안전보건 자료 로드 실패:", e);
           const mb = document.getElementById("safetyManualBody"); if (mb) mb.innerHTML = `<p class="muted">불러오기에 실패했습니다. 새로고침을 눌러주세요.</p>`;
         });
+    },
+    safetyToggle(key) {
+      _safetyExpand[key] = !_safetyExpand[key];
+      if (key === "manual") {
+        const mb = document.getElementById("safetyManualBody");
+        if (mb && _safetyCache) mb.innerHTML = safetyManualBody(_safetyCache.manual, _safetyCache.folderUrl);
+      } else {
+        reSafety();
+      }
     },
     safetyMeetingOpen(i) {
       if (document.getElementById("safetyMeetingModal")) return;

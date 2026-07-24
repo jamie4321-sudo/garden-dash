@@ -17,6 +17,9 @@ const SHEET_ID = '1t7ivyi9udBQ7hIJQXDd1jddgFi4wcHPcmDs4ikSebaU';
 // GARDEN 각층 현황 드라이브 폴더 ID (층별 하위폴더 자동 인식)
 const FLOOR_FOLDER_ID = '1JF5VTpU-ldB2jbIZlQUBlPXYof56Bp1s';
 
+// GARDEN 안전매뉴얼 드라이브 폴더 ID (직접 생성한 폴더 — 읽기만 하므로 별도 권한 승인 불필요)
+const SAFETY_MANUAL_FOLDER_ID = '1PanMWvGIrZccCtg4f9PqhtHZSfz4FWfm';
+
 /* ---------- 시드 데이터 (js/data.js 와 동일 구조) ---------- */
 const SEED = {
   meta: [['key', 'value'], ['asOf', '2026-07-23']],
@@ -112,14 +115,10 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.action === 'floors') {
     return json_({ floors: listFloors_() });
   }
-  // 산업안전보건(안전매뉴얼 · 시정조치자료, 드라이브) 전용 응답
+  // 산업안전보건(안전매뉴얼, 드라이브) 전용 응답
   if (e && e.parameter && e.parameter.action === 'safety') {
-    const f = safetyFolders_();
-    return json_({
-      manual: listFilesIn_(f.manual),
-      docs: listFilesIn_(f.docs),
-      folderUrls: { manual: f.manual.getUrl(), docs: f.docs.getUrl() },
-    });
+    const folder = DriveApp.getFolderById(SAFETY_MANUAL_FOLDER_ID);
+    return json_({ manual: listFilesIn_(folder), folderUrl: folder.getUrl() });
   }
 
   const ss = SpreadsheetApp.openById(SHEET_ID);
@@ -341,20 +340,7 @@ function saveSafetyChecks_(arr) {
   }
 }
 
-/** 산업안전보건 — 안전매뉴얼 · 시정조치자료 드라이브 폴더 (최초 호출 시 자동 생성) */
-function safetyFolders_() {
-  var root = getOrCreateFolder_(DriveApp.getRootFolder(), 'GARDEN 산업안전보건');
-  return {
-    root: root,
-    manual: getOrCreateFolder_(root, '안전매뉴얼'),
-    docs: getOrCreateFolder_(root, '시정조치자료'),
-  };
-}
-function getOrCreateFolder_(parent, name) {
-  var it = parent.getFoldersByName(name);
-  return it.hasNext() ? it.next() : parent.createFolder(name);
-}
-/** 폴더 내 파일 목록(최신순) — 안전매뉴얼 · 시정조치자료 등 문서용 */
+/** 폴더 내 파일 목록(최신순) — 안전매뉴얼 등 문서용 */
 function listFilesIn_(folder) {
   var out = [];
   var files = folder.getFiles();

@@ -74,8 +74,8 @@ window.CONFIG = {
 | `weekTrend` | d, v |
 | `todos` | time, text, done(TRUE/FALSE) |
 | `crew` | name, role, store, status(active/leave/out), since, tags(쉼표구분) |
-| `board` | area, color, mon, tue, wed, thu, fri, sat — 한 칸에 여러 항목은 ` / ` 로 구분 |
-| `boardMeta` | key, value (month, range, today, note, mon~sat 날짜) |
+| `board` | area, color, mon, tue, wed, thu, fri — 월~금 상시. 한 칸에 여러 항목은 ` / ` 로 구분 |
+| `boardMeta` | key, value (month, note, 변동사항 `ex:YYYY-MM-DD`=내용) |
 
 ## 참고
 

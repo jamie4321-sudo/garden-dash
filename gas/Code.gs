@@ -68,23 +68,18 @@ const SEED = {
     ['윤아름', '파트타임', '성수 본점', 'active', '2025-01', '지체장애', '홀'],
   ],
 
-  // 영역별 주간 스케줄 — 영역 × 요일 (한 칸에 여러 항목은 " / " 로 구분)
+  // 월간 스케줄 — 영역 × 요일(월~금 상시). 한 칸에 여러 항목은 " / " 로 구분
   board: [
-    ['area', 'color', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
-    ['전용부', 'var(--accent)', '14A / 13A / 12A', '11A / 10A / 9A', '8A / 7A / 6A', '5A / 5B / 6B / 7B / 9B', '', ''],
-    ['공용부', 'var(--blue)', '3층 일부', '3층 전체', '2층 전체', '1층 전체 / 4층', '4층 / 지하1층 춘식도락', ''],
-    ['기타', 'var(--violet)', '', '', '', '', '', ''],
+    ['area', 'color', 'mon', 'tue', 'wed', 'thu', 'fri'],
+    ['전용부', 'var(--accent)', '14A / 13A / 12A', '11A / 10A / 9A', '8A / 7A / 6A', '5A / 5B / 6B / 7B / 9B', ''],
+    ['공용부', 'var(--blue)', '3층 일부', '3층 전체', '2층 전체', '1층 전체 / 4층', '4층 / 지하1층 춘식도락'],
   ],
 
-  // 주간 보드 메타 (요일 날짜 · 특이사항 등)
+  // 보드 메타 (월 · 특이사항 · 변동사항 ex:YYYY-MM-DD)
   boardMeta: [
     ['key', 'value'],
     ['month', '2026년 7월'],
-    ['range', '7/20(월) – 7/25(토)'],
-    ['today', 'thu'],
-    ['note', '단기 인원 영업 진행 중'],
-    ['mon', '7/20'], ['tue', '7/21'], ['wed', '7/22'],
-    ['thu', '7/23'], ['fri', '7/24'], ['sat', '7/25'],
+    ['note', '월~금 상시 스케줄 · 관리 위치 동일'],
   ],
 };
 
@@ -126,14 +121,12 @@ function doGet(e) {
     return r;
   });
 
-  // weekBoard: 영역 × 요일 보드
+  // weekBoard: 영역 × 요일 보드 (월~금 상시)
   const meta = kv_(ss, 'boardMeta');
-  const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-  const DAY_LABELS = { mon: '월', tue: '화', wed: '수', thu: '목', fri: '금', sat: '토' };
+  const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
+  const DAY_LABELS = { mon: '월', tue: '화', wed: '수', thu: '목', fri: '금' };
   const days = DAY_KEYS.map(function (k) {
-    var o = { key: k, label: DAY_LABELS[k], date: meta[k] || '' };
-    if (meta.today === k) o.today = true;
-    return o;
+    return { key: k, label: DAY_LABELS[k] };
   });
   const areas = rows_(ss, 'board').map(function (r) {
     var cells = {};
@@ -142,12 +135,18 @@ function doGet(e) {
     });
     return { name: r.area, color: r.color || 'var(--accent)', cells: cells };
   });
+  // 변동사항: boardMeta 의 'ex:YYYY-MM-DD' 키에서 복원
+  var exceptions = [];
+  Object.keys(meta).forEach(function (k) {
+    if (k.indexOf('ex:') === 0) exceptions.push({ date: k.slice(3), label: meta[k] });
+  });
+  exceptions.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
   out.weekBoard = {
     month: meta.month || '',
-    range: meta.range || '',
     note: meta.note || '',
     days: days,
     areas: areas,
+    exceptions: exceptions,
   };
 
   return ContentService
@@ -179,7 +178,7 @@ function saveWeekBoard_(wb) {
   lock.waitLock(20000);
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
-    var DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    var DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
 
     // --- board 탭 ---
     var bSheet = ss.getSheetByName('board') || ss.insertSheet('board');
@@ -202,16 +201,12 @@ function saveWeekBoard_(wb) {
     // --- boardMeta 탭 ---
     var mSheet = ss.getSheetByName('boardMeta') || ss.insertSheet('boardMeta');
     mSheet.clear();
-    var today = '';
-    (wb.days || []).forEach(function (d) { if (d.today) today = d.key; });
     var meta = [
       ['key', 'value'],
       ['month', wb.month || ''],
-      ['range', wb.range || ''],
-      ['today', today],
       ['note', wb.note || ''],
     ];
-    (wb.days || []).forEach(function (d) { meta.push([d.key, d.date || '']); });
+    (wb.exceptions || []).forEach(function (e) { meta.push(['ex:' + e.date, e.label || '']); });
     mSheet.getRange(1, 1, mSheet.getMaxRows(), 2).setNumberFormat('@');
     mSheet.getRange(1, 1, meta.length, 2).setValues(meta);
     mSheet.setFrozenRows(1);

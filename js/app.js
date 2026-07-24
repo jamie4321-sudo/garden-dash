@@ -254,28 +254,11 @@
 
     schedule() {
       const b = getBoard();
-      const cal = D.cal || { title: "", weeks: [] };
+      const tk = todayKey();
 
-      // 미니 달력
-      const calRows = cal.weeks.map((wk) =>
-        `<div class="mcal__row">` + wk.map((c) =>
-          `<span class="mcal__d ${c.out ? "is-out" : ""} ${c.act ? "is-act" : ""} ${c.today ? "is-today" : ""}">${c.d}</span>`
-        ).join("") + `</div>`
-      ).join("");
-      const calCard = `
-        <div class="mcal">
-          <div class="mcal__head">
-            <button class="mcal__nav" title="이전 달">‹</button>
-            <span class="mcal__title">${cal.title}</span>
-            <button class="mcal__nav" title="다음 달">›</button>
-          </div>
-          <div class="mcal__wd">${["월","화","수","목","금","토"].map((d)=>`<span>${d}</span>`).join("")}</div>
-          ${calRows}
-        </div>`;
-
-      // 헤더 (요일)
+      // 요일 헤더 (날짜 없음)
       const headCols = b.days.map((d) =>
-        `<th class="wb-th ${d.today ? "is-today" : ""}"><span class="wb-th__d">${d.label}</span><span class="wb-th__date">${d.date}</span></th>`
+        `<th class="wb-th ${d.key === tk ? "is-today" : ""}"><span class="wb-th__d">${d.label}</span></th>`
       ).join("");
 
       // 영역 행
@@ -290,9 +273,9 @@
               <button class="wbitem__x" title="삭제" onclick="GARDEN.wbDel(${ai},'${d.key}',${ii})">×</button>
             </div>`
           ).join("");
-          return `<td class="wbcell ${d.today ? "is-today" : ""}">
+          return `<td class="wbcell ${d.key === tk ? "is-today" : ""}">
             <div class="wbcell__body">${lis || '<span class="wbcell__empty">–</span>'}</div>
-            <button class="wbadd" title="항목 추가" onclick="GARDEN.wbAdd(${ai},'${d.key}')">＋</button>
+            <button class="wbadd" title="항목 추가" onclick="GARDEN.wbAdd(${ai},'${d.key}')">＋ 추가</button>
           </td>`;
         }).join("");
         return `<tr>
@@ -316,19 +299,19 @@
       return `
         <section class="view">
           <div class="page-head">
-            <div><p class="eyebrow">Operation</p><h2>영역별 주간 작업 스케줄</h2>
-              <p class="sub">${b.month} · ${b.range}</p></div>
+            <div><p class="eyebrow">Operation</p><h2>월간 스케줄</h2>
+              <p class="sub">매주 반복 · 월–금 상시 스케줄 · 관리 위치 동일</p></div>
             <div class="seg">
               <button class="btn btn--sm" onclick="GARDEN.wbReset()">초기화</button>
               <button class="btn btn--primary btn--sm" onclick="GARDEN.wbAddArea()">＋ 영역 추가</button>
             </div>
           </div>
           <div class="wb-layout">
-            ${calCard}
+            ${calendarCard(b)}
             <div class="wb-board">
               <div class="wb-board__head">
-                <h3>주간 스케줄</h3>
-                <span class="asof">${b.range}</span>
+                <h3>주간 기본 스케줄</h3>
+                <span class="wb-board__badge">월–금 · 상시</span>
               </div>
               <div class="wb-scroll">
                 <table class="wb-table">
@@ -383,16 +366,93 @@
 
   /* ---------- weekBoard state (localStorage overlay) ---------- */
   const WB_KEY = "garden-weekboard";
+  const WORK_DAYS = [
+    { key: "mon", label: "월" }, { key: "tue", label: "화" }, { key: "wed", label: "수" },
+    { key: "thu", label: "목" }, { key: "fri", label: "금" },
+  ];
+  const _now = new Date();
+  let _calYM = { y: _now.getFullYear(), m: _now.getMonth() };
+  const _pad = (n) => (n < 10 ? "0" : "") + n;
+  const todayKey = () => ({ 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri" }[_now.getDay()] || "");
+
   let _board = null;
+  function normalizeBoard(b) {
+    b = b || {};
+    b.areas = (b.areas || []).map((a) => {
+      const cells = {};
+      WORK_DAYS.forEach((d) => { cells[d.key] = Array.isArray(a.cells && a.cells[d.key]) ? a.cells[d.key] : []; });
+      return { name: a.name || "", color: a.color || "var(--accent)", cells };
+    });
+    b.days = WORK_DAYS.map((d) => ({ key: d.key, label: d.label }));
+    b.exceptions = Array.isArray(b.exceptions) ? b.exceptions : [];
+    if (b.month == null) b.month = "";
+    if (b.note == null) b.note = "";
+    return b;
+  }
   function getBoard() {
     if (_board) return _board;
     try {
       const saved = localStorage.getItem(WB_KEY);
-      if (saved) { _board = JSON.parse(saved); return _board; }
+      if (saved) { _board = normalizeBoard(JSON.parse(saved)); return _board; }
     } catch (e) {}
-    _board = JSON.parse(JSON.stringify(D.weekBoard || { days: [], areas: [], note: "" }));
+    _board = normalizeBoard(JSON.parse(JSON.stringify(D.weekBoard || {})));
     return _board;
   }
+  /* 동적 월간 달력 (변동사항 있는 날만 점 표시) */
+  function calendarCard(b) {
+    const y = _calYM.y, m = _calYM.m;
+    const startDow = (new Date(y, m, 1).getDay() + 6) % 7; // 월=0
+    const dim = new Date(y, m + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < startDow; i++) cells.push(null);
+    for (let d = 1; d <= dim; d++) cells.push(d);
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const exMap = {};
+    (b.exceptions || []).forEach((e) => { exMap[e.date] = e.label; });
+    const isThisMonth = (y === _now.getFullYear() && m === _now.getMonth());
+
+    let grid = "";
+    for (let i = 0; i < cells.length; i += 7) {
+      const week = cells.slice(i, i + 7).map((d, ci) => {
+        if (d == null) return `<span class="mc__d mc__d--pad"></span>`;
+        const ds = `${y}-${_pad(m + 1)}-${_pad(d)}`;
+        const isToday = isThisMonth && d === _now.getDate();
+        const wknd = ci >= 5;
+        const ex = exMap[ds];
+        return `<button class="mc__d ${isToday ? "is-today" : ""} ${wknd ? "is-wknd" : ""} ${ex ? "has-ex" : ""}"
+          title="${ex ? esc(ex) : "변동사항 추가"}" onclick="GARDEN.wbException('${ds}')">${d}${ex ? '<i class="mc__dot"></i>' : ""}</button>`;
+      }).join("");
+      grid += `<div class="mc__row">${week}</div>`;
+    }
+
+    const wd = ["월", "화", "수", "목", "금", "토", "일"].map((w, i) =>
+      `<span class="${i >= 5 ? "is-wknd" : ""}">${w}</span>`).join("");
+
+    const exList = (b.exceptions || []).slice().sort((a, c) => a.date.localeCompare(c.date));
+    const exHtml = exList.length
+      ? `<div class="mc__ex">` + exList.map((e) =>
+          `<button class="mc__exrow" onclick="GARDEN.wbException('${e.date}')" title="수정 / 삭제">
+            <i class="mc__exdot"></i><b>${e.date.slice(5).replace("-", "/")}</b><span>${esc(e.label)}</span>
+          </button>`).join("") + `</div>`
+      : `<p class="mc__hint">변동사항이 없습니다.<br>날짜를 눌러 연휴·변경을 추가하세요.</p>`;
+
+    return `
+      <div class="mcal">
+        <div class="mcal__head">
+          <button class="mcal__nav" onclick="GARDEN.wbMonth(-1)" title="이전 달">‹</button>
+          <span class="mcal__title">${y}년 ${m + 1}월</span>
+          <button class="mcal__nav" onclick="GARDEN.wbMonth(1)" title="다음 달">›</button>
+        </div>
+        <div class="mc__wd">${wd}</div>
+        <div class="mc__grid">${grid}</div>
+        <div class="mcal__foot">
+          <span class="mcal__legend"><i class="mc__dot mc__dot--legend"></i> 변동사항</span>
+        </div>
+        ${exHtml}
+      </div>`;
+  }
+
   function saveBoard() {
     try { localStorage.setItem(WB_KEY, JSON.stringify(_board)); } catch (e) {}
     pushBoardRemote();
@@ -492,6 +552,34 @@
     },
     wbKey(ev, elm) {
       if (ev.key === "Enter") { ev.preventDefault(); elm.blur(); }
+    },
+
+    /* --- 달력 월 이동 --- */
+    wbMonth(delta) {
+      let m = _calYM.m + delta, y = _calYM.y;
+      if (m < 0) { m = 11; y--; }
+      if (m > 11) { m = 0; y++; }
+      _calYM = { y, m };
+      reBoard();
+    },
+
+    /* --- 변동사항 추가/수정/삭제 --- */
+    wbException(dateStr) {
+      const b = getBoard();
+      b.exceptions = b.exceptions || [];
+      const idx = b.exceptions.findIndex((e) => e.date === dateStr);
+      const cur = idx >= 0 ? b.exceptions[idx].label : "";
+      const md = dateStr.slice(5).replace("-", "/");
+      const val = window.prompt(md + " 변동사항 (예: 제헌절 휴무 · 연차 · 우천 순연)\n비우면 삭제됩니다.", cur);
+      if (val === null) return;
+      if (val.trim() === "") {
+        if (idx >= 0) b.exceptions.splice(idx, 1);
+      } else if (idx >= 0) {
+        b.exceptions[idx].label = val.trim();
+      } else {
+        b.exceptions.push({ date: dateStr, label: val.trim() });
+      }
+      saveBoard(); reBoard();
     },
   };
   window.GARDEN = GARDEN;

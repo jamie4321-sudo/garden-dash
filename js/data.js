@@ -53,40 +53,21 @@ window.DATA = {
     { name: "윤아름", role: "파트타임", store: "성수 본점", status: "active", since: "2025-01", disability: "지체장애",   tags: ["홀"] },
   ],
 
-  // 미니 달력 (월~토 · 2026년 7월)
-  cal: {
-    title: "2026년 7월",
-    weeks: [
-      [{ d: 29, out: 1 }, { d: 30, out: 1 }, { d: 1 }, { d: 2 }, { d: 3 }, { d: 4 }],
-      [{ d: 6 }, { d: 7 }, { d: 8 }, { d: 9 }, { d: 10 }, { d: 11 }],
-      [{ d: 13 }, { d: 14 }, { d: 15 }, { d: 16 }, { d: 17 }, { d: 18 }],
-      [{ d: 20, act: 1 }, { d: 21, act: 1 }, { d: 22, act: 1 }, { d: 23, act: 1, today: 1 }, { d: 24, act: 1 }, { d: 25, act: 1 }],
-      [{ d: 27 }, { d: 28 }, { d: 29 }, { d: 30 }, { d: 31 }, { d: 1, out: 1 }],
-    ],
-  },
-
-  // 영역별 주간 작업 스케줄 (인라인 편집 가능)
+  // 월간 스케줄 — 월~금 상시 반복 (날짜 미지정, 관리 위치 동일). 인라인 편집 가능.
   weekBoard: {
     month: "2026년 7월",
-    range: "7/20(월) – 7/25(토)",
-    days: [
-      { key: "mon", label: "월", date: "7/20" },
-      { key: "tue", label: "화", date: "7/21" },
-      { key: "wed", label: "수", date: "7/22" },
-      { key: "thu", label: "목", date: "7/23", today: true },
-      { key: "fri", label: "금", date: "7/24" },
-      { key: "sat", label: "토", date: "7/25" },
-    ],
+    note: "월~금 상시 스케줄 · 관리 위치 동일",
     areas: [
       { name: "전용부", color: "var(--accent)", cells: {
         mon: ["14A", "13A", "12A"], tue: ["11A", "10A", "9A"], wed: ["8A", "7A", "6A"],
-        thu: ["5A", "5B", "6B", "7B", "9B"], fri: [], sat: [] } },
+        thu: ["5A", "5B", "6B", "7B", "9B"], fri: [] } },
       { name: "공용부", color: "var(--blue)", cells: {
         mon: ["3층 일부"], tue: ["3층 전체"], wed: ["2층 전체"],
-        thu: ["1층 전체", "4층"], fri: ["4층", "지하1층 춘식도락"], sat: [] } },
+        thu: ["1층 전체", "4층"], fri: ["4층", "지하1층 춘식도락"] } },
       { name: "기타", color: "var(--violet)", cells: {
-        mon: [], tue: [], wed: [], thu: [], fri: [], sat: [] } },
+        mon: [], tue: [], wed: [], thu: [], fri: [] } },
     ],
-    note: "단기 인원 영업 진행 중",
+    // 변동사항(연휴·변경)만 달력에 점으로 표시. { date: "YYYY-MM-DD", label }
+    exceptions: [],
   },
 };

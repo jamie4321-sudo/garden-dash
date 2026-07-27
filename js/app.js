@@ -1801,18 +1801,21 @@
     if (input.trim() !== pw) { toast("비밀번호가 올바르지 않습니다", true); return false; }
     return true;
   }
-  function checkResetPw() {
-    const pw = String((window.CONFIG && window.CONFIG.RESET_PASSWORD) || "").trim();
-    return checkPassword(pw, "초기화하려면 비밀번호를 입력하세요:");
+  // 세션 통합 관리자 인증 — 한 번 확인하면 새로고침 전까지 유지
+  let _adminOK = false;
+  function ensureAdmin() {
+    if (_adminOK) return true;
+    const pw = String((window.CONFIG && (window.CONFIG.ADMIN_PASSWORD || window.CONFIG.RESET_PASSWORD)) || "").trim();
+    if (!pw) { _adminOK = true; return true; }
+    const input = window.prompt("관리자 확인 — 비밀번호를 입력하세요 (4자리)");
+    if (input === null) return false;
+    if (input.trim() !== pw) { toast("비밀번호가 올바르지 않습니다", true); return false; }
+    _adminOK = true;
+    return true;
   }
-  function checkCrewPw() {
-    const pw = String((window.CONFIG && window.CONFIG.CREW_PASSWORD) || "").trim();
-    return checkPassword(pw, "크루 정보를 수정/삭제하려면 비밀번호를 입력하세요:");
-  }
-  function checkSafetyPw() {
-    const pw = String((window.CONFIG && window.CONFIG.SAFETY_PASSWORD) || "").trim();
-    return checkPassword(pw, "회의 기록을 수정/삭제하려면 비밀번호를 입력하세요:");
-  }
+  function checkResetPw() { return ensureAdmin(); }
+  function checkCrewPw() { return ensureAdmin(); }
+  function checkSafetyPw() { return ensureAdmin(); }
 
   /* 시트 쓰기 (no-cors, debounce) */
   let _pushT = null;
@@ -1867,6 +1870,7 @@
       b.areas[ai].cells[day][i] = val; saveBoard();
     },
     wbDel(ai, day, i) {
+      if (!ensureAdmin()) return;
       const b = getBoard();
       b.areas[ai].cells[day].splice(i, 1); saveBoard(); reBoard();
     },
@@ -1885,6 +1889,7 @@
       if (b.areas[ai]) { b.areas[ai].name = elm.textContent.trim(); saveBoard(); }
     },
     wbDelArea(ai) {
+      if (!ensureAdmin()) return;
       const b = getBoard();
       if (b.areas.length <= 1) return;
       b.areas.splice(ai, 1); saveBoard(); reBoard();
@@ -2180,7 +2185,7 @@
       const pw = el ? el.value.trim() : "";
       const target = String((window.CONFIG && window.CONFIG.PLANT_PASSWORD) || (window.CONFIG && window.CONFIG.RESET_PASSWORD) || "1234").trim();
       if (target && pw !== target) { toast("비밀번호가 올바르지 않습니다", true); if (el) { el.value = ""; el.focus(); } return; }
-      _plantAdmin = true; _plantTab = "input"; this.plantAdminClose(); rePlants(); toast("관리자 모드 ✓");
+      _plantAdmin = true; _adminOK = true; _plantTab = "input"; this.plantAdminClose(); rePlants(); toast("관리자 모드 ✓");
     },
     plantAdminExit() { _plantAdmin = false; _plantTab = "matrix"; rePlants(); toast("관리자 모드 해제"); },
     plantZoneDelete(z) {
@@ -2240,6 +2245,7 @@
     },
     issueClose() { const m = document.getElementById("issueFormModal"); if (m) m.remove(); },
     issueSave(i) {
+      if (i != null && !ensureAdmin()) return; // 기존 이슈 수정은 관리자 확인
       const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
       const date = v("if_date");
       if (!date) { const n = document.getElementById("if_date"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
@@ -2261,11 +2267,13 @@
     },
     issueDetailClose() { const m = document.getElementById("issueDetailModal"); if (m) m.remove(); },
     issueDelete(i) {
+      if (!ensureAdmin()) return;
       const list = getIssues(); if (!list[i]) return;
       if (!window.confirm("이 이슈를 삭제할까요? 되돌릴 수 없습니다.")) return;
       list.splice(i, 1); saveIssues(); this.issueDetailClose(); reIssues(); toast("이슈 삭제됨 ✓");
     },
     issueQuickDone(i) {
+      if (!ensureAdmin()) return;
       const list = getIssues(); if (!list[i]) return;
       list[i].status = "완료";
       if (!list[i].doneAt) list[i].doneAt = issueTodayStr();
@@ -2291,6 +2299,7 @@
       const year = eduCurYear();
       const list = getTraining();
       const idx = list.findIndex((r) => r.name === name && r.key === key && String(r.year) === String(year));
+      if (idx >= 0 && !ensureAdmin()) return; // 기존 이수 기록 수정/해제는 관리자 확인
       if (!date) {
         // 이수일 없음 → 미이수 처리 (기존 기록 제거)
         if (idx >= 0) { list.splice(idx, 1); saveTraining(); this.trainingClose(); reTraining(); toast("미이수로 처리됨"); return; }
@@ -2301,6 +2310,7 @@
       saveTraining(); this.trainingClose(); reTraining(); toast("이수 기록 저장됨 ✓");
     },
     trainingDelete() {
+      if (!ensureAdmin()) return;
       const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
       const name = v("tf_name"), key = v("tf_key"), year = eduCurYear();
       const list = getTraining();
@@ -2351,6 +2361,7 @@
     },
     settleClose() { const m = document.getElementById("settleModal"); if (m) m.remove(); },
     settleSave(i) {
+      if (i != null && !ensureAdmin()) return; // 기존 정산 내역 수정은 관리자 확인
       const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
       const date = v("st_date"), title = v("st_title"), amount = v("st_amount");
       if (!date) { const n = document.getElementById("st_date"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
@@ -2366,6 +2377,7 @@
       saveSettle(); this.settleClose(); reSettle(); toast("정산 내역 저장됨 ✓");
     },
     settleDelete(i) {
+      if (!ensureAdmin()) return;
       const list = getSettle(); if (!list[i]) return;
       if (!window.confirm("이 정산 내역을 삭제할까요? 되돌릴 수 없습니다.")) return;
       list.splice(i, 1); saveSettle(); this.settleClose(); reSettle(); toast("정산 내역 삭제됨 ✓");

@@ -23,4 +23,7 @@ window.CONFIG = {
 
   // 식물 상태 점검 관리자 모드(점검 입력·구역 삭제) 비밀번호 4자리. 비우면 RESET_PASSWORD 사용.
   PLANT_PASSWORD: "1234",
+
+  // 모든 데이터 수정·삭제 시 요구할 관리자 비밀번호. 비우면 RESET_PASSWORD 사용, 그것도 비우면 확인 없이 진행.
+  ADMIN_PASSWORD: "1234",
 };

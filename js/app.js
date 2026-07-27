@@ -851,6 +851,96 @@
       </div>`;
   }
 
+  /* ===== 크루 교육 관리 (4대 법정의무교육 이수 · 이수증 드라이브) ===== */
+  const EDU_KEY = "garden-training";
+  const EDU_TRAININGS = [
+    { key: "harass",     label: "성희롱<br>예방",     full: "성희롱예방교육" },
+    { key: "bully",      label: "직장내<br>괴롭힘",   full: "직장내괴롭힘예방교육" },
+    { key: "disability", label: "장애인<br>인식개선", full: "장애인인식개선교육" },
+    { key: "privacy",    label: "개인정보<br>보호",   full: "개인정보보호교육" },
+  ];
+  const EDU_METHODS = ["온라인", "집합교육", "직장교육", "외부교육"];
+  const EDU_DRIVE_URL = ""; // 이수증 드라이브 폴더 URL (설정 시 상단 버튼·폼 바로가기 노출)
+  let _training = null, _eduYear = null;
+
+  function normalizeTraining(arr) {
+    return (arr || []).map((r) => ({
+      name: r.name || "", key: r.key || "", year: String(r.year || ""),
+      date: r.date || "", method: r.method || "", certUrl: r.certUrl || "", memo: r.memo || "",
+    }));
+  }
+  function getTraining() {
+    if (_training) return _training;
+    try { const s = localStorage.getItem(EDU_KEY); if (s) _training = normalizeTraining(JSON.parse(s)); } catch (e) {}
+    if (!_training) _training = normalizeTraining(D.trainingRecords || []);
+    return _training;
+  }
+  function saveTraining() {
+    try { localStorage.setItem(EDU_KEY, JSON.stringify(_training)); } catch (e) {}
+    pushTrainingRemote();
+  }
+  let _pushTRT = null;
+  function pushTrainingRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_training) return;
+    clearTimeout(_pushTRT);
+    _pushTRT = setTimeout(() => {
+      fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "trainingRecords", data: _training }) })
+        .catch((e) => console.warn("[GARDEN] 크루 교육 저장 실패:", e));
+    }, 700);
+  }
+  function reTraining() { app.innerHTML = views.training(); }
+  function eduCurYear() { return _eduYear || String(_now.getFullYear()); }
+  function eduYears() {
+    const set = {};
+    getTraining().forEach((r) => { if (r.year) set[r.year] = 1; });
+    const cy = _now.getFullYear();
+    for (let y = cy; y >= cy - 2; y--) set[String(y)] = 1;
+    return Object.keys(set).sort((a, b) => b - a);
+  }
+  function eduCrew() { return getCrew().filter((c) => c.status !== "out"); }
+  function eduRecOf(name, key, year) {
+    return getTraining().find((r) => r.name === name && r.key === key && String(r.year) === String(year)) || null;
+  }
+
+  function trainingModal(name, key) {
+    const year = eduCurYear();
+    const existing = (name && key) ? eduRecOf(name, key, year) : null;
+    const r = existing || { name: name || "", key: key || "", date: "", method: "", certUrl: "", memo: "" };
+    const crewOpts = ['<option value="">크루 선택</option>']
+      .concat(eduCrew().map((c) => `<option value="${esc(c.name)}" ${c.name === r.name ? "selected" : ""}>${esc(c.name)}</option>`)).join("");
+    const trainOpts = EDU_TRAININGS.map((t) => `<option value="${t.key}" ${t.key === r.key ? "selected" : ""}>${t.full}</option>`).join("");
+    const methodOpts = ['<option value="">방식 선택</option>']
+      .concat(EDU_METHODS.map((m) => `<option ${m === r.method ? "selected" : ""}>${m}</option>`)).join("");
+    const isEdit = !!existing;
+    return `<div class="gmodal" id="trainingModal">
+      <div class="gmodal__bd" onclick="GARDEN.trainingClose()"></div>
+      <div class="gmodal__card">
+        <div class="gmodal__head"><h3>${isEdit ? "이수 기록 수정" : "이수 기록 추가"}</h3>
+          <button class="gmodal__x" onclick="GARDEN.trainingClose()">×</button></div>
+        <div class="gform">
+          <div class="fld-row">
+            <label class="fld"><span>가드너 *</span><select id="tf_name">${crewOpts}</select></label>
+            <label class="fld"><span>교육 *</span><select id="tf_key">${trainOpts}</select></label>
+          </div>
+          <div class="fld-row">
+            <label class="fld"><span>이수일 *</span><input id="tf_date" type="date" value="${esc(r.date)}"/></label>
+            <label class="fld"><span>교육 방식</span><select id="tf_method">${methodOpts}</select></label>
+          </div>
+          <label class="fld"><span>이수증 링크</span><input id="tf_cert" value="${esc(r.certUrl)}" placeholder="구글 드라이브 이수증 파일 URL"/>
+            ${EDU_DRIVE_URL ? `<a class="fld-hint" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">이수증 드라이브 폴더 열기 ↗</a>` : ""}</label>
+          <label class="fld"><span>비고</span><input id="tf_memo" value="${esc(r.memo)}" placeholder="메모(선택)"/></label>
+          <p class="edu-hint">이수일을 비우고 저장하면 <b>미이수</b>로 처리됩니다 · 기준 연도: <b>${year}</b></p>
+        </div>
+        <div class="gmodal__foot">
+          ${isEdit ? `<button class="btn btn--sm btn--danger" onclick="GARDEN.trainingDelete()">미이수 처리</button><span class="gmodal__spacer"></span>` : ""}
+          <button class="btn btn--sm" onclick="GARDEN.trainingClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.trainingSave()">저장</button>
+        </div>
+      </div></div>`;
+  }
+
   /* ---------- VIEWS ---------- */
   const views = {
     dashboard() {
@@ -1150,11 +1240,101 @@
           <div id="issBody">${renderIssueBody()}</div>
         </section>`;
     },
+
+    training() {
+      const year = eduCurYear();
+      const crew = eduCrew();
+      const recs = getTraining().filter((r) => String(r.year) === String(year));
+      const doneOf = (name, key) => recs.find((r) => r.name === name && r.key === key) || null;
+      const total = crew.length;
+
+      // 교육별 이수 현황
+      const overview = EDU_TRAININGS.map((t) => {
+        const done = crew.filter((c) => doneOf(c.name, t.key)).length;
+        const pct = total ? Math.round((done / total) * 100) : 0;
+        const mod = pct === 100 ? "is-full" : pct === 0 ? "is-zero" : "";
+        return `<div class="edu-ov">
+          <div class="edu-ov__head">
+            <span class="edu-ov__name">${t.full}</span>
+            <span class="edu-ov__val ${mod}">${done}/${total}명 <small>(${pct}%)</small></span>
+          </div>
+          <span class="edu-ov__track"><span class="edu-ov__fill ${mod}" style="width:${pct}%"></span></span>
+        </div>`;
+      }).join("");
+
+      // 크루별 이수 현황 (매트릭스)
+      const heads = EDU_TRAININGS.map((t) => `<th class="edu-col">${t.label}</th>`).join("");
+      const body = total
+        ? crew.map((c) => {
+            let doneCnt = 0;
+            const cells = EDU_TRAININGS.map((t) => {
+              const r = doneOf(c.name, t.key);
+              if (r) {
+                doneCnt++;
+                const d = esc(r.date).slice(5).replace("-", "/");
+                const cert = r.certUrl
+                  ? `<a class="edu-cert" href="${esc(r.certUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">이수증 ↗</a>`
+                  : "";
+                return `<td class="edu-cell is-done" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="수정">
+                  <span class="edu-done">✓ 이수</span><span class="edu-date">${d}${r.method ? " · " + esc(r.method) : ""}</span>${cert}</td>`;
+              }
+              return `<td class="edu-cell is-miss" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="이수 기록 추가">
+                <span class="edu-miss">미이수</span></td>`;
+            }).join("");
+            const rate = Math.round((doneCnt / EDU_TRAININGS.length) * 100);
+            const rmod = rate === 100 ? "is-full" : rate === 0 ? "is-zero" : "";
+            return `<tr>
+              <td class="edu-name"><b>${esc(c.name)}</b>${c.role ? `<span class="t">${esc(c.role)}</span>` : ""}</td>
+              ${cells}
+              <td class="edu-rate">
+                <span class="edu-rate__val ${rmod}">${rate}%</span>
+                <span class="edu-rate__track"><span class="edu-rate__fill ${rmod}" style="width:${rate}%"></span></span>
+              </td>
+            </tr>`;
+          }).join("")
+        : `<tr><td colspan="${EDU_TRAININGS.length + 2}" class="edu-empty">등록된 크루가 없습니다 · 크루 로스터에서 먼저 등록하세요.</td></tr>`;
+
+      const yearSel = `<select class="edu-year" onchange="GARDEN.trainingYear(this.value)">${
+        eduYears().map((y) => `<option value="${y}" ${String(y) === String(year) ? "selected" : ""}>${y}년</option>`).join("")}</select>`;
+
+      return `
+        <section class="view">
+          <div class="page-head">
+            <div><p class="eyebrow">Crew · 교육</p><h2>크루 교육 관리</h2>
+              <p class="sub">4대 법정의무교육 이수 현황 · 셀을 누르면 이수 기록을 남기고 이수증을 연결합니다</p></div>
+            <div class="seg">
+              ${EDU_DRIVE_URL ? `<a class="btn btn--sm" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">드라이브 ↗</a>` : ""}
+              <button class="btn btn--primary btn--sm" onclick="GARDEN.trainingAddOpen()">＋ 이수 기록 추가</button>
+            </div>
+          </div>
+
+          <div class="dash-card">
+            <div class="card-head"><h3>교육별 이수 현황</h3>
+              <span class="asof" style="margin-left:auto">${year}년 기준</span></div>
+            <div class="edu-ovgrid">${overview}</div>
+          </div>
+
+          <div class="edu-mtx-head">
+            <h3>크루별 이수 현황</h3>
+            <div class="seg">
+              ${yearSel}
+              <button class="btn btn--sm" onclick="GARDEN.trainingCsv()">CSV 내보내기</button>
+            </div>
+          </div>
+          <div class="table-wrap edu-wrap">
+            <table class="grid-table edu-table">
+              <thead><tr><th>가드너</th>${heads}<th class="edu-col">완료율</th></tr></thead>
+              <tbody>${body}</tbody>
+            </table>
+          </div>
+        </section>`;
+    },
   };
 
   const crumbMap = {
     dashboard: "MAIN / DASHBOARD",
     crew: "CREW / ROSTER",
+    training: "CREW / TRAINING",
     issues: "CREW / PLANT ISSUES",
     plants: "CREW / PLANT CHECK",
     floors: "CREW / FLOOR STATUS",
@@ -1645,6 +1825,67 @@
       saveIssues(); this.issueDetailClose(); reIssues(); toast("완료 처리됨 ✓");
     },
 
+    /* --- 크루 교육 관리 --- */
+    trainingYear(y) { _eduYear = String(y); reTraining(); },
+    trainingOpen(name, key) {
+      if (document.getElementById("trainingModal")) return;
+      document.body.insertAdjacentHTML("beforeend", trainingModal(name, key));
+    },
+    trainingAddOpen() {
+      if (document.getElementById("trainingModal")) return;
+      document.body.insertAdjacentHTML("beforeend", trainingModal(null, null));
+      const n = document.getElementById("tf_name"); if (n) n.focus();
+    },
+    trainingClose() { const m = document.getElementById("trainingModal"); if (m) m.remove(); },
+    trainingSave() {
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const name = v("tf_name"), key = v("tf_key"), date = v("tf_date");
+      if (!name) { const n = document.getElementById("tf_name"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      const year = eduCurYear();
+      const list = getTraining();
+      const idx = list.findIndex((r) => r.name === name && r.key === key && String(r.year) === String(year));
+      if (!date) {
+        // 이수일 없음 → 미이수 처리 (기존 기록 제거)
+        if (idx >= 0) { list.splice(idx, 1); saveTraining(); this.trainingClose(); reTraining(); toast("미이수로 처리됨"); return; }
+        const n = document.getElementById("tf_date"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return;
+      }
+      const rec = { name, key, year, date, method: v("tf_method"), certUrl: v("tf_cert"), memo: v("tf_memo") };
+      if (idx >= 0) list[idx] = rec; else list.push(rec);
+      saveTraining(); this.trainingClose(); reTraining(); toast("이수 기록 저장됨 ✓");
+    },
+    trainingDelete() {
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const name = v("tf_name"), key = v("tf_key"), year = eduCurYear();
+      const list = getTraining();
+      const idx = list.findIndex((r) => r.name === name && r.key === key && String(r.year) === String(year));
+      if (idx >= 0) { list.splice(idx, 1); saveTraining(); }
+      this.trainingClose(); reTraining(); toast("미이수로 변경됨");
+    },
+    trainingCsv() {
+      const year = eduCurYear();
+      const crew = eduCrew();
+      const recs = getTraining().filter((r) => String(r.year) === String(year));
+      const doneOf = (name, key) => recs.find((r) => r.name === name && r.key === key) || null;
+      const head = ["가드너"].concat(EDU_TRAININGS.map((t) => t.full)).concat(["완료율"]);
+      const rows = crew.map((c) => {
+        let d = 0;
+        const cells = EDU_TRAININGS.map((t) => {
+          const r = doneOf(c.name, t.key);
+          if (r) { d++; return r.date + (r.method ? " (" + r.method + ")" : ""); }
+          return "미이수";
+        });
+        return [c.name].concat(cells).concat([Math.round((d / EDU_TRAININGS.length) * 100) + "%"]);
+      });
+      const csv = [head].concat(rows).map((r) => r.map((x) => `"${String(x).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `크루교육이수_${year}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast("CSV 내보내기 완료 ✓");
+    },
+
     wbException(dateStr) {
       const b = getBoard();
       b.exceptions = b.exceptions || [];
@@ -1716,6 +1957,9 @@
           // 식물 이슈도 시트가 항상 최신 소스 (여러 담당자 이력 누적)
           _issues = null;
           try { localStorage.removeItem(PI_KEY); } catch (e) {}
+          // 크루 교육 이수도 시트가 항상 최신 소스
+          _training = null;
+          try { localStorage.removeItem(EDU_KEY); } catch (e) {}
           render(currentView());    // 다시 렌더
         }
       })

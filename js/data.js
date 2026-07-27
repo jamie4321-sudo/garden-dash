@@ -106,4 +106,7 @@ window.DATA = {
 
   // 식물 이슈 관리 — 발생 이슈 트래킹 (시트 plantIssues 탭에서 로드)
   plantIssues: [],
+
+  // 크루 교육 관리 — 4대 법정의무교육 이수 기록 (시트 training 탭에서 로드)
+  trainingRecords: [],
 };

@@ -192,6 +192,13 @@ function doGet(e) {
     return r;
   });
 
+  // 크루 교육 관리 — 4대 법정의무교육 이수 기록
+  out.trainingRecords = rows_(ss, 'training').map(function (r) {
+    r.year = String(r.year || '');
+    r.date = dateStr_(r.date);
+    return r;
+  });
+
   return ContentService
     .createTextOutput(JSON.stringify(out))
     .setMimeType(ContentService.MimeType.JSON);
@@ -228,6 +235,10 @@ function doPost(e) {
     if (body.type === 'plantIssues' && body.data) {
       savePlantIssues_(body.data);
       return json_({ ok: true, saved: 'plantIssues' });
+    }
+    if (body.type === 'trainingRecords' && body.data) {
+      saveTraining_(body.data);
+      return json_({ ok: true, saved: 'trainingRecords' });
     }
     return json_({ ok: false, error: 'unknown type' });
   } catch (err) {
@@ -367,6 +378,29 @@ function savePlantIssues_(arr) {
       rows.push([x.date || '', x.building || '', x.location || '', x.category || '',
         x.detail || '', x.species || '', x.urgency || '', x.status || '', x.assignee || '',
         x.action || '', x.photoUrl || '', x.recur ? 'TRUE' : 'FALSE', x.doneAt || '', x.memo || '']);
+    });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 크루 교육 관리 쓰기 — 이수 기록 배열 → training 탭 */
+function saveTraining_(arr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('training') || ss.insertSheet('training');
+    sh.clear();
+    var head = ['name', 'key', 'year', 'date', 'method', 'certUrl', 'memo'];
+    var rows = [head];
+    (arr || []).forEach(function (x) {
+      rows.push([x.name || '', x.key || '', x.year || '', x.date || '',
+        x.method || '', x.certUrl || '', x.memo || '']);
     });
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, head.length).setValues(rows);

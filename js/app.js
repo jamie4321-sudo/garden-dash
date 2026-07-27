@@ -190,7 +190,15 @@
 
   /* ===== 각층 현황 (구글 드라이브) ===== */
   const FLOOR_PARENT = "1JF5VTpU-ldB2jbIZlQUBlPXYof56Bp1s";
+  const FLOORS_KEY = "garden-floors-cache";
   let _floorsCache = null;
+  function readFloorsCache() {
+    try { const s = localStorage.getItem(FLOORS_KEY); if (s) { const o = JSON.parse(s); if (o && Array.isArray(o.floors)) return o.floors; } } catch (e) {}
+    return null;
+  }
+  function writeFloorsCache(floors) {
+    try { localStorage.setItem(FLOORS_KEY, JSON.stringify({ t: Date.now(), floors })); } catch (e) {}
+  }
 
   function floorsRender(floors) {
     if (!floors || !floors.length) return floorsEmpty("아직 등록된 층 폴더가 없습니다.");
@@ -1446,7 +1454,7 @@
   /* 동적 월간 달력 (변동사항 있는 날만 점 표시) */
   function calendarCard(b) {
     const y = _calYM.y, m = _calYM.m;
-    const startDow = (new Date(y, m, 1).getDay() + 6) % 7; // 월=0
+    const startDow = new Date(y, m, 1).getDay(); // 일=0 (일요일 시작)
     const dim = new Date(y, m + 1, 0).getDate();
     const cells = [];
     for (let i = 0; i < startDow; i++) cells.push(null);
@@ -1463,7 +1471,7 @@
         if (d == null) return `<span class="mc__d mc__d--pad"></span>`;
         const ds = `${y}-${_pad(m + 1)}-${_pad(d)}`;
         const isToday = isThisMonth && d === _now.getDate();
-        const wknd = ci >= 5;
+        const wknd = ci === 0 || ci === 6;
         const ex = exMap[ds];
         return `<button class="mc__d ${isToday ? "is-today" : ""} ${wknd ? "is-wknd" : ""} ${ex ? "has-ex" : ""}"
           title="${ex ? esc(ex) : "변동사항 추가"}" onclick="GARDEN.wbException('${ds}')">${d}${ex ? '<i class="mc__dot"></i>' : ""}</button>`;
@@ -1471,8 +1479,8 @@
       grid += `<div class="mc__row">${week}</div>`;
     }
 
-    const wd = ["월", "화", "수", "목", "금", "토", "일"].map((w, i) =>
-      `<span class="${i >= 5 ? "is-wknd" : ""}">${w}</span>`).join("");
+    const wd = ["일", "월", "화", "수", "목", "금", "토"].map((w, i) =>
+      `<span class="${i === 0 || i === 6 ? "is-wknd" : ""}">${w}</span>`).join("");
 
     // 변동사항 목록은 현재 달력에 표시 중인 달(y-m)의 항목만 노출
     const ym = `${y}-${_pad(m + 1)}`;
@@ -1687,12 +1695,28 @@
       const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
       const body = document.getElementById("floorsBody");
       if (!url) { if (body) body.innerHTML = floorsEmpty("API가 연결되지 않았습니다. js/config.js의 API_URL을 확인하세요."); return; }
+      // 메모리 캐시 즉시 표시 (수동 새로고침이 아니면)
       if (_floorsCache && !force) { if (body) body.innerHTML = floorsRender(_floorsCache); return; }
-      if (body) body.innerHTML = floorsSkeleton();
-      fetch(url + "?action=floors&cb=" + Date.now())
+      // 로컬 캐시가 있으면 즉시 표시 후 백그라운드 갱신 (stale-while-revalidate)
+      if (!force && !_floorsCache) {
+        const cached = readFloorsCache();
+        if (cached) _floorsCache = cached;
+      }
+      if (_floorsCache) { if (body) body.innerHTML = floorsRender(_floorsCache); }
+      else if (body) body.innerHTML = floorsSkeleton();
+      // 백그라운드(또는 최초) 갱신 — 수동 새로고침 시 서버 캐시 우회
+      fetch(url + "?action=floors&cb=" + Date.now() + (force ? "&refresh=1" : ""))
         .then((r) => r.json())
-        .then((j) => { _floorsCache = j.floors || []; const b = document.getElementById("floorsBody"); if (b) b.innerHTML = floorsRender(_floorsCache); })
-        .catch((e) => { console.warn("[GARDEN] 각층 현황 로드 실패:", e); const b = document.getElementById("floorsBody"); if (b) b.innerHTML = floorsEmpty("불러오기에 실패했습니다. 새로고침을 눌러주세요."); });
+        .then((j) => {
+          _floorsCache = j.floors || [];
+          writeFloorsCache(_floorsCache);
+          const b = document.getElementById("floorsBody"); if (b) b.innerHTML = floorsRender(_floorsCache);
+        })
+        .catch((e) => {
+          console.warn("[GARDEN] 각층 현황 로드 실패:", e);
+          const b = document.getElementById("floorsBody");
+          if (b && !_floorsCache) b.innerHTML = floorsEmpty("불러오기에 실패했습니다. 새로고침을 눌러주세요.");
+        });
     },
     flOpen(fi, pi) { _lb = { fi, pi }; flShow(); },
     flNav(d) { const ph = flPhotos(_lb.fi); if (!ph.length) return; _lb.pi = (_lb.pi + d + ph.length) % ph.length; flShow(); },

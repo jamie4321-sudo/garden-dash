@@ -113,7 +113,17 @@ function setup() {
 function doGet(e) {
   // 각층 현황(드라이브 사진) 전용 응답
   if (e && e.parameter && e.parameter.action === 'floors') {
-    return json_({ floors: listFloors_() });
+    var fCache = CacheService.getScriptCache();
+    var fKey = 'floors_v1';
+    // 수동 새로고침(refresh=1)이 아니면 캐시 우선 반환 → 드라이브 재탐색 생략(빠름)
+    if (!(e.parameter.refresh === '1')) {
+      var hit = fCache.get(fKey);
+      if (hit) return ContentService.createTextOutput(hit).setMimeType(ContentService.MimeType.JSON);
+    }
+    var fPayload = JSON.stringify({ floors: listFloors_() });
+    // CacheService 값 상한 100KB — 초과 시 캐시 생략(오류 없이)
+    try { if (fPayload.length < 95000) fCache.put(fKey, fPayload, 21600); } catch (err) {}
+    return ContentService.createTextOutput(fPayload).setMimeType(ContentService.MimeType.JSON);
   }
   // 산업안전보건(안전매뉴얼, 드라이브) 전용 응답
   if (e && e.parameter && e.parameter.action === 'safety') {

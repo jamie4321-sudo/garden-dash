@@ -100,4 +100,7 @@ window.DATA = {
 
   // 크루 교육 관리 — 4대 법정의무교육 이수 기록 (시트 training 탭에서 로드)
   trainingRecords: [],
+
+  // 사고 대응 이력 (시트 safetyIncidents 탭에서 로드)
+  safetyIncidents: [],
 };

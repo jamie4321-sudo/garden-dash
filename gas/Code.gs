@@ -209,6 +209,13 @@ function doGet(e) {
     return r;
   });
 
+  // 사고 대응 이력
+  out.safetyIncidents = rows_(ss, 'safetyIncidents').map(function (r) {
+    r.date = dateStr_(r.date);
+    r.resolvedDate = dateStr_(r.resolvedDate);
+    return r;
+  });
+
   return ContentService
     .createTextOutput(JSON.stringify(out))
     .setMimeType(ContentService.MimeType.JSON);
@@ -249,6 +256,10 @@ function doPost(e) {
     if (body.type === 'trainingRecords' && body.data) {
       saveTraining_(body.data);
       return json_({ ok: true, saved: 'trainingRecords' });
+    }
+    if (body.type === 'safetyIncidents' && body.data) {
+      saveSafetyIncidents_(body.data);
+      return json_({ ok: true, saved: 'safetyIncidents' });
     }
     return json_({ ok: false, error: 'unknown type' });
   } catch (err) {
@@ -388,6 +399,29 @@ function savePlantIssues_(arr) {
       rows.push([x.date || '', x.building || '', x.location || '', x.category || '',
         x.detail || '', x.species || '', x.urgency || '', x.status || '', x.assignee || '',
         x.action || '', x.photoUrl || '', x.recur ? 'TRUE' : 'FALSE', x.doneAt || '', x.memo || '']);
+    });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 사고 대응 이력 쓰기 — 사고 배열 → safetyIncidents 탭 (전체 이력 누적) */
+function saveSafetyIncidents_(arr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('safetyIncidents') || ss.insertSheet('safetyIncidents');
+    sh.clear();
+    var head = ['date', 'type', 'place', 'status', 'resolvedDate', 'content', 'action', 'memo'];
+    var rows = [head];
+    (arr || []).forEach(function (x) {
+      rows.push([x.date || '', x.type || '', x.place || '', x.status || '',
+        x.resolvedDate || '', x.content || '', x.action || '', x.memo || '']);
     });
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, head.length).setValues(rows);

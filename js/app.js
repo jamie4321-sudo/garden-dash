@@ -266,10 +266,10 @@
 
   /* ===== 산업안전보건 (정기회의 · 정기 안전점검 — 시트 / 안전매뉴얼 — 드라이브) ===== */
   let _safetyCache = null; // { manual:[], folderUrl:"" }
-  const SAFETY_MANUAL_LIMIT = 5;
+  const SAFETY_MANUAL_LIMIT = 3;
   const SAFETY_BOARD_LIMIT = 3;
   // 목록별 "더보기" 펼침 상태
-  let _safetyExpand = { manual: false, meetings: false, checks: false };
+  let _safetyExpand = { manual: false, meetings: false, checks: false, incidents: false };
   function moreToggleBtn(key, total, limit) {
     if (total <= limit) return "";
     const expanded = !!_safetyExpand[key];
@@ -463,6 +463,92 @@
           ${isNew ? "" : `<button class="btn btn--sm btn--danger" onclick="GARDEN.safetyCheckDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
           <button class="btn btn--sm" onclick="GARDEN.safetyCheckClose()">취소</button>
           <button class="btn btn--primary btn--sm" onclick="GARDEN.safetyCheckSave(${isNew ? "null" : i})">저장</button>
+        </div>
+      </div></div>`;
+  }
+
+  /* ===== 사고 대응 이력 (게시판 · 누적) ===== */
+  const SIC_KEY = "garden-safety-incidents";
+  const INCIDENT_TYPES = ["안전사고", "아차사고", "화재", "설비사고", "질병", "기타"];
+  const INCIDENT_STATUS = ["접수", "조사중", "조치중", "완료"];
+  let _safetyIncidents = null;
+  function normalizeIncidents(arr) {
+    return (arr || []).map((x) => ({
+      date: x.date || "", type: x.type || "안전사고", place: x.place || "",
+      status: x.status || "접수", resolvedDate: x.resolvedDate || "",
+      content: x.content || "", action: x.action || "", memo: x.memo || "",
+    }));
+  }
+  function getIncidents() {
+    if (_safetyIncidents) return _safetyIncidents;
+    try { const s = localStorage.getItem(SIC_KEY); if (s) _safetyIncidents = normalizeIncidents(JSON.parse(s)); } catch (e) {}
+    if (!_safetyIncidents) _safetyIncidents = normalizeIncidents(D.safetyIncidents || []);
+    return _safetyIncidents;
+  }
+  function saveIncidents() {
+    try { localStorage.setItem(SIC_KEY, JSON.stringify(_safetyIncidents)); } catch (e) {}
+    pushIncidentsRemote();
+  }
+  let _pushSICT = null;
+  function pushIncidentsRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_safetyIncidents) return;
+    clearTimeout(_pushSICT);
+    _pushSICT = setTimeout(() => {
+      fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "safetyIncidents", data: _safetyIncidents }) })
+        .catch((e) => console.warn("[GARDEN] 사고 이력 저장 실패:", e));
+    }, 700);
+  }
+
+  function incidentCard(x, i) {
+    const done = x.status === "완료";
+    return `<div class="chk-card">
+      <div class="chk-head">
+        <p class="chk-title">${esc(x.type)}${x.date ? ` · ${esc(x.date)}` : ""}</p>
+        <span class="iss-tag ${done ? "iss-tag--done" : ""}">${esc(x.status)}</span>
+        <button class="btn btn--sm" onclick="GARDEN.incidentOpen(${i})">수정</button>
+        <button class="btn btn--sm btn--danger" onclick="GARDEN.incidentQuickDelete(${i})">삭제</button>
+      </div>
+      <div class="chk-grid">
+        <div><span class="chk-label">발생일</span><b>${esc(x.date) || "—"}</b></div>
+        <div><span class="chk-label">발생 장소</span><b>${esc(x.place) || "—"}</b></div>
+        <div><span class="chk-label">해결일</span><b>${esc(x.resolvedDate) || "—"}</b></div>
+      </div>
+      <div class="chk-row"><span class="chk-label">사고 내용</span><p>${esc(x.content) || "—"}</p></div>
+      ${x.action ? `<div class="chk-row"><span class="chk-label">조치 내용</span><p>${esc(x.action)}</p></div>` : ""}
+      ${x.memo ? `<div class="chk-row"><span class="chk-label">비고</span><p>${esc(x.memo)}</p></div>` : ""}
+    </div>`;
+  }
+  function incidentModal(i) {
+    const isNew = i == null;
+    const x = isNew ? { date: "", type: "안전사고", place: "", status: "접수", resolvedDate: "", content: "", action: "", memo: "" } : getIncidents()[i];
+    if (!x) return "";
+    const typeOpts = INCIDENT_TYPES.map((t) => `<option ${x.type === t ? "selected" : ""}>${t}</option>`).join("");
+    const statusOpts = INCIDENT_STATUS.map((s) => `<option ${x.status === s ? "selected" : ""}>${s}</option>`).join("");
+    return `<div class="gmodal" id="incidentModal">
+      <div class="gmodal__bd" onclick="GARDEN.incidentClose()"></div>
+      <div class="gmodal__card gmodal__card--wide">
+        <div class="gmodal__head"><h3>${isNew ? "사고 이력 등록" : "사고 이력 수정"}</h3>
+          <button class="gmodal__x" onclick="GARDEN.incidentClose()">×</button></div>
+        <div class="gform">
+          <div class="fld-row fld-row--3">
+            <label class="fld"><span>발생일 *</span><input id="sic_date" type="date" value="${esc(x.date)}"/></label>
+            <label class="fld"><span>사고 유형 *</span><select id="sic_type">${typeOpts}</select></label>
+            <label class="fld"><span>발생 장소</span><input id="sic_place" value="${esc(x.place)}" placeholder="예: 4층 북아지트"/></label>
+          </div>
+          <div class="fld-row">
+            <label class="fld"><span>처리 상태</span><select id="sic_status">${statusOpts}</select></label>
+            <label class="fld"><span>해결일</span><input id="sic_resolved" type="date" value="${esc(x.resolvedDate)}"/></label>
+          </div>
+          <label class="fld"><span>사고 내용 *</span><textarea id="sic_content" rows="3" placeholder="언제·어디서·무슨 일이 있었는지">${esc(x.content)}</textarea></label>
+          <label class="fld"><span>조치 내용</span><textarea id="sic_action" rows="2" placeholder="어떻게 대응했는지">${esc(x.action)}</textarea></label>
+          <label class="fld"><span>비고</span><input id="sic_memo" value="${esc(x.memo)}" placeholder="기타 특이사항(선택)"/></label>
+        </div>
+        <div class="gmodal__foot">
+          ${isNew ? "" : `<button class="btn btn--sm btn--danger" onclick="GARDEN.incidentDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
+          <button class="btn btn--sm" onclick="GARDEN.incidentClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.incidentSave(${isNew ? "null" : i})">저장</button>
         </div>
       </div></div>`;
   }
@@ -1220,6 +1306,12 @@
       const checkCards = checksShown.length
         ? checksShown.map(({ c, i }) => safetyCheckCard(c, i)).join("")
         : `<p class="muted" style="margin:6px 0">등록된 점검 기록이 없습니다.</p>`;
+      const incidentList = getIncidents();
+      const incidentsAll = incidentList.map((x, i) => ({ x, i })).sort((a, b) => (a.x.date < b.x.date ? 1 : -1));
+      const incidentsShown = _safetyExpand.incidents ? incidentsAll : incidentsAll.slice(0, SAFETY_BOARD_LIMIT);
+      const incidentCards = incidentsShown.length
+        ? incidentsShown.map(({ x, i }) => incidentCard(x, i)).join("")
+        : `<p class="muted" style="margin:6px 0">등록된 사고 이력이 없습니다.</p>`;
 
       return `
         <section class="view">
@@ -1248,6 +1340,17 @@
               <div class="chk-board">${checkCards}</div>
               ${moreToggleBtn("checks", checksAll.length, SAFETY_BOARD_LIMIT)}
             </div>
+          </div>
+
+          <div class="dash-card" style="margin-top:16px">
+            <div class="card-head"><h3>사고 대응 이력</h3>
+              <div class="seg" style="margin-left:auto">
+                <button class="btn btn--sm" onclick="GARDEN.incidentCsv()">CSV 내보내기</button>
+                <button class="btn btn--primary btn--sm" onclick="GARDEN.incidentOpen(null)">＋ 사고 등록</button>
+              </div>
+            </div>
+            <div class="chk-board">${incidentCards}</div>
+            ${moreToggleBtn("incidents", incidentsAll.length, SAFETY_BOARD_LIMIT)}
           </div>
         </section>`;
     },
@@ -1814,6 +1917,54 @@
       list.splice(i, 1); saveSafetyChecks(); reSafety(); toast("점검 기록 삭제됨 ✓");
     },
 
+    /* --- 사고 대응 이력 --- */
+    incidentOpen(i) {
+      if (document.getElementById("incidentModal")) return;
+      document.body.insertAdjacentHTML("beforeend", incidentModal(i));
+      const n = document.getElementById("sic_date"); if (n && i == null) n.focus();
+    },
+    incidentClose() { const m = document.getElementById("incidentModal"); if (m) m.remove(); },
+    incidentSave(i) {
+      if (!checkSafetyPw()) return;
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const date = v("sic_date");
+      if (!date) { const n = document.getElementById("sic_date"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      const content = v("sic_content");
+      if (!content) { const n = document.getElementById("sic_content"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      const rec = {
+        date, type: v("sic_type") || "안전사고", place: v("sic_place"), status: v("sic_status") || "접수",
+        resolvedDate: v("sic_resolved"), content, action: v("sic_action"), memo: v("sic_memo"),
+      };
+      const list = getIncidents();
+      if (i == null) list.unshift(rec); else if (list[i]) list[i] = rec; else return;
+      saveIncidents(); this.incidentClose(); reSafety(); toast("사고 이력 저장됨 ✓");
+    },
+    incidentDelete(i) {
+      if (!checkSafetyPw()) return;
+      const list = getIncidents(); if (!list[i]) return;
+      if (!window.confirm("이 사고 이력을 삭제할까요? 되돌릴 수 없습니다.")) return;
+      list.splice(i, 1); saveIncidents(); this.incidentClose(); reSafety(); toast("사고 이력 삭제됨 ✓");
+    },
+    incidentQuickDelete(i) {
+      if (!checkSafetyPw()) return;
+      const list = getIncidents(); if (!list[i]) return;
+      if (!window.confirm("이 사고 이력을 삭제할까요? 되돌릴 수 없습니다.")) return;
+      list.splice(i, 1); saveIncidents(); reSafety(); toast("사고 이력 삭제됨 ✓");
+    },
+    incidentCsv() {
+      const list = getIncidents();
+      const head = ["발생일", "사고유형", "발생장소", "처리상태", "해결일", "사고내용", "조치내용", "비고"];
+      const rows = list.map((x) => [x.date, x.type, x.place, x.status, x.resolvedDate, x.content, x.action, x.memo]);
+      const csv = [head].concat(rows).map((r) => r.map((c) => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `사고대응이력_${issueTodayStr()}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast("CSV 내보내기 완료 ✓");
+    },
+
     /* --- 식물 상태 점검 --- */
     plantTab(t) { _plantTab = t; rePlants(); },
     plantRound(r) { _plantRound = r; rePlants(); },
@@ -2022,6 +2173,8 @@
           try { localStorage.removeItem(SAFETY_KEY); } catch (e) {}
           _safetyChecks = null;
           try { localStorage.removeItem(CHECK_KEY); } catch (e) {}
+          _safetyIncidents = null;
+          try { localStorage.removeItem(SIC_KEY); } catch (e) {}
           // 식물 이슈도 시트가 항상 최신 소스 (여러 담당자 이력 누적)
           _issues = null;
           try { localStorage.removeItem(PI_KEY); } catch (e) {}

@@ -577,6 +577,7 @@
   const ISS_URGENCY = ["일반", "주의", "긴급"];
   const ISS_BUILDINGS = ["A동", "B동", "공용부", "외부"];
   const ISS_CATEGORIES = ["미화 관련", "유지관리 관련", "병해충", "관수/급수", "시설/환경", "기타"];
+  const ISSUE_DRIVE_URL = "https://drive.google.com/drive/folders/1h4a18kLTyOhLhg0FMWOUaJLtGR6R8gPr";
   let _issues = null, _issueView = "board", _issueUrg = "all", _issueQuery = "";
   let _issueCollapsed = { "완료": true };
 
@@ -626,11 +627,14 @@
 
   function issueRow(x, i) {
     const md = esc(x.date) ? esc(x.date).slice(5) : "—";
+    const right = (x.status === "완료" && x.doneAt)
+      ? `<span class="iss-row__done" title="완료일 ${esc(x.doneAt)}">✓ ${esc(x.doneAt).slice(5)}</span>`
+      : `<span class="iss-row__urg" data-u="${esc(x.urgency)}">${esc(x.urgency)}</span>`;
     return `<div class="iss-row ${x.status === "완료" ? "iss-row--done" : ""}" onclick="GARDEN.issueOpen(${i})">
       <span class="iss-row__date">${md}</span>
       <span class="iss-row__loc"><span class="iss-chip-b">${esc(x.building)}</span>${x.location ? `<span class="iss-row__place">${esc(x.location)}</span>` : ""}</span>
       <span class="iss-row__main"><span class="iss-row__title">${esc(x.detail) || "제목 없음"}</span>${x.category ? `<span class="iss-row__cat">${esc(x.category)}</span>` : ""}${x.recur ? `<span class="iss-recur-sm">반복</span>` : ""}</span>
-      <span class="iss-row__urg" data-u="${esc(x.urgency)}">${esc(x.urgency)}</span>
+      ${right}
       <span class="iss-row__who">${esc(x.assignee) || "—"}</span>
     </div>`;
   }
@@ -737,7 +741,8 @@
           </div>
           <div class="fld-row">
             <label class="fld"><span>처리 완료 일시</span><input id="if_done" type="date" value="${esc(x.doneAt)}"/></label>
-            <label class="fld"><span>사진 링크</span><input id="if_photo" value="${esc(x.photoUrl)}" placeholder="구글 드라이브 · 사진 URL(선택)"/></label>
+            <label class="fld"><span>사진 링크</span><input id="if_photo" value="${esc(x.photoUrl)}" placeholder="사진 URL 붙여넣기(선택)"/>
+              <a class="fld-hint" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">이슈 드라이브 폴더 열기 ↗</a></label>
           </div>
           <label class="fld"><span>조치 내용</span><textarea id="if_action" rows="2" placeholder="어떻게 조치했는지 기록">${esc(x.action)}</textarea></label>
           <label class="fld"><span>비고</span><textarea id="if_memo" rows="2" placeholder="기타 특이사항">${esc(x.memo)}</textarea></label>
@@ -1121,8 +1126,11 @@
         <section class="view">
           <div class="page-head">
             <div><p class="eyebrow">Crew · 식물 관리</p><h2>식물 이슈 관리</h2>
-              <p class="sub">발생한 식물 이슈를 접수부터 완료까지 한눈에 추적합니다 · 카드를 누르면 상세가 열립니다</p></div>
-            <button class="btn btn--primary btn--sm" onclick="GARDEN.issueAddOpen()">＋ 이슈 등록</button>
+              <p class="sub">발생한 식물 이슈를 접수부터 완료까지 한눈에 추적합니다 · 행을 누르면 상세가 열립니다</p></div>
+            <div class="seg">
+              <a class="btn btn--sm" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">드라이브 ↗</a>
+              <button class="btn btn--primary btn--sm" onclick="GARDEN.issueAddOpen()">＋ 이슈 등록</button>
+            </div>
           </div>
           <div class="iss-stats">
             ${stat("총 이슈", total, "건")}

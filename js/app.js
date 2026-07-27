@@ -6,6 +6,7 @@
   const D = window.DATA;
   const app = document.getElementById("app");
   const crumb = document.getElementById("crumb");
+  let _booting = false; // 시트 최초 로딩 중 → 스켈레톤 표시
 
   /* ---------- helpers ---------- */
   const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -940,9 +941,53 @@
       </div></div>`;
   }
 
+  /* ===== 로딩 스켈레톤 (시트 최초 로드 중) ===== */
+  function sproutLoader(text) {
+    return `<div class="boot">
+      <svg class="sprout" viewBox="0 0 48 60" aria-hidden="true">
+        <path class="sprout__stem" d="M24 58 V28"/>
+        <path class="sprout__leaf sprout__leaf--l" d="M24 34 C10 34 6 22 9 13 C21 14 27 25 24 34 Z"/>
+        <path class="sprout__leaf sprout__leaf--r" d="M24 30 C38 30 42 18 39 9 C27 10 21 21 24 30 Z"/>
+      </svg>
+      <span class="boot__label">${esc(text || "불러오는 중")}</span>
+    </div>`;
+  }
+  function skRows(n, cols) {
+    cols = cols || [38, 18, 14, 12];
+    return `<div class="sk-rows">` + Array.from({ length: n }).map(() =>
+      `<div class="sk-row">${cols.map((w) => `<span class="sk sk-line" style="width:${w}%"></span>`).join("")}</div>`).join("") + `</div>`;
+  }
+  function dashSkeleton() {
+    return `<section class="view">
+      <div class="page-head"><div><p class="eyebrow">Overview</p><h2>운영 대시보드</h2>
+        <p class="sub">현황을 불러오고 있어요</p></div></div>
+      ${sproutLoader("대시보드 불러오는 중")}
+      <div class="dash-grid"><div class="sk sk-card"></div><div class="sk sk-card"></div></div>
+    </section>`;
+  }
+  function crewSkeleton() {
+    return `<section class="view">
+      <div class="page-head"><div><p class="eyebrow">Crew</p><h2>크루 로스터</h2>
+        <p class="sub">명단을 불러오고 있어요</p></div></div>
+      ${sproutLoader("크루 명단 불러오는 중")}
+      <div class="dash-grid"><div class="sk sk-card"></div><div class="sk sk-card"></div></div>
+      <div class="table-wrap">${skRows(6)}</div>
+    </section>`;
+  }
+  function trainingSkeleton() {
+    return `<section class="view">
+      <div class="page-head"><div><p class="eyebrow">Crew · 교육</p><h2>크루 교육 관리</h2>
+        <p class="sub">이수 현황을 불러오고 있어요</p></div></div>
+      ${sproutLoader("교육 현황 불러오는 중")}
+      <div class="dash-card"><div class="sk sk-card sk-card--flat"></div></div>
+      <div class="table-wrap" style="margin-top:14px">${skRows(4, [24, 60])}</div>
+    </section>`;
+  }
+
   /* ---------- VIEWS ---------- */
   const views = {
     dashboard() {
+      if (_booting && !getCrew().length) return dashSkeleton();
       return `
         <section class="view">
           <div class="page-head">
@@ -957,6 +1002,7 @@
     },
 
     crew() {
+      if (_booting && !getCrew().length) return crewSkeleton();
       const list = getCrew();
       const disType = (c) => (c.disability == null ? "" : String(c.disability).trim());
       const rank = { active: 0, leave: 1, out: 2 };
@@ -1241,6 +1287,7 @@
     },
 
     training() {
+      if (_booting && !getCrew().length) return trainingSkeleton();
       const year = eduCurYear();
       const crew = eduCrew();
       const recs = getTraining().filter((r) => String(r.year) === String(year));
@@ -1925,6 +1972,7 @@
     fetch(url, { redirect: "follow" })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((json) => {
+        _booting = false;
         if (json && typeof json === "object") {
           // 빈 값(빈 배열/빈 문자열)은 무시 → 백엔드 미설정 시 목 데이터 보존
           Object.keys(json).forEach((k) => {
@@ -1957,12 +2005,19 @@
           _training = null;
           try { localStorage.removeItem(EDU_KEY); } catch (e) {}
           render(currentView());    // 다시 렌더
+        } else {
+          render(currentView());    // 스켈레톤 해제
         }
       })
-      .catch((err) => console.warn("[GARDEN] API 로드 실패, 목 데이터 사용:", err));
+      .catch((err) => {
+        _booting = false;
+        console.warn("[GARDEN] API 로드 실패, 목 데이터 사용:", err);
+        render(currentView());       // 스켈레톤 해제 (빈 상태/목 데이터 표시)
+      });
   }
 
   /* ---------- boot ---------- */
+  if ((window.CONFIG && window.CONFIG.API_URL || "").trim()) _booting = true;
   render(currentView());
   loadRemote();
 })();

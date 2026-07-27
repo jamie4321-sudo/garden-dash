@@ -860,7 +860,7 @@
     { key: "privacy",    label: "개인정보<br>보호",   full: "개인정보보호교육" },
   ];
   const EDU_METHODS = ["온라인", "집합교육", "직장교육", "외부교육"];
-  const EDU_DRIVE_URL = ""; // 이수증 드라이브 폴더 URL (설정 시 상단 버튼·폼 바로가기 노출)
+  const EDU_DRIVE_URL = "https://drive.google.com/drive/folders/1XxOT_SdPj7ppXQE7d1hkN3X_ZnWOWwdY"; // 이수증 드라이브 폴더
   let _training = null, _eduYear = null;
 
   function normalizeTraining(arr) {
@@ -928,9 +928,8 @@
             <label class="fld"><span>이수일 *</span><input id="tf_date" type="date" value="${esc(r.date)}"/></label>
             <label class="fld"><span>교육 방식</span><select id="tf_method">${methodOpts}</select></label>
           </div>
-          <label class="fld"><span>이수증 링크</span><input id="tf_cert" value="${esc(r.certUrl)}" placeholder="구글 드라이브 이수증 파일 URL"/>
-            ${EDU_DRIVE_URL ? `<a class="fld-hint" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">이수증 드라이브 폴더 열기 ↗</a>` : ""}</label>
-          <label class="fld"><span>비고</span><input id="tf_memo" value="${esc(r.memo)}" placeholder="메모(선택)"/></label>
+          <label class="fld"><span>비고</span><input id="tf_memo" value="${esc(r.memo)}" placeholder="메모(선택)"/>
+            ${EDU_DRIVE_URL ? `<a class="fld-hint" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">이수증 폴더 열기 ↗</a>` : ""}</label>
           <p class="edu-hint">이수일을 비우고 저장하면 <b>미이수</b>로 처리됩니다 · 기준 연도: <b>${year}</b></p>
         </div>
         <div class="gmodal__foot">
@@ -1272,11 +1271,8 @@
               if (r) {
                 doneCnt++;
                 const d = esc(r.date).slice(5).replace("-", "/");
-                const cert = r.certUrl
-                  ? `<a class="edu-cert" href="${esc(r.certUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">이수증 ↗</a>`
-                  : "";
                 return `<td class="edu-cell is-done" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="수정">
-                  <span class="edu-done">✓ 이수</span><span class="edu-date">${d}${r.method ? " · " + esc(r.method) : ""}</span>${cert}</td>`;
+                  <span class="edu-done">✓ 이수</span><span class="edu-date">${d}${r.method ? " · " + esc(r.method) : ""}</span></td>`;
               }
               return `<td class="edu-cell is-miss" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="이수 기록 추가">
                 <span class="edu-miss">미이수</span></td>`;
@@ -1303,7 +1299,7 @@
             <div><p class="eyebrow">Crew · 교육</p><h2>크루 교육 관리</h2>
               <p class="sub">4대 법정의무교육 이수 현황 · 셀을 누르면 이수 기록을 남기고 이수증을 연결합니다</p></div>
             <div class="seg">
-              ${EDU_DRIVE_URL ? `<a class="btn btn--sm" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">드라이브 ↗</a>` : ""}
+              ${EDU_DRIVE_URL ? `<a class="btn btn--sm" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">이수증 확인 ↗</a>` : ""}
               <button class="btn btn--primary btn--sm" onclick="GARDEN.trainingAddOpen()">＋ 이수 기록 추가</button>
             </div>
           </div>
@@ -1849,7 +1845,7 @@
         if (idx >= 0) { list.splice(idx, 1); saveTraining(); this.trainingClose(); reTraining(); toast("미이수로 처리됨"); return; }
         const n = document.getElementById("tf_date"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return;
       }
-      const rec = { name, key, year, date, method: v("tf_method"), certUrl: v("tf_cert"), memo: v("tf_memo") };
+      const rec = { name, key, year, date, method: v("tf_method"), certUrl: "", memo: v("tf_memo") };
       if (idx >= 0) list[idx] = rec; else list.push(rec);
       saveTraining(); this.trainingClose(); reTraining(); toast("이수 기록 저장됨 ✓");
     },

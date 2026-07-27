@@ -780,6 +780,102 @@ button { font-family: inherit; }
   .chk-grid { grid-template-columns: 1fr; gap: 8px; }
 }
 
+/* =========================================================
+   PLANT ISSUES (식물 이슈 관리 — 상태별 그룹 리스트 · 미니멀)
+   색상 바 없이 타이포·헤어라인으로만 위계 구성
+   ========================================================= */
+.iss-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 18px; }
+.iss-stat { border: 1px solid var(--line-soft); border-radius: var(--r); padding: 16px 18px; background: var(--card-bg); }
+.iss-stat__n { font-family: var(--mono); font-size: 28px; font-weight: 700; letter-spacing: -1px; line-height: 1; }
+.iss-stat__n small { font-size: 12px; color: var(--ink-3); font-weight: 500; margin-left: 3px; }
+.iss-stat__n--red { color: var(--red); }
+.iss-stat__n--acid { color: var(--accent-text); }
+.iss-stat__l { color: var(--ink-3); font-family: var(--mono); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; margin-top: 10px; }
+
+.iss-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.iss-seg { display: flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 12px; padding: 4px; }
+.iss-segbtn { border: none; background: transparent; color: var(--ink-3); cursor: pointer; font-size: 12.5px; font-weight: 600; padding: 8px 16px; border-radius: 9px; transition: color .14s, background .14s; }
+.iss-segbtn:hover { color: var(--ink); }
+.iss-segbtn.is-on { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.iss-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.iss-chip { border: 1px solid var(--line); background: var(--panel-2); color: var(--ink-2); font-family: var(--mono); font-size: 11.5px; padding: 7px 13px; border-radius: 999px; cursor: pointer; transition: border-color .14s, color .14s; }
+.iss-chip:hover { border-color: color-mix(in srgb, var(--ink-3) 55%, transparent); color: var(--ink); }
+.iss-chip.is-on { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 700; }
+.iss-search { flex: 1; min-width: 180px; }
+
+/* 상태별 그룹 리스트 */
+.iss-groups { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--card-bg); overflow: hidden; box-shadow: var(--shadow); }
+.iss-group { border-bottom: 1px solid var(--line); }
+.iss-group:last-child { border-bottom: none; }
+.iss-ghead { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; font: inherit; cursor: pointer; padding: 13px 18px; background: var(--panel); border: none; border-bottom: 1px solid var(--line-soft); transition: background .12s; }
+.iss-ghead:hover { background: var(--panel-2); }
+.iss-group.is-collapsed .iss-ghead { border-bottom: none; }
+.iss-ghead__name { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--ink-2); }
+.iss-ghead__n { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--ink-3); background: var(--panel-2); border-radius: 999px; padding: 2px 9px; min-width: 22px; text-align: center; }
+.iss-ghead__chev { margin-left: auto; color: var(--ink-3); font-size: 10px; transition: transform .16s; }
+.iss-group.is-collapsed .iss-ghead__chev { transform: rotate(-90deg); }
+
+.iss-row { display: grid; grid-template-columns: 60px minmax(120px, 1fr) minmax(0, 1.7fr) 52px 64px; align-items: center; gap: 16px; padding: 13px 18px; border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background .12s; }
+.iss-row:last-child { border-bottom: none; }
+.iss-row:hover { background: var(--panel-2); }
+.iss-row--done { opacity: .5; }
+.iss-row--done:hover { opacity: 1; }
+.iss-row__date { font-family: var(--mono); font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.iss-row__loc { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.iss-chip-b { font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--ink-2); background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; flex: none; }
+.iss-row__place { font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iss-row__main { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
+.iss-row__title { font-size: 13.5px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iss-row__cat { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); white-space: nowrap; flex: none; }
+.iss-row__urg { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: .3px; color: var(--ink-3); text-align: right; white-space: nowrap; }
+.iss-row__urg[data-u="주의"] { color: var(--ink-2); }
+.iss-row__urg[data-u="긴급"] { color: var(--red); }
+.iss-row__who { font-size: 12px; color: var(--ink-2); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iss-recur-sm { font-family: var(--mono); font-size: 9px; font-weight: 700; color: var(--ink-3); border: 1px solid var(--line); border-radius: 999px; padding: 1px 6px; flex: none; white-space: nowrap; }
+
+/* 태그 (상세 모달 · 테이블 공용) */
+.iss-tag { font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--ink-2); background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+.iss-urgtext { font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: .3px; color: var(--ink-3); }
+.iss-urgtext[data-u="긴급"] { color: var(--red); }
+
+/* 목록(테이블) 뷰 */
+.iss-table tbody tr { cursor: pointer; }
+.iss-table tr.is-done { opacity: .5; }
+.iss-td-title { font-weight: 600; }
+.iss-empty { display: grid; place-items: center; min-height: 30vh; border: 1px dashed var(--line); border-radius: 16px; color: var(--ink-3); }
+
+/* 상세 모달 */
+.gmodal__card--wide { max-width: 620px; max-height: 88vh; overflow-y: auto; }
+.issd-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.issd-head h3 { margin: 6px 0 0; font-size: 18px; font-weight: 800; letter-spacing: -.4px; width: 100%; }
+.issd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px 22px; }
+.issd-row { display: flex; flex-direction: column; gap: 3px; }
+.issd-lbl { font-family: var(--mono); font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-3); }
+.issd-val { font-size: 13.5px; color: var(--ink); }
+.issd-block { margin-top: 14px; }
+.issd-block p { margin: 4px 0 0; font-size: 13px; color: var(--ink-2); line-height: 1.55; white-space: pre-wrap; }
+.issd-photo { margin-top: 14px; display: inline-block; }
+
+/* 폼 확장 (textarea · 3열 · 체크박스) */
+.fld textarea { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px 12px; color: var(--ink); font-size: 13px; font-family: inherit; outline: none; resize: vertical; transition: border-color .14s; }
+.fld textarea:focus { border-color: var(--accent); }
+.fld textarea::placeholder { color: var(--ink-3); }
+.fld-row--3 { grid-template-columns: 1fr 1fr 1fr; }
+.fld-check { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.fld-check input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+@media (max-width: 1100px) {
+  .iss-stats { grid-template-columns: repeat(3, 1fr); }
+  .fld-row--3 { grid-template-columns: 1fr; }
+  .issd-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 720px) {
+  .iss-stats { grid-template-columns: repeat(2, 1fr); }
+  .iss-row { grid-template-columns: 52px 1fr auto; gap: 10px; }
+  .iss-row__main { grid-column: 1 / -1; }
+  .iss-row__who { display: none; }
+}
+
 /* toast */
 .toast {
   position: fixed; right: 22px; bottom: 22px; z-index: 200;

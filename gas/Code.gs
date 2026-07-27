@@ -184,6 +184,14 @@ function doGet(e) {
     return r;
   });
 
+  // 식물 이슈 관리 — 이슈 이력
+  out.plantIssues = rows_(ss, 'plantIssues').map(function (r) {
+    r.date = dateStr_(r.date);
+    r.doneAt = dateStr_(r.doneAt);
+    r.recur = boolify_(r.recur);
+    return r;
+  });
+
   return ContentService
     .createTextOutput(JSON.stringify(out))
     .setMimeType(ContentService.MimeType.JSON);
@@ -216,6 +224,10 @@ function doPost(e) {
     if (body.type === 'safetyChecks' && body.data) {
       saveSafetyChecks_(body.data);
       return json_({ ok: true, saved: 'safetyChecks' });
+    }
+    if (body.type === 'plantIssues' && body.data) {
+      savePlantIssues_(body.data);
+      return json_({ ok: true, saved: 'plantIssues' });
     }
     return json_({ ok: false, error: 'unknown type' });
   } catch (err) {
@@ -330,6 +342,31 @@ function saveSafetyChecks_(arr) {
     (arr || []).forEach(function (c) {
       rows.push([c.title || '', c.date || '', c.org || '', c.result || '', c.action || '',
         c.sentDate || '', c.driveUrl || '', c.done ? 'TRUE' : 'FALSE']);
+    });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 식물 이슈 관리 쓰기 — 이슈 배열 → plantIssues 탭 (전체 이력 누적) */
+function savePlantIssues_(arr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('plantIssues') || ss.insertSheet('plantIssues');
+    sh.clear();
+    var head = ['date', 'building', 'location', 'category', 'detail', 'species',
+      'urgency', 'status', 'assignee', 'action', 'photoUrl', 'recur', 'doneAt', 'memo'];
+    var rows = [head];
+    (arr || []).forEach(function (x) {
+      rows.push([x.date || '', x.building || '', x.location || '', x.category || '',
+        x.detail || '', x.species || '', x.urgency || '', x.status || '', x.assignee || '',
+        x.action || '', x.photoUrl || '', x.recur ? 'TRUE' : 'FALSE', x.doneAt || '', x.memo || '']);
     });
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, head.length).setValues(rows);

@@ -571,6 +571,185 @@
         <div class="card-head"><h3>이슈 기록</h3><span class="chip-mono">${issues.length}건</span></div>
         ${issueHtml}</div>`;
   }
+  /* ===== 식물 이슈 관리 (칸반 · 게시판 · 상세) ===== */
+  const PI_KEY = "garden-plant-issues";
+  const ISS_STATUS = ["접수", "확인중", "조치중", "관찰중", "완료"];
+  const ISS_URGENCY = ["일반", "주의", "긴급"];
+  const ISS_BUILDINGS = ["A동", "B동", "공용부", "외부"];
+  const ISS_CATEGORIES = ["미화 관련", "유지관리 관련", "병해충", "관수/급수", "시설/환경", "기타"];
+  let _issues = null, _issueView = "board", _issueUrg = "all", _issueQuery = "";
+  let _issueCollapsed = { "완료": true };
+
+  function normalizeIssues(arr) {
+    return (arr || []).map((x) => ({
+      date: x.date || "", building: x.building || "A동", location: x.location || "",
+      category: x.category || "미화 관련", detail: x.detail || "", species: x.species || "",
+      urgency: x.urgency || "일반", status: x.status || "접수", assignee: x.assignee || "",
+      action: x.action || "", photoUrl: x.photoUrl || "", recur: !!x.recur,
+      doneAt: x.doneAt || "", memo: x.memo || "",
+    }));
+  }
+  function getIssues() {
+    if (_issues) return _issues;
+    try { const s = localStorage.getItem(PI_KEY); if (s) _issues = normalizeIssues(JSON.parse(s)); } catch (e) {}
+    if (!_issues) _issues = normalizeIssues(D.plantIssues || []);
+    return _issues;
+  }
+  function saveIssues() {
+    try { localStorage.setItem(PI_KEY, JSON.stringify(_issues)); } catch (e) {}
+    pushIssuesRemote();
+  }
+  let _pushIT = null;
+  function pushIssuesRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_issues) return;
+    clearTimeout(_pushIT);
+    _pushIT = setTimeout(() => {
+      fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "plantIssues", data: _issues }) })
+        .catch((e) => console.warn("[GARDEN] 식물 이슈 저장 실패:", e));
+    }, 700);
+  }
+  function reIssues() { app.innerHTML = views.issues(); }
+  function issueTodayStr() { return `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`; }
+  function issueMatch(x) {
+    if (_issueUrg !== "all" && x.urgency !== _issueUrg) return false;
+    if (_issueQuery) {
+      const hay = [x.date, x.building, x.location, x.category, x.detail, x.species, x.assignee, x.action, x.memo]
+        .join(" ").toLowerCase();
+      if (!hay.includes(_issueQuery)) return false;
+    }
+    return true;
+  }
+  const issTag = (t) => `<span class="iss-tag">${esc(t)}</span>`;
+  const issUrgText = (u) => `<span class="iss-urgtext" data-u="${esc(u)}">${esc(u)}</span>`;
+
+  function issueRow(x, i) {
+    const md = esc(x.date) ? esc(x.date).slice(5) : "—";
+    return `<div class="iss-row ${x.status === "완료" ? "iss-row--done" : ""}" onclick="GARDEN.issueOpen(${i})">
+      <span class="iss-row__date">${md}</span>
+      <span class="iss-row__loc"><span class="iss-chip-b">${esc(x.building)}</span>${x.location ? `<span class="iss-row__place">${esc(x.location)}</span>` : ""}</span>
+      <span class="iss-row__main"><span class="iss-row__title">${esc(x.detail) || "제목 없음"}</span>${x.category ? `<span class="iss-row__cat">${esc(x.category)}</span>` : ""}${x.recur ? `<span class="iss-recur-sm">반복</span>` : ""}</span>
+      <span class="iss-row__urg" data-u="${esc(x.urgency)}">${esc(x.urgency)}</span>
+      <span class="iss-row__who">${esc(x.assignee) || "—"}</span>
+    </div>`;
+  }
+  function issueGroups(withIdx) {
+    const groups = ISS_STATUS.map((st) => ({ st, items: withIdx.filter(({ x }) => x.status === st) }))
+      .filter((g) => g.items.length);
+    if (!groups.length) return `<div class="iss-empty"><p>표시할 이슈가 없습니다.</p></div>`;
+    return `<div class="iss-groups">` + groups.map(({ st, items }) => {
+      const collapsed = !!_issueCollapsed[st];
+      return `<section class="iss-group ${collapsed ? "is-collapsed" : ""}">
+        <button class="iss-ghead" onclick="GARDEN.issueGroup('${st}')">
+          <span class="iss-ghead__name">${st}</span>
+          <span class="iss-ghead__n">${items.length}</span>
+          <span class="iss-ghead__chev">▾</span>
+        </button>
+        ${collapsed ? "" : `<div class="iss-rows">${items.map(({ x, i }) => issueRow(x, i)).join("")}</div>`}
+      </section>`;
+    }).join("") + `</div>`;
+  }
+  function issueList(withIdx) {
+    if (!withIdx.length) return `<div class="iss-empty"><p>표시할 이슈가 없습니다.</p></div>`;
+    const sorted = withIdx.slice().sort((a, b) => (a.x.date < b.x.date ? 1 : -1));
+    const rows = sorted.map(({ x, i }) => `<tr class="${x.status === "완료" ? "is-done" : ""}" onclick="GARDEN.issueOpen(${i})">
+      <td class="mono">${esc(x.date) || "—"}</td>
+      <td>${esc(x.building)}</td>
+      <td>${esc(x.location) || "—"}</td>
+      <td>${esc(x.category)}</td>
+      <td class="iss-td-title">${esc(x.detail) || "—"}${x.recur ? ` <span class="iss-recur-sm">반복</span>` : ""}</td>
+      <td><span class="iss-row__urg" data-u="${esc(x.urgency)}">${esc(x.urgency)}</span></td>
+      <td>${issTag(x.status)}</td>
+      <td>${esc(x.assignee) || "—"}</td>
+    </tr>`).join("");
+    return `<div class="table-wrap"><table class="grid-table iss-table">
+      <thead><tr><th>발생일</th><th>구역</th><th>상세구역</th><th>이슈분류</th><th>이슈세부</th><th>긴급도</th><th>처리상태</th><th>담당자</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  }
+  function renderIssueBody() {
+    const withIdx = getIssues().map((x, i) => ({ x, i })).filter(({ x }) => issueMatch(x));
+    return _issueView === "list" ? issueList(withIdx) : issueGroups(withIdx);
+  }
+
+  function issueDetailModal(i) {
+    const x = getIssues()[i];
+    if (!x) return "";
+    const row = (label, val) => `<div class="issd-row"><span class="issd-lbl">${label}</span><span class="issd-val">${val}</span></div>`;
+    const done = x.status === "완료";
+    return `<div class="gmodal" id="issueDetailModal">
+      <div class="gmodal__bd" onclick="GARDEN.issueDetailClose()"></div>
+      <div class="gmodal__card gmodal__card--wide">
+        <div class="gmodal__head">
+          <div class="issd-head">${issTag(x.status)}${issUrgText(x.urgency)}${x.recur ? `<span class="iss-recur-sm">반복</span>` : ""}
+            <h3>${esc(x.detail) || "이슈 상세"}</h3></div>
+          <button class="gmodal__x" onclick="GARDEN.issueDetailClose()">×</button>
+        </div>
+        <div class="issd-grid">
+          ${row("발생일", esc(x.date) || "—")}
+          ${row("구역", esc(x.building))}
+          ${row("상세구역", esc(x.location) || "—")}
+          ${row("이슈 분류", esc(x.category))}
+          ${row("대상 식물", esc(x.species) || "—")}
+          ${row("담당자", esc(x.assignee) || "—")}
+          ${row("처리 완료 일시", esc(x.doneAt) || "—")}
+          ${row("재발 여부", x.recur ? "반복 이슈" : "—")}
+        </div>
+        ${x.action ? `<div class="issd-block"><span class="issd-lbl">조치 내용</span><p>${esc(x.action)}</p></div>` : ""}
+        ${x.memo ? `<div class="issd-block"><span class="issd-lbl">비고</span><p>${esc(x.memo)}</p></div>` : ""}
+        ${x.photoUrl ? `<a class="btn btn--sm issd-photo" href="${esc(x.photoUrl)}" target="_blank" rel="noopener">사진 열기 ↗</a>` : ""}
+        <div class="gmodal__foot">
+          <button class="btn btn--sm btn--danger" onclick="GARDEN.issueDelete(${i})">삭제</button>
+          <span class="gmodal__spacer"></span>
+          ${done ? "" : `<button class="btn btn--sm" onclick="GARDEN.issueQuickDone(${i})">완료 처리</button>`}
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.issueEdit(${i})">수정</button>
+        </div>
+      </div></div>`;
+  }
+  function issueFormModal(i) {
+    const isNew = i == null;
+    const x = isNew
+      ? { date: "", building: "A동", location: "", category: "미화 관련", detail: "", species: "",
+          urgency: "일반", status: "접수", assignee: "", action: "", photoUrl: "", recur: false, doneAt: "", memo: "" }
+      : getIssues()[i];
+    if (!x) return "";
+    const opt = (arr, cur) => arr.map((v) => `<option value="${esc(v)}" ${v === cur ? "selected" : ""}>${esc(v)}</option>`).join("");
+    return `<div class="gmodal" id="issueFormModal">
+      <div class="gmodal__bd" onclick="GARDEN.issueClose()"></div>
+      <div class="gmodal__card gmodal__card--wide">
+        <div class="gmodal__head"><h3>${isNew ? "새 이슈 등록" : "이슈 수정"}</h3>
+          <button class="gmodal__x" onclick="GARDEN.issueClose()">×</button></div>
+        <div class="gform">
+          <div class="fld-row fld-row--3">
+            <label class="fld"><span>발생일 *</span><input id="if_date" type="date" value="${esc(x.date)}"/></label>
+            <label class="fld"><span>구역 *</span><select id="if_building">${opt(ISS_BUILDINGS, x.building)}</select></label>
+            <label class="fld"><span>상세구역</span><input id="if_loc" value="${esc(x.location)}" placeholder="예: 1층 바닥 플랜트박스"/></label>
+          </div>
+          <div class="fld-row fld-row--3">
+            <label class="fld"><span>이슈 분류 *</span><select id="if_cat">${opt(ISS_CATEGORIES, x.category)}</select></label>
+            <label class="fld"><span>이슈 세부</span><input id="if_detail" value="${esc(x.detail)}" placeholder="예: 총채벌레 발생"/></label>
+            <label class="fld"><span>긴급도 *</span><select id="if_urg">${opt(ISS_URGENCY, x.urgency)}</select></label>
+          </div>
+          <div class="fld-row fld-row--3">
+            <label class="fld"><span>처리 상태 *</span><select id="if_status">${opt(ISS_STATUS, x.status)}</select></label>
+            <label class="fld"><span>담당자</span><input id="if_assignee" value="${esc(x.assignee)}" placeholder="예: 데이지"/></label>
+            <label class="fld"><span>대상 식물</span><input id="if_species" value="${esc(x.species)}" placeholder="예: 테이블야자"/></label>
+          </div>
+          <div class="fld-row">
+            <label class="fld"><span>처리 완료 일시</span><input id="if_done" type="date" value="${esc(x.doneAt)}"/></label>
+            <label class="fld"><span>사진 링크</span><input id="if_photo" value="${esc(x.photoUrl)}" placeholder="구글 드라이브 · 사진 URL(선택)"/></label>
+          </div>
+          <label class="fld"><span>조치 내용</span><textarea id="if_action" rows="2" placeholder="어떻게 조치했는지 기록">${esc(x.action)}</textarea></label>
+          <label class="fld"><span>비고</span><textarea id="if_memo" rows="2" placeholder="기타 특이사항">${esc(x.memo)}</textarea></label>
+          <label class="fld-check"><input id="if_recur" type="checkbox" ${x.recur ? "checked" : ""}/><span>재발 · 반복 이슈로 표시</span></label>
+        </div>
+        <div class="gmodal__foot">
+          <button class="btn btn--sm" onclick="GARDEN.issueClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.issueSave(${isNew ? "null" : i})">저장</button>
+        </div>
+      </div></div>`;
+  }
+
   const statusMap = {
     active: { cls: "badge--active", label: "재직", dot: "var(--green)" },
     leave:  { cls: "badge--leave",  label: "휴직", dot: "var(--amber)" },
@@ -924,11 +1103,51 @@
           </div>
         </section>`;
     },
+
+    issues() {
+      const all = getIssues();
+      const total = all.length;
+      const doneN = all.filter((x) => x.status === "완료").length;
+      const openN = total - doneN;
+      const workN = all.filter((x) => x.status === "확인중" || x.status === "조치중").length;
+      const urgentN = all.filter((x) => x.urgency === "긴급" && x.status !== "완료").length;
+      const rate = total ? Math.round((doneN / total) * 100) : 0;
+      const stat = (label, val, unit, numMod) =>
+        `<div class="iss-stat"><div class="iss-stat__n ${numMod || ""}">${val}<small>${unit}</small></div><div class="iss-stat__l">${label}</div></div>`;
+      const urgChips = ["all"].concat(ISS_URGENCY).map((u) =>
+        `<button class="iss-chip ${_issueUrg === u ? "is-on" : ""}" onclick="GARDEN.issueUrg('${u}')">${u === "all" ? "전체" : u}</button>`).join("");
+
+      return `
+        <section class="view">
+          <div class="page-head">
+            <div><p class="eyebrow">Crew · 식물 관리</p><h2>식물 이슈 관리</h2>
+              <p class="sub">발생한 식물 이슈를 접수부터 완료까지 한눈에 추적합니다 · 카드를 누르면 상세가 열립니다</p></div>
+            <button class="btn btn--primary btn--sm" onclick="GARDEN.issueAddOpen()">＋ 이슈 등록</button>
+          </div>
+          <div class="iss-stats">
+            ${stat("총 이슈", total, "건")}
+            ${stat("미완료", openN, "건")}
+            ${stat("처리중", workN, "건")}
+            ${stat("긴급", urgentN, "건", urgentN ? "iss-stat__n--red" : "")}
+            ${stat("해결률", rate, "%", "iss-stat__n--acid")}
+          </div>
+          <div class="iss-toolbar">
+            <div class="iss-seg">
+              <button class="iss-segbtn ${_issueView === "board" ? "is-on" : ""}" onclick="GARDEN.issueView('board')">보드</button>
+              <button class="iss-segbtn ${_issueView === "list" ? "is-on" : ""}" onclick="GARDEN.issueView('list')">목록</button>
+            </div>
+            <div class="iss-chips">${urgChips}</div>
+            <input class="searchbox iss-search" placeholder="구역 · 이슈 · 담당자 검색" value="${esc(_issueQuery)}" oninput="GARDEN.issueSearch(this.value)"/>
+          </div>
+          <div id="issBody">${renderIssueBody()}</div>
+        </section>`;
+    },
   };
 
   const crumbMap = {
     dashboard: "MAIN / DASHBOARD",
     crew: "CREW / ROSTER",
+    issues: "CREW / PLANT ISSUES",
     plants: "CREW / PLANT CHECK",
     floors: "CREW / FLOOR STATUS",
     safety: "CREW / SAFETY & HEALTH",
@@ -1361,6 +1580,63 @@
       _plants = null; rePlants(); toast("기본값으로 초기화됨");
     },
 
+    /* --- 식물 이슈 관리 --- */
+    issueView(m) { _issueView = m; reIssues(); },
+    issueUrg(u) { _issueUrg = u; reIssues(); },
+    issueGroup(st) {
+      _issueCollapsed[st] = !_issueCollapsed[st];
+      const b = document.getElementById("issBody");
+      if (b) b.innerHTML = renderIssueBody();
+    },
+    issueSearch(v) {
+      _issueQuery = String(v).trim().toLowerCase();
+      const b = document.getElementById("issBody");
+      if (b) b.innerHTML = renderIssueBody();
+    },
+    issueAddOpen() {
+      if (document.getElementById("issueFormModal")) return;
+      document.body.insertAdjacentHTML("beforeend", issueFormModal(null));
+      const n = document.getElementById("if_date"); if (n) n.focus();
+    },
+    issueEdit(i) {
+      this.issueDetailClose();
+      if (document.getElementById("issueFormModal")) return;
+      document.body.insertAdjacentHTML("beforeend", issueFormModal(i));
+    },
+    issueClose() { const m = document.getElementById("issueFormModal"); if (m) m.remove(); },
+    issueSave(i) {
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const date = v("if_date");
+      if (!date) { const n = document.getElementById("if_date"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      const chk = document.getElementById("if_recur");
+      const rec = {
+        date, building: v("if_building"), location: v("if_loc"), category: v("if_cat"),
+        detail: v("if_detail"), species: v("if_species"), urgency: v("if_urg"), status: v("if_status") || "접수",
+        assignee: v("if_assignee"), action: v("if_action"), photoUrl: v("if_photo"), recur: !!(chk && chk.checked),
+        doneAt: v("if_done"), memo: v("if_memo"),
+      };
+      if (rec.status === "완료" && !rec.doneAt) rec.doneAt = issueTodayStr();
+      const list = getIssues();
+      if (i == null) list.unshift(rec); else if (list[i]) list[i] = rec; else return;
+      saveIssues(); this.issueClose(); reIssues(); toast("이슈 저장됨 ✓");
+    },
+    issueOpen(i) {
+      if (document.getElementById("issueDetailModal")) return;
+      document.body.insertAdjacentHTML("beforeend", issueDetailModal(i));
+    },
+    issueDetailClose() { const m = document.getElementById("issueDetailModal"); if (m) m.remove(); },
+    issueDelete(i) {
+      const list = getIssues(); if (!list[i]) return;
+      if (!window.confirm("이 이슈를 삭제할까요? 되돌릴 수 없습니다.")) return;
+      list.splice(i, 1); saveIssues(); this.issueDetailClose(); reIssues(); toast("이슈 삭제됨 ✓");
+    },
+    issueQuickDone(i) {
+      const list = getIssues(); if (!list[i]) return;
+      list[i].status = "완료";
+      if (!list[i].doneAt) list[i].doneAt = issueTodayStr();
+      saveIssues(); this.issueDetailClose(); reIssues(); toast("완료 처리됨 ✓");
+    },
+
     wbException(dateStr) {
       const b = getBoard();
       b.exceptions = b.exceptions || [];
@@ -1429,6 +1705,9 @@
           try { localStorage.removeItem(SAFETY_KEY); } catch (e) {}
           _safetyChecks = null;
           try { localStorage.removeItem(CHECK_KEY); } catch (e) {}
+          // 식물 이슈도 시트가 항상 최신 소스 (여러 담당자 이력 누적)
+          _issues = null;
+          try { localStorage.removeItem(PI_KEY); } catch (e) {}
           render(currentView());    // 다시 렌더
         }
       })

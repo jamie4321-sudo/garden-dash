@@ -1535,48 +1535,36 @@
       const doneOf = (name, key) => recs.find((r) => r.name === name && r.key === key) || null;
       const total = crew.length;
 
-      // 교육별 이수 현황
+      // 교육별 이수 현황 (카운트 타일 · % 없음)
       const overview = EDU_TRAININGS.map((t) => {
         const done = crew.filter((c) => doneOf(c.name, t.key)).length;
-        const pct = total ? Math.round((done / total) * 100) : 0;
-        const mod = pct === 100 ? "is-full" : pct === 0 ? "is-zero" : "";
+        const mod = (total > 0 && done === total) ? "is-full" : done === 0 ? "is-zero" : "";
         return `<div class="edu-ov">
-          <div class="edu-ov__head">
-            <span class="edu-ov__name">${t.full}</span>
-            <span class="edu-ov__val ${mod}">${done}/${total}명 <small>(${pct}%)</small></span>
-          </div>
-          <span class="edu-ov__track"><span class="edu-ov__fill ${mod}" style="width:${pct}%"></span></span>
+          <span class="edu-ov__name">${t.full}</span>
+          <span class="edu-ov__val ${mod}">${done}<small> / ${total}명 이수</small></span>
         </div>`;
       }).join("");
 
-      // 크루별 이수 현황 (매트릭스)
+      // 크루별 이수 현황 (매트릭스 · 이수/미이수 칩)
       const heads = EDU_TRAININGS.map((t) => `<th class="edu-col">${t.label}</th>`).join("");
       const body = total
         ? crew.map((c) => {
-            let doneCnt = 0;
             const cells = EDU_TRAININGS.map((t) => {
               const r = doneOf(c.name, t.key);
               if (r) {
-                doneCnt++;
                 const d = esc(r.date).slice(5).replace("-", "/");
-                return `<td class="edu-cell is-done" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="수정">
-                  <span class="edu-done">✓ 이수</span><span class="edu-date">${d}${r.method ? " · " + esc(r.method) : ""}</span></td>`;
+                return `<td class="edu-cell" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="이수일 ${esc(r.date)} · 수정">
+                  <span class="edu-chip edu-chip--done">✓ 이수</span><span class="edu-cell-date">${d}</span></td>`;
               }
-              return `<td class="edu-cell is-miss" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="이수 기록 추가">
-                <span class="edu-miss">미이수</span></td>`;
+              return `<td class="edu-cell" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="이수 기록 추가">
+                <span class="edu-chip edu-chip--miss">미이수</span></td>`;
             }).join("");
-            const rate = Math.round((doneCnt / EDU_TRAININGS.length) * 100);
-            const rmod = rate === 100 ? "is-full" : rate === 0 ? "is-zero" : "";
             return `<tr>
               <td class="edu-name"><b>${esc(c.name)}</b>${c.role ? `<span class="t">${esc(c.role)}</span>` : ""}</td>
               ${cells}
-              <td class="edu-rate">
-                <span class="edu-rate__val ${rmod}">${rate}%</span>
-                <span class="edu-rate__track"><span class="edu-rate__fill ${rmod}" style="width:${rate}%"></span></span>
-              </td>
             </tr>`;
           }).join("")
-        : `<tr><td colspan="${EDU_TRAININGS.length + 2}" class="edu-empty">등록된 크루가 없습니다 · 크루 로스터에서 먼저 등록하세요.</td></tr>`;
+        : `<tr><td colspan="${EDU_TRAININGS.length + 1}" class="edu-empty">등록된 크루가 없습니다 · 크루 로스터에서 먼저 등록하세요.</td></tr>`;
 
       const yearSel = `<select class="edu-year" onchange="GARDEN.trainingYear(this.value)">${
         eduYears().map((y) => `<option value="${y}" ${String(y) === String(year) ? "selected" : ""}>${y}년</option>`).join("")}</select>`;
@@ -1607,7 +1595,7 @@
           </div>
           <div class="table-wrap edu-wrap">
             <table class="grid-table edu-table">
-              <thead><tr><th>가드너</th>${heads}<th class="edu-col">완료율</th></tr></thead>
+              <thead><tr><th>가드너</th>${heads}</tr></thead>
               <tbody>${body}</tbody>
             </table>
           </div>

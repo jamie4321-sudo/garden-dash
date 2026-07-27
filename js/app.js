@@ -1135,7 +1135,7 @@
     const stOpts = STL_STATUS.map((s) => `<option ${x.status === s ? "selected" : ""}>${s}</option>`).join("");
     return `<div class="gmodal" id="settleModal">
       <div class="gmodal__bd" onclick="GARDEN.settleClose()"></div>
-      <div class="gmodal__card gmodal__card--wide gmodal__card--brut">
+      <div class="gmodal__card gmodal__card--wide">
         <div class="gmodal__head"><h3>${isNew ? "정산 등록" : "정산 수정"}</h3>
           <button class="gmodal__x" onclick="GARDEN.settleClose()">×</button></div>
         <div class="gform">
@@ -1155,9 +1155,9 @@
           <label class="fld"><span>비고</span><input id="st_memo" value="${esc(x.memo)}" placeholder="기타 특이사항(선택)"/></label>
         </div>
         <div class="gmodal__foot">
-          ${isNew ? "" : `<button class="btn-brut btn-brut--danger" onclick="GARDEN.settleDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
-          <button class="btn-brut" onclick="GARDEN.settleClose()">취소</button>
-          <button class="btn-brut btn-brut--primary" onclick="GARDEN.settleSave(${isNew ? "null" : i})">저장</button>
+          ${isNew ? "" : `<button class="btn btn--sm btn--danger" onclick="GARDEN.settleDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
+          <button class="btn btn--sm" onclick="GARDEN.settleClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.settleSave(${isNew ? "null" : i})">저장</button>
         </div>
       </div></div>`;
   }
@@ -1625,7 +1625,7 @@
       const doneTotal = list.filter((x) => x.status === "정산완료").reduce((s, x) => s + (Number(x.amount) || 0), 0);
       const pending = total - doneTotal;
       const catChips = ["all"].concat(STL_CATEGORIES).map((c) =>
-        `<button class="stl-chip ${_settleCat === c ? "is-on" : ""}" onclick="GARDEN.settleCat('${c}')">${c === "all" ? "전체" : c}</button>`).join("");
+        `<button class="iss-chip ${_settleCat === c ? "is-on" : ""}" onclick="GARDEN.settleCat('${c}')">${c === "all" ? "전체" : c}</button>`).join("");
 
       return `
         <section class="view stl">
@@ -1633,26 +1633,34 @@
             <div><p class="eyebrow">Operation</p><h2>운영 정산 관리</h2>
               <p class="sub">비용 집행 내역과 명세서를 관리합니다 · 행을 누르면 상세가 열립니다</p></div>
             <div class="seg">
-              ${SETTLE_DRIVE_URL ? `<a class="btn-brut" href="${SETTLE_DRIVE_URL}" target="_blank" rel="noopener">명세서 폴더 ↗</a>` : ""}
-              <button class="btn-brut" onclick="GARDEN.settleCsv()">CSV 내보내기</button>
-              <button class="btn-brut btn-brut--primary" onclick="GARDEN.settleAddOpen()">＋ 정산 등록</button>
+              ${SETTLE_DRIVE_URL ? `<a class="btn btn--sm" href="${SETTLE_DRIVE_URL}" target="_blank" rel="noopener">명세서 폴더 ↗</a>` : ""}
+              <button class="btn btn--sm" onclick="GARDEN.settleCsv()">CSV 내보내기</button>
+              <button class="btn btn--primary btn--sm" onclick="GARDEN.settleAddOpen()">＋ 정산 등록</button>
             </div>
           </div>
 
-          <div class="stl-summary">
-            <div class="stl-total">
-              <span class="stl-total__lbl">총 집행 비용</span>
-              <span class="stl-total__num">${won(total)}</span>
-              <span class="stl-total__sub">${list.length}건</span>
+          <div class="stl-bento">
+            <div class="bento bento--total">
+              <span class="bento__lbl">총 집행 비용</span>
+              <span class="bento__num">${won(total)}</span>
+              <span class="bento__sub">${list.length}건 집행</span>
             </div>
-            <div class="stl-mini">
-              <div><span>정산완료</span><b>${won(doneTotal)}</b></div>
-              <div><span>미정산</span><b>${won(pending)}</b></div>
+            <div class="bento bento--done">
+              <span class="bento__lbl">정산 완료</span>
+              <span class="bento__num">${won(doneTotal)}</span>
+            </div>
+            <div class="bento bento--pending">
+              <span class="bento__lbl">미정산</span>
+              <span class="bento__num">${won(pending)}</span>
+            </div>
+            <div class="bento bento--count">
+              <span class="bento__lbl">건수</span>
+              <span class="bento__num">${list.length}<small>건</small></span>
             </div>
           </div>
 
           <div class="stl-toolbar">
-            <div class="stl-chips">${catChips}</div>
+            <div class="iss-chips">${catChips}</div>
             <input class="searchbox stl-search" placeholder="작업 내용 · 거래처 · 비고 검색" value="${esc(_settleQuery)}" oninput="GARDEN.settleSearch(this.value)"/>
           </div>
 

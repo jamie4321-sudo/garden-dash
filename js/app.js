@@ -214,7 +214,7 @@
         <div class="flb-head"><span class="flb-name">${esc(f.name)}</span><span class="flb-count">${f.count}</span></div>
         ${body}
         <div class="flb-meta"><span class="flb-date">${esc(date)}</span>
-          <a class="flb-folder" href="${f.folderUrl}" target="_blank" rel="noopener">폴더 ↗</a></div>
+          <a class="flb-folder" href="${f.folderUrl}" target="_blank" rel="noopener">🔗 폴더</a></div>
       </div>`;
     }).join("");
     return `<div class="fl-board">${rows}</div>`;
@@ -226,7 +226,7 @@
   }
   function floorsEmpty(msg) {
     return `<div class="fl-empty"><p>${esc(msg)}</p>
-      <a class="btn btn--sm" href="https://drive.google.com/drive/folders/${FLOOR_PARENT}" target="_blank" rel="noopener">드라이브 폴더 열기</a></div>`;
+      <a class="btn btn--sm" href="https://drive.google.com/drive/folders/${FLOOR_PARENT}" target="_blank" rel="noopener">🔗 드라이브 폴더 열기</a></div>`;
   }
 
   /* 라이트박스 팝업 */
@@ -259,7 +259,7 @@
         <img class="lightbox__img" src="${big}" alt="${esc(p.name)}"/>
         <figcaption class="lightbox__cap"><b>${esc(floor.name)}</b> · ${esc(p.name)}
           <span>${esc(p.updated)} · ${_lb.pi + 1}/${ph.length}</span>
-          <a href="${p.view}" target="_blank" rel="noopener">원본 열기 ↗</a></figcaption>
+          <a href="${p.view}" target="_blank" rel="noopener">🔗 원본 열기</a></figcaption>
       </figure>
       ${nav ? `<button class="lightbox__nav lightbox__nav--next" onclick="GARDEN.flNav(1)" title="다음">›</button>` : ""}`;
   }
@@ -297,7 +297,7 @@
       <span class="sf-ext">${extBadge(f.name, f.mimeType)}</span>
       <span class="sf-name" title="${esc(f.name)}">${esc(f.name)}</span>
       <span class="sf-date">${esc(f.updated)}</span>
-      <a class="sf-open" href="${f.view}" target="_blank" rel="noopener">열기</a>
+      <a class="sf-open" href="${f.view}" target="_blank" rel="noopener">🔗 열기</a>
     </div>`).join("");
     return `<div class="sf-list">${rows}</div>${moreToggleBtn("manual", files.length, SAFETY_MANUAL_LIMIT)}`;
   }
@@ -413,7 +413,7 @@
       ? `<span class="chk-sent chk-sent--ok">${esc(c.sentDate)}</span>`
       : `<span class="chk-sent chk-sent--warn">미송부</span>`;
     const driveBtn = c.driveUrl
-      ? `<a class="btn btn--sm" href="${esc(c.driveUrl)}" target="_blank" rel="noopener">자료 링크</a>`
+      ? `<a class="btn btn--sm" href="${esc(c.driveUrl)}" target="_blank" rel="noopener">🔗 자료 링크</a>`
       : `<span class="muted" style="font-size:11px">링크 없음</span>`;
     return `<div class="chk-card">
       <div class="chk-head">
@@ -816,7 +816,7 @@
         </div>
         ${x.action ? `<div class="issd-block"><span class="issd-lbl">조치 내용</span><p>${esc(x.action)}</p></div>` : ""}
         ${x.memo ? `<div class="issd-block"><span class="issd-lbl">비고</span><p>${esc(x.memo)}</p></div>` : ""}
-        ${x.photoUrl ? `<a class="btn btn--sm issd-photo" href="${esc(x.photoUrl)}" target="_blank" rel="noopener">사진 열기 ↗</a>` : ""}
+        ${x.photoUrl ? `<a class="btn btn--sm issd-photo" href="${esc(x.photoUrl)}" target="_blank" rel="noopener">🔗 사진 열기</a>` : ""}
         <div class="gmodal__foot">
           <button class="btn btn--sm btn--danger" onclick="GARDEN.issueDelete(${i})">삭제</button>
           <span class="gmodal__spacer"></span>
@@ -857,7 +857,7 @@
           <div class="fld-row">
             <label class="fld"><span>처리 완료 일시</span><input id="if_done" type="date" value="${esc(x.doneAt)}"/></label>
             <label class="fld"><span>사진 링크</span><input id="if_photo" value="${esc(x.photoUrl)}" placeholder="사진 URL 붙여넣기(선택)"/>
-              <a class="fld-hint" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">이슈 드라이브 폴더 열기 ↗</a></label>
+              <a class="fld-hint" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">🔗 이슈 드라이브 폴더 열기</a></label>
           </div>
           <label class="fld"><span>조치 내용</span><textarea id="if_action" rows="2" placeholder="어떻게 조치했는지 기록">${esc(x.action)}</textarea></label>
           <label class="fld"><span>비고</span><textarea id="if_memo" rows="2" placeholder="기타 특이사항">${esc(x.memo)}</textarea></label>
@@ -1044,7 +1044,7 @@
             <label class="fld"><span>교육 방식</span><select id="tf_method">${methodOpts}</select></label>
           </div>
           <label class="fld"><span>비고</span><input id="tf_memo" value="${esc(r.memo)}" placeholder="메모(선택)"/>
-            ${EDU_DRIVE_URL ? `<a class="fld-hint" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">이수증 폴더 열기 ↗</a>` : ""}</label>
+            ${EDU_DRIVE_URL ? `<a class="fld-hint" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">🔗 이수증 폴더 열기</a>` : ""}</label>
           <p class="edu-hint">이수일을 비우고 저장하면 <b>미이수</b>로 처리됩니다 · 기준 연도: <b>${year}</b></p>
         </div>
         <div class="gmodal__foot">
@@ -1107,7 +1107,7 @@
     return list.map(({ x, i }) => {
       const done = x.status === "정산완료";
       const stmt = x.statementUrl
-        ? `<a class="stl-stmt" href="${esc(x.statementUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">명세서 ↗</a>`
+        ? `<a class="stl-stmt" href="${esc(x.statementUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 명세서</a>`
         : `<span class="muted" style="font-size:11px">—</span>`;
       return `<tr onclick="GARDEN.settleOpen(${i})">
         <td class="mono">${esc(x.date) || "—"}</td>
@@ -1144,7 +1144,7 @@
             <label class="fld"><span>정산일</span><input id="st_paid" type="date" value="${esc(x.paidDate)}"/></label>
           </div>
           <label class="fld"><span>명세서 링크</span><input id="st_stmt" value="${esc(x.statementUrl)}" placeholder="구글 드라이브 명세서 파일 URL"/>
-            ${SETTLE_DRIVE_URL ? `<a class="fld-hint" href="${SETTLE_DRIVE_URL}" target="_blank" rel="noopener">명세서 폴더 열기 ↗</a>` : ""}</label>
+            ${SETTLE_DRIVE_URL ? `<a class="fld-hint" href="${SETTLE_DRIVE_URL}" target="_blank" rel="noopener">🔗 명세서 폴더 열기</a>` : ""}</label>
           <label class="fld"><span>비고</span><input id="st_memo" value="${esc(x.memo)}" placeholder="기타 특이사항(선택)"/></label>
         </div>
         <div class="gmodal__foot">
@@ -1411,7 +1411,7 @@
             <div><p class="eyebrow">Crew · 시설</p><h2>각층 현황</h2>
               <p class="sub">층별 현장 사진을 구글 드라이브에서 불러옵니다 · 담당자 업로드 즉시 반영</p></div>
             <div class="seg">
-              <a class="btn btn--sm" href="https://drive.google.com/drive/folders/${FLOOR_PARENT}" target="_blank" rel="noopener">드라이브 열기</a>
+              <a class="btn btn--sm" href="https://drive.google.com/drive/folders/${FLOOR_PARENT}" target="_blank" rel="noopener">🔗 드라이브 열기</a>
               <button class="btn btn--primary btn--sm" onclick="GARDEN.loadFloors(true)">↻ 새로고침</button>
             </div>
           </div>
@@ -1451,7 +1451,7 @@
 
           <div class="dash-card sf-card">
             <div class="card-head"><h3>안전매뉴얼</h3>
-              ${folderUrl ? `<a class="chip-mono sf-folder" href="${folderUrl}" target="_blank" rel="noopener">드라이브 폴더</a>` : ""}</div>
+              ${folderUrl ? `<a class="chip-mono sf-folder" href="${folderUrl}" target="_blank" rel="noopener">🔗 드라이브 폴더</a>` : ""}</div>
             <div id="safetyManualBody">${manual ? safetyManualBody(manual, folderUrl) : safetySkeleton()}</div>
           </div>
 
@@ -1501,7 +1501,7 @@
             <div><p class="eyebrow">Crew · 식물 관리</p><h2>식물 이슈 관리</h2>
               <p class="sub">발생한 식물 이슈를 접수부터 완료까지 한눈에 추적합니다 · 행을 누르면 상세가 열립니다</p></div>
             <div class="seg">
-              <a class="btn btn--sm" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">드라이브 ↗</a>
+              <a class="btn btn--sm" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">🔗 드라이브</a>
               <button class="btn btn--primary btn--sm" onclick="GARDEN.issueAddOpen()">＋ 이슈 등록</button>
             </div>
           </div>
@@ -1576,7 +1576,7 @@
             <div><p class="eyebrow">Crew · 교육</p><h2>크루 교육 관리</h2>
               <p class="sub">4대 법정의무교육 이수 현황 · 셀을 누르면 이수 기록을 남기고 이수증을 연결합니다</p></div>
             <div class="seg">
-              ${EDU_DRIVE_URL ? `<a class="btn btn--sm" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">이수증 확인 ↗</a>` : ""}
+              ${EDU_DRIVE_URL ? `<a class="btn btn--sm" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">🔗 이수증 확인</a>` : ""}
               <button class="btn btn--primary btn--sm" onclick="GARDEN.trainingAddOpen()">＋ 이수 기록 추가</button>
             </div>
           </div>
@@ -1617,7 +1617,7 @@
             <div><p class="eyebrow">Operation</p><h2>운영 정산 관리</h2>
               <p class="sub">비용 집행 내역과 명세서를 관리합니다 · 행을 누르면 상세가 열립니다</p></div>
             <div class="seg">
-              ${SETTLE_DRIVE_URL ? `<a class="btn btn--sm" href="${SETTLE_DRIVE_URL}" target="_blank" rel="noopener">명세서 폴더 ↗</a>` : ""}
+              ${SETTLE_DRIVE_URL ? `<a class="btn btn--sm" href="${SETTLE_DRIVE_URL}" target="_blank" rel="noopener">🔗 명세서 폴더</a>` : ""}
               <button class="btn btn--sm" onclick="GARDEN.settleCsv()">CSV 내보내기</button>
               <button class="btn btn--primary btn--sm" onclick="GARDEN.settleAddOpen()">＋ 정산 등록</button>
             </div>

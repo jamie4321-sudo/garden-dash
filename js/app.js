@@ -1057,7 +1057,7 @@
 
   /* ===== 운영 정산 관리 (비용 집행 원장 · 명세서 드라이브) ===== */
   const STL_KEY = "garden-settlement";
-  const STL_CATEGORIES = ["식물 구매", "자재비", "인건비", "유지보수", "시설/공사", "기타"];
+  const STL_CATEGORIES = ["카카오", "아지뜰", "기타"];
   const STL_STATUS = ["예정", "청구", "정산완료"];
   const SETTLE_DRIVE_URL = ""; // 명세서 드라이브 폴더 (별도 생성 예정 — URL 받으면 연결)
   let _settle = null, _settleCat = "all", _settleQuery = "";
@@ -1122,7 +1122,7 @@
   }
   function settleModal(i) {
     const isNew = i == null;
-    const x = isNew ? { date: "", category: "식물 구매", title: "", vendor: "", amount: "", status: "예정", paidDate: "", statementUrl: "", memo: "" } : getSettle()[i];
+    const x = isNew ? { date: "", category: "카카오", title: "", vendor: "", amount: "", status: "예정", paidDate: "", statementUrl: "", memo: "" } : getSettle()[i];
     if (!x) return "";
     const catOpts = STL_CATEGORIES.map((c) => `<option ${x.category === c ? "selected" : ""}>${c}</option>`).join("");
     const stOpts = STL_STATUS.map((s) => `<option ${x.status === s ? "selected" : ""}>${s}</option>`).join("");

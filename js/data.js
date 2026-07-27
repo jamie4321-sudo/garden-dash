@@ -104,25 +104,6 @@ window.DATA = {
     exceptions: [],
   },
 
-  // 식물 이슈 관리 — 발생 이슈 트래킹 (칸반/게시판)
-  plantIssues: [
-    { date: "2026-07-16", building: "A동", location: "1층 바닥 플랜트박스", category: "미화 관련",
-      detail: "총채벌레 발생", species: "관엽 플랜트박스", urgency: "주의", status: "완료",
-      assignee: "데이지", action: "친환경 살충 및 잎 세척, 인근 개체 격리", photoUrl: "", recur: false,
-      doneAt: "2026-07-18", memo: "재발 여부 2주간 관찰" },
-    { date: "2026-07-03", building: "공용부", location: "2층 아지뜰", category: "유지관리 관련",
-      detail: "아지뜰 농작물 응애·온실가루이", species: "아지뜰 농작물", urgency: "주의", status: "완료",
-      assignee: "제이미", action: "황색 점착트랩 설치, 천적 방제 도입", photoUrl: "", recur: true,
-      doneAt: "2026-07-10", memo: "" },
-    { date: "2026-07-22", building: "A동", location: "9층 임원실 내부", category: "관수/급수",
-      detail: "과습으로 뿌리 무름 의심", species: "테이블야자", urgency: "긴급", status: "조치중",
-      assignee: "데이지", action: "급수 주기 조정, 분갈이 예정", photoUrl: "", recur: false,
-      doneAt: "", memo: "화분 배수 개선 필요" },
-    { date: "2026-07-24", building: "공용부", location: "4층 북아지트", category: "병해충",
-      detail: "깍지벌레 초기 발생", species: "떡갈고무나무", urgency: "일반", status: "확인중",
-      assignee: "", action: "", photoUrl: "", recur: false, doneAt: "", memo: "" },
-    { date: "2026-07-25", building: "B동", location: "5층 브릿지", category: "시설/환경",
-      detail: "직사광선으로 잎 마름", species: "여인초", urgency: "일반", status: "접수",
-      assignee: "", action: "", photoUrl: "", recur: false, doneAt: "", memo: "차광 필름 검토" },
-  ],
+  // 식물 이슈 관리 — 발생 이슈 트래킹 (시트 plantIssues 탭에서 로드)
+  plantIssues: [],
 };

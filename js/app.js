@@ -557,21 +557,30 @@
   const PL_KEY = "garden-plants";
   const PLANT_GRADES = ["A", "B", "C", "D"];
   const GRADE_COLORS = { A: "var(--green)", B: "var(--blue)", C: "var(--amber)", D: "var(--red)" };
-  let _plants = null, _plantTab = "input", _plantRound = null;
+  let _plants = null, _plantTab = "matrix", _plantRound = null, _plantAdmin = false;
 
   function getPlants() {
     if (_plants) return _plants;
     try { const s = localStorage.getItem(PL_KEY); if (s) _plants = JSON.parse(s); } catch (e) {}
     if (!_plants) {
-      if (D.plants && D.plants.grades && Object.keys(D.plants.grades).length) {
+      const hasSheet = D.plants && (Object.keys(D.plants.grades || {}).length || Object.keys(D.plants.issues || {}).length || (D.plants.removed || []).length);
+      if (hasSheet) {
         _plants = JSON.parse(JSON.stringify(D.plants));   // 시트 데이터
       } else {
-        _plants = { grades: JSON.parse(JSON.stringify(D.plantGrades || {})), issues: {} }; // 시드
+        _plants = { grades: JSON.parse(JSON.stringify(D.plantGrades || {})), issues: {}, removed: [] }; // 시드
       }
     }
     _plants.grades = _plants.grades || {};
     _plants.issues = _plants.issues || {};
+    _plants.removed = _plants.removed || [];
     return _plants;
+  }
+  // 삭제된 구역을 제외한 실제 점검 대상 구역
+  function activeZones() {
+    const removed = new Set(getPlants().removed || []);
+    return (D.plantZones || [])
+      .map((g) => ({ area: g.area, zones: g.zones.filter((z) => !removed.has(z)) }))
+      .filter((g) => g.zones.length);
   }
   function savePlants() {
     try { localStorage.setItem(PL_KEY, JSON.stringify(_plants)); } catch (e) {}
@@ -602,7 +611,7 @@
   function rePlants() { app.innerHTML = views.plants(); }
 
   function plantInputBody(round) {
-    return (D.plantZones || []).map((g) => {
+    return activeZones().map((g) => {
       const rows = g.zones.map((z) => {
         const cur = gradeOf(z, round);
         const segs = PLANT_GRADES.map((gr) =>
@@ -610,11 +619,12 @@
             onclick="GARDEN.plantGrade('${esc(z)}','${round}','${gr}')">${gr}</button>`).join("");
         const clr = `<button class="pgrade pgrade--clr ${!cur ? "is-on" : ""}" title="미점검"
           onclick="GARDEN.plantGrade('${esc(z)}','${round}','')">—</button>`;
-        return `<div class="prow">
+        return `<div class="prow prow--admin">
           <span class="prow__z">${esc(z)}</span>
           <span class="pgrades">${segs}${clr}</span>
           <input class="prow__issue" placeholder="이슈 메모 (선택)" value="${esc(issueOf(z, round))}"
             onchange="GARDEN.plantIssue('${esc(z)}','${round}',this.value)"/>
+          <button class="prow__del" title="구역 삭제" onclick="GARDEN.plantZoneDelete('${esc(z)}')">×</button>
         </div>`;
       }).join("");
       const gdone = g.zones.filter((z) => gradeOf(z, round)).length;
@@ -630,7 +640,7 @@
     const cr = curRound();
     const head = `<th class="pm-z">구역</th>` + rounds.map((r) =>
       `<th class="pm-r ${r === cr ? "is-cur" : ""}">${r}</th>`).join("");
-    const body = (D.plantZones || []).map((g) => {
+    const body = activeZones().map((g) => {
       const sec = `<tr class="pm-sec"><td colspan="${rounds.length + 1}">${esc(g.area)}</td></tr>`;
       const rows = g.zones.map((z) => {
         const cells = rounds.map((r) => {
@@ -647,7 +657,7 @@
       <thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
   }
   function plantStatsBody(round) {
-    const allZones = (D.plantZones || []).flatMap((g) => g.zones);
+    const allZones = activeZones().flatMap((g) => g.zones);
     const counts = { A: 0, B: 0, C: 0, D: 0, none: 0 };
     allZones.forEach((z) => { const gr = gradeOf(z, round); if (gr) counts[gr] = (counts[gr] || 0) + 1; else counts.none++; });
     const cards = PLANT_GRADES.map((gr) =>
@@ -665,6 +675,23 @@
       <div class="dash-card" style="margin-top:16px">
         <div class="card-head"><h3>이슈 기록</h3><span class="chip-mono">${issues.length}건</span></div>
         ${issueHtml}</div>`;
+  }
+  function plantAdminModal() {
+    return `<div class="gmodal" id="plantAdminModal">
+      <div class="gmodal__bd" onclick="GARDEN.plantAdminClose()"></div>
+      <div class="gmodal__card" style="max-width:340px">
+        <div class="gmodal__head"><h3>관리자 인증</h3><button class="gmodal__x" onclick="GARDEN.plantAdminClose()">×</button></div>
+        <div class="gform">
+          <label class="fld"><span>관리자 비밀번호 (4자리)</span>
+            <input id="plant_pw" class="plant-pw" type="password" inputmode="numeric" maxlength="4" placeholder="••••"
+              autocomplete="off" onkeydown="if(event.key==='Enter')GARDEN.plantAdminSubmit()"/></label>
+          <p class="edu-hint">점검 입력·구역 삭제는 <b>관리자</b>만 가능합니다.<br>현황 매트릭스·통계 요약은 누구나 조회할 수 있어요.</p>
+        </div>
+        <div class="gmodal__foot">
+          <button class="btn btn--sm" onclick="GARDEN.plantAdminClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.plantAdminSubmit()">확인</button>
+        </div>
+      </div></div>`;
   }
   /* ===== 식물 이슈 관리 (칸반 · 게시판 · 상세) ===== */
   const PI_KEY = "garden-plant-issues";
@@ -1234,29 +1261,37 @@
     },
 
     plants() {
+      if (!_plantAdmin && _plantTab === "input") _plantTab = "matrix";
       const round = curRound();
-      const allZones = (D.plantZones || []).flatMap((g) => g.zones);
+      const allZones = activeZones().flatMap((g) => g.zones);
       const total = allZones.length;
       const done = allZones.filter((z) => gradeOf(z, round)).length;
       const pctDone = total ? Math.round((done / total) * 100) : 0;
       const RCR = 2 * Math.PI * 30;
 
-      const tabs = [["input", "점검 입력"], ["matrix", "현황 매트릭스"], ["stats", "통계 요약"]]
+      const tabDefs = _plantAdmin
+        ? [["input", "점검 입력"], ["matrix", "현황 매트릭스"], ["stats", "통계 요약"]]
+        : [["matrix", "현황 매트릭스"], ["stats", "통계 요약"]];
+      const tabs = tabDefs
         .map(([k, l]) => `<button class="ptab ${_plantTab === k ? "is-on" : ""}" onclick="GARDEN.plantTab('${k}')">${l}</button>`).join("");
       const roundSel = (D.plantRounds || [])
         .map((r) => `<button class="pround ${r === round ? "is-on" : ""}" onclick="GARDEN.plantRound('${r}')">${r}</button>`).join("");
 
       let body;
-      if (_plantTab === "matrix") body = plantMatrixBody();
+      if (_plantTab === "input" && _plantAdmin) body = `<div class="proundbar"><span class="proundbar__lbl">점검 회차</span>${roundSel}</div>${plantInputBody(round)}`;
       else if (_plantTab === "stats") body = `<div class="proundbar"><span class="proundbar__lbl">회차</span>${roundSel}</div>${plantStatsBody(round)}`;
-      else body = `<div class="proundbar"><span class="proundbar__lbl">점검 회차</span>${roundSel}</div>${plantInputBody(round)}`;
+      else body = plantMatrixBody();
 
       return `
         <section class="view">
           <div class="page-head">
             <div><p class="eyebrow">Crew · 식물 관리</p><h2>식물 상태 점검</h2>
               <p class="sub">구역별 체크리스트로 점검하고 이슈를 기록합니다 · 2개월 주기 (2·4·7·10·12월)</p></div>
-            <button class="btn btn--sm" onclick="GARDEN.plantReset()">초기화</button>
+            <div class="seg">
+              ${_plantAdmin
+                ? `<span class="plant-admin-badge">관리자</span><button class="btn btn--sm" onclick="GARDEN.plantReset()">초기화</button><button class="btn btn--sm" onclick="GARDEN.plantAdminExit()">관리자 해제</button>`
+                : `<button class="btn btn--sm btn--primary" onclick="GARDEN.plantAdminOpen()">관리자 모드</button>`}
+            </div>
           </div>
           <div class="phead">
             <div class="phead__prog">
@@ -1966,24 +2001,55 @@
     },
 
     /* --- 식물 상태 점검 --- */
-    plantTab(t) { _plantTab = t; rePlants(); },
+    plantTab(t) {
+      if (t === "input" && !_plantAdmin) { this.plantAdminOpen(); return; }
+      _plantTab = t; rePlants();
+    },
     plantRound(r) { _plantRound = r; rePlants(); },
     plantGrade(z, r, g) {
+      if (!_plantAdmin) { toast("관리자만 점검 입력이 가능합니다", true); return; }
       const p = getPlants();
       p.grades[z] = p.grades[z] || {};
       if (g === "") delete p.grades[z][r]; else p.grades[z][r] = g;
       savePlants(); toast("점검 저장됨 ✓"); rePlants();
     },
     plantIssue(z, r, v) {
+      if (!_plantAdmin) { toast("관리자만 입력이 가능합니다", true); return; }
       const p = getPlants();
       p.issues[z] = p.issues[z] || {};
       if (String(v).trim() === "") delete p.issues[z][r]; else p.issues[z][r] = String(v).trim();
       savePlants(); toast("이슈 저장됨 ✓");
     },
     plantReset() {
+      if (!_plantAdmin) { toast("관리자만 초기화할 수 있습니다", true); return; }
       if (!checkResetPw()) return;
       try { localStorage.removeItem(PL_KEY); } catch (e) {}
       _plants = null; rePlants(); toast("기본값으로 초기화됨");
+    },
+
+    /* --- 식물 점검 관리자 모드 --- */
+    plantAdminOpen() {
+      if (document.getElementById("plantAdminModal")) return;
+      document.body.insertAdjacentHTML("beforeend", plantAdminModal());
+      const n = document.getElementById("plant_pw"); if (n) n.focus();
+    },
+    plantAdminClose() { const m = document.getElementById("plantAdminModal"); if (m) m.remove(); },
+    plantAdminSubmit() {
+      const el = document.getElementById("plant_pw");
+      const pw = el ? el.value.trim() : "";
+      const target = String((window.CONFIG && window.CONFIG.PLANT_PASSWORD) || (window.CONFIG && window.CONFIG.RESET_PASSWORD) || "1234").trim();
+      if (target && pw !== target) { toast("비밀번호가 올바르지 않습니다", true); if (el) { el.value = ""; el.focus(); } return; }
+      _plantAdmin = true; _plantTab = "input"; this.plantAdminClose(); rePlants(); toast("관리자 모드 ✓");
+    },
+    plantAdminExit() { _plantAdmin = false; _plantTab = "matrix"; rePlants(); toast("관리자 모드 해제"); },
+    plantZoneDelete(z) {
+      if (!_plantAdmin) { toast("관리자만 구역을 삭제할 수 있습니다", true); return; }
+      if (!window.confirm(`'${z}' 구역을 점검 목록에서 삭제할까요?\n해당 구역의 등급·이슈 기록도 함께 삭제됩니다.`)) return;
+      const p = getPlants();
+      p.removed = p.removed || [];
+      if (p.removed.indexOf(z) < 0) p.removed.push(z);
+      delete p.grades[z]; delete p.issues[z];
+      savePlants(); rePlants(); toast(`'${z}' 삭제됨 ✓`);
     },
 
     /* --- 식물 이슈 관리 --- */

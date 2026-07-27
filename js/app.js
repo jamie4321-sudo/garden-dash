@@ -310,7 +310,7 @@
   const SAFETY_KEY = "garden-safety-meetings";
   let _safetyMeetings = null;
   function normalizeSafetyMeetings(arr) {
-    return (arr || []).map((m) => ({ date: m.date || "", org: m.org || "", title: m.title || "", attendees: m.attendees || "" }));
+    return (arr || []).map((m) => ({ date: m.date || "", org: m.org || "", title: m.title || "", attendees: m.attendees || "", link: m.link || "" }));
   }
   function getSafetyMeetings() {
     if (_safetyMeetings) return _safetyMeetings;
@@ -340,7 +340,7 @@
     return `<div class="tf-card">
       <div class="tf-date"><b>${mm && dd ? `${mm}/${dd}` : "—"}</b><span>${(m.date || "").slice(0, 4)}</span></div>
       <div class="tf-body">
-        ${m.org ? `<span class="tf-tag">${esc(m.org)}</span>` : ""}
+        ${m.org ? `<span class="tf-tag">${esc(m.org)}</span>` : ""}${m.link ? `<a class="tf-link" href="${esc(m.link)}" target="_blank" rel="noopener" title="자료 링크 열기">🔗</a>` : ""}
         <p class="tf-title">${esc(m.title) || "제목 없음"}</p>
         ${m.attendees ? `<p class="tf-attendees">참석자 · ${esc(m.attendees)}</p>` : ""}
       </div>
@@ -352,7 +352,7 @@
   }
   function safetyMeetingModal(i) {
     const isNew = i == null;
-    const m = isNew ? { date: "", org: "", title: "", attendees: "" } : getSafetyMeetings()[i];
+    const m = isNew ? { date: "", org: "", title: "", attendees: "", link: "" } : getSafetyMeetings()[i];
     if (!m) return "";
     return `<div class="gmodal" id="safetyMeetingModal">
       <div class="gmodal__bd" onclick="GARDEN.safetyMeetingClose()"></div>
@@ -366,6 +366,7 @@
           </div>
           <label class="fld"><span>안건</span><input id="sm_title" value="${esc(m.title)}" placeholder="예: 4월 안전보건 이슈사항 공유"/></label>
           <label class="fld"><span>참석자</span><input id="sm_attendees" value="${esc(m.attendees)}" placeholder="쉼표로 구분 (예: 제이미, 데이지)"/></label>
+          <label class="fld"><span>자료 링크</span><input id="sm_link" value="${esc(m.link)}" placeholder="구글 드라이브 · 문서 URL(선택)"/></label>
         </div>
         <div class="gmodal__foot">
           ${isNew ? "" : `<button class="btn btn--sm btn--danger" onclick="GARDEN.safetyMeetingDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
@@ -2049,7 +2050,7 @@
       const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
       const date = v("sm_date");
       if (!date) { const n = document.getElementById("sm_date"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
-      const rec = { date, org: v("sm_org"), title: v("sm_title"), attendees: v("sm_attendees") };
+      const rec = { date, org: v("sm_org"), title: v("sm_title"), attendees: v("sm_attendees"), link: v("sm_link") };
       const list = getSafetyMeetings();
       if (i == null) list.push(rec); else if (list[i]) list[i] = rec; else return;
       saveSafetyMeetings(); this.safetyMeetingClose(); reSafety(); toast("회의 기록 저장됨 ✓");

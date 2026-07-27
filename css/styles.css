@@ -763,6 +763,8 @@ button { font-family: inherit; }
   border: 1px solid color-mix(in srgb, var(--blue) 34%, transparent);
   padding: 3px 9px; border-radius: 999px; margin-bottom: 7px;
 }
+.tf-link { display: inline-block; margin-left: 6px; font-size: 12px; text-decoration: none; vertical-align: middle; line-height: 1; transition: transform .1s; }
+.tf-link:hover { transform: scale(1.18); }
 .tf-title { margin: 0; font-size: 13.5px; font-weight: 700; color: var(--ink); line-height: 1.4; }
 .tf-attendees { margin: 5px 0 0; font-size: 11.5px; color: var(--ink-3); }
 .tf-acts { display: flex; flex-direction: column; gap: 6px; flex: none; }

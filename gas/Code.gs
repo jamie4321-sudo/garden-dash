@@ -299,10 +299,10 @@ function saveSafetyMeetings_(arr) {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sh = ss.getSheetByName('safety') || ss.insertSheet('safety');
     sh.clear();
-    var head = ['date', 'org', 'title', 'attendees'];
+    var head = ['date', 'org', 'title', 'attendees', 'link'];
     var rows = [head];
     (arr || []).forEach(function (m) {
-      rows.push([m.date || '', m.org || '', m.title || '', m.attendees || '']);
+      rows.push([m.date || '', m.org || '', m.title || '', m.attendees || '', m.link || '']);
     });
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, head.length).setValues(rows);

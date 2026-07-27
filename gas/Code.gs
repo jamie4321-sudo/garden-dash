@@ -502,19 +502,20 @@ function floorKey_(name) {
 
 /** 식물 점검 읽기 — plants 탭(zone/round/grade/issue) → {grades, issues} */
 function readPlants_(ss) {
-  var grades = {}, issues = {}, removed = [];
+  var grades = {}, issues = {}, removed = [], added = [];
   var sh = ss.getSheetByName('plants');
-  if (!sh) return { grades: grades, issues: issues, removed: removed };
+  if (!sh) return { grades: grades, issues: issues, removed: removed, added: added };
   var vals = sh.getDataRange().getValues();
   for (var i = 1; i < vals.length; i++) {
     var z = vals[i][0], r = vals[i][1], g = vals[i][2], iss = vals[i][3];
     if (!z || !r) continue;
     z = String(z); r = String(r);
     if (r === '__removed__') { if (removed.indexOf(z) < 0) removed.push(z); continue; }
+    if (r === '__added__') { added.push({ zone: z, area: String(g == null ? '' : g) }); continue; }
     if (g !== '' && g != null) { grades[z] = grades[z] || {}; grades[z][r] = String(g); }
     if (iss !== '' && iss != null) { issues[z] = issues[z] || {}; issues[z][r] = String(iss); }
   }
-  return { grades: grades, issues: issues, removed: removed };
+  return { grades: grades, issues: issues, removed: removed, added: added };
 }
 
 /** 식물 점검 쓰기 — {grades, issues} → plants 탭 */
@@ -540,6 +541,7 @@ function savePlants_(p) {
     var rows = [['zone', 'round', 'grade', 'issue']];
     Object.keys(map).forEach(function (k) { var e = map[k]; rows.push([e.z, e.r, e.g || '', e.i || '']); });
     (p.removed || []).forEach(function (z) { rows.push([z, '__removed__', '', '']); });
+    (p.added || []).forEach(function (a) { if (a && a.zone) rows.push([a.zone, '__added__', a.area || '', '']); });
     sh.getRange(1, 1, sh.getMaxRows(), 4).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, 4).setValues(rows);
     sh.setFrozenRows(1);

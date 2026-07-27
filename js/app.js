@@ -573,14 +573,28 @@
     _plants.grades = _plants.grades || {};
     _plants.issues = _plants.issues || {};
     _plants.removed = _plants.removed || [];
+    _plants.added = _plants.added || [];
     return _plants;
   }
-  // 삭제된 구역을 제외한 실제 점검 대상 구역
+  // 실제 점검 대상 구역 = 기본 설정 + 관리자 추가 − 관리자 삭제
   function activeZones() {
-    const removed = new Set(getPlants().removed || []);
-    return (D.plantZones || [])
-      .map((g) => ({ area: g.area, zones: g.zones.filter((z) => !removed.has(z)) }))
-      .filter((g) => g.zones.length);
+    const p = getPlants();
+    const removed = new Set(p.removed || []);
+    const map = new Map();
+    (D.plantZones || []).forEach((g) => map.set(g.area, g.zones.slice()));
+    (p.added || []).forEach((a) => {
+      if (!a || !a.zone) return;
+      const area = a.area || "추가 구역";
+      if (!map.has(area)) map.set(area, []);
+      const zs = map.get(area);
+      if (zs.indexOf(a.zone) < 0) zs.push(a.zone);
+    });
+    const out = [];
+    map.forEach((zones, area) => {
+      const filtered = zones.filter((z) => !removed.has(z));
+      if (filtered.length) out.push({ area, zones: filtered });
+    });
+    return out;
   }
   function savePlants() {
     try { localStorage.setItem(PL_KEY, JSON.stringify(_plants)); } catch (e) {}
@@ -632,6 +646,7 @@
         <div class="pgroup__head"><span class="pgroup__name">${esc(g.area)}</span>
           <span class="pgroup__n">${gdone} / ${g.zones.length}</span></div>
         ${rows}
+        <button class="prow-add" onclick="GARDEN.plantZoneAdd('${esc(g.area)}')">＋ ${esc(g.area)} 구역 추가</button>
       </div>`;
     }).join("");
   }
@@ -2205,9 +2220,24 @@
       if (!window.confirm(`'${z}' 구역을 점검 목록에서 삭제할까요?\n해당 구역의 등급·이슈 기록도 함께 삭제됩니다.`)) return;
       const p = getPlants();
       p.removed = p.removed || [];
+      p.added = (p.added || []).filter((a) => a.zone !== z); // 추가했던 구역이면 추가 목록에서 제거
       if (p.removed.indexOf(z) < 0) p.removed.push(z);
       delete p.grades[z]; delete p.issues[z];
       savePlants(); rePlants(); toast(`'${z}' 삭제됨 ✓`);
+    },
+    plantZoneAdd(area) {
+      if (!_plantAdmin) { toast("관리자만 구역을 추가할 수 있습니다", true); return; }
+      const input = window.prompt(`'${area}'에 추가할 관리 구역 이름을 입력하세요.\n(예: 일반오피스 2A)`, "");
+      if (input === null) return;
+      const zone = input.trim();
+      if (!zone) return;
+      const p = getPlants();
+      p.removed = (p.removed || []).filter((z) => z !== zone); // 삭제됐던 동명 구역이면 복원
+      p.added = p.added || [];
+      const inConfig = (D.plantZones || []).some((g) => g.zones.indexOf(zone) >= 0);
+      const inAdded = p.added.some((a) => a.zone === zone);
+      if (!inConfig && !inAdded) p.added.push({ area, zone });
+      savePlants(); rePlants(); toast(`'${zone}' 추가됨 ✓`);
     },
 
     /* --- 식물 이슈 관리 --- */

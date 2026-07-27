@@ -34,23 +34,8 @@ window.DATA = {
   // 등급 시드 없음 (시트 plants 탭에서 로드 — 데모 등급 제거)
   plantGrades: {},
 
-  // 월간 스케줄 — 월~금 상시 반복 (날짜 미지정, 관리 위치 동일). 인라인 편집 가능.
-  weekBoard: {
-    month: "2026년 7월",
-    note: "월~금 상시 스케줄 · 관리 위치 동일",
-    areas: [
-      { name: "전용부", color: "var(--accent)", cells: {
-        mon: ["14A", "13A", "12A"], tue: ["11A", "10A", "9A"], wed: ["8A", "7A", "6A"],
-        thu: ["5A", "5B", "6B", "7B", "9B"], fri: [] } },
-      { name: "공용부", color: "var(--blue)", cells: {
-        mon: ["3층 일부"], tue: ["3층 전체"], wed: ["2층 전체"],
-        thu: ["1층 전체", "4층"], fri: ["4층", "지하1층 춘식도락"] } },
-      { name: "기타", color: "var(--violet)", cells: {
-        mon: [], tue: [], wed: [], thu: [], fri: [] } },
-    ],
-    // 변동사항(연휴·변경)만 달력에 점으로 표시. { date: "YYYY-MM-DD", label }
-    exceptions: [],
-  },
+  // 월간 스케줄 — 시트 board 탭에서 로드 (데모 시드 없음)
+  weekBoard: { month: "", note: "", areas: [], exceptions: [] },
 
   // 식물 이슈 관리 — 발생 이슈 트래킹 (시트 plantIssues 탭에서 로드)
   plantIssues: [],

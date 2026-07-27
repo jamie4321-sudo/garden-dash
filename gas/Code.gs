@@ -20,93 +20,33 @@ const FLOOR_FOLDER_ID = '1JF5VTpU-ldB2jbIZlQUBlPXYof56Bp1s';
 // GARDEN 안전매뉴얼 드라이브 폴더 ID (직접 생성한 폴더 — 읽기만 하므로 별도 권한 승인 불필요)
 const SAFETY_MANUAL_FOLDER_ID = '1PanMWvGIrZccCtg4f9PqhtHZSfz4FWfm';
 
-/* ---------- 시드 데이터 (js/data.js 와 동일 구조) ---------- */
+/* ---------- 탭 헤더 정의 (데모 데이터 없음 — 헤더만) ---------- */
 const SEED = {
-  meta: [['key', 'value'], ['asOf', '2026-07-23']],
-
-  kpi: [
-    ['label', 'num', 'unit', 'sub', 'trend', 'variant'],
-    ['이번 달 매출', '48.2', 'M', '+12.4% vs 6월', 'up', 'acid'],
-    ['재직 크루', '27', '명', '휴직 2 · 신규 3', 'flat', ''],
-    ['오늘 출근', '19', '명', '결원 1 · 지각 0', 'flat', 'green'],
-    ['미처리 이슈', '4', '건', '+2 어제 대비', 'down', 'warn'],
-  ],
-
-  crewMix: [
-    ['label', 'val', 'color'],
-    ['정규직', 14, 'var(--accent)'],
-    ['파트타임', 9, 'var(--blue)'],
-    ['매니저', 4, 'var(--violet)'],
-  ],
-
-  storeSales: [
-    ['label', 'val', 'pct'],
-    ['성수 본점', 18.4, 100],
-    ['연남점', 12.1, 66],
-    ['판교점', 9.7, 53],
-    ['여의도점', 8.0, 43],
-  ],
-
-  weekTrend: [
-    ['d', 'v'],
-    ['월', 5.8], ['화', 6.4], ['수', 6.1], ['목', 7.2],
-    ['금', 8.9], ['토', 9.6], ['일', 4.2],
-  ],
-
-  todos: [
-    ['time', 'text', 'done'],
-    ['09:00', '성수점 오픈 점검 · 재고 확인', true],
-    ['11:30', '신규 크루 2인 온보딩 미팅', true],
-    ['14:00', '7월 정산 마감 자료 정리', false],
-    ['16:00', '연남점 발주 승인', false],
-    ['18:30', '주간 매출 리포트 발송', false],
-  ],
-
-  crew: [
-    ['name', 'role', 'store', 'status', 'since', 'disability', 'tags'],
-    ['김서연', '매니저', '성수 본점', 'active', '2023-04', '비장애', '바리스타,교육'],
-    ['이준호', '정규직', '성수 본점', 'active', '2024-01', '발달장애', '베이킹'],
-    ['박지민', '파트타임', '연남점', 'active', '2025-03', '발달장애', '홀'],
-    ['최유나', '정규직', '판교점', 'leave', '2023-09', '지적장애', '바리스타'],
-    ['정민석', '매니저', '여의도점', 'active', '2022-11', '비장애', '바리스타,발주'],
-    ['한소희', '파트타임', '연남점', 'active', '2025-06', '발달장애', '홀,신규'],
-    ['오세훈', '정규직', '판교점', 'out', '2024-05', '청각장애', '베이킹'],
-    ['윤아름', '파트타임', '성수 본점', 'active', '2025-01', '지체장애', '홀'],
-  ],
-
-  // 월간 스케줄 — 영역 × 요일(월~금 상시). 한 칸에 여러 항목은 " / " 로 구분
-  board: [
-    ['area', 'color', 'mon', 'tue', 'wed', 'thu', 'fri'],
-    ['전용부', 'var(--accent)', '14A / 13A / 12A', '11A / 10A / 9A', '8A / 7A / 6A', '5A / 5B / 6B / 7B / 9B', ''],
-    ['공용부', 'var(--blue)', '3층 일부', '3층 전체', '2층 전체', '1층 전체 / 4층', '4층 / 지하1층 춘식도락'],
-  ],
-
-  // 보드 메타 (월 · 특이사항 · 변동사항 ex:YYYY-MM-DD)
-  boardMeta: [
-    ['key', 'value'],
-    ['month', '2026년 7월'],
-    ['note', '월~금 상시 스케줄 · 관리 위치 동일'],
-  ],
+  meta:      [['key', 'value']],
+  crew:      [['name', 'role', 'store', 'status', 'since', 'disability', 'tags', 'left', 'memo']],
+  board:     [['area', 'color', 'mon', 'tue', 'wed', 'thu', 'fri']],
+  boardMeta: [['key', 'value']],
 };
 
-/** 최초 1회 실행 — 탭 생성 + 시드 데이터 입력 */
+/**
+ * 누락된 탭만 헤더로 생성 (기존 데이터는 절대 건드리지 않음 — 안전).
+ * plants·training·settlement·safetyIncidents·plantIssues·safety·safetyChecks 등
+ * 나머지 탭은 각 화면에서 첫 저장 시 자동 생성됩니다.
+ */
 function setup() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
   Object.keys(SEED).forEach(function (name) {
-    let sh = ss.getSheetByName(name);
-    if (!sh) sh = ss.insertSheet(name);
-    sh.clear();
-    const rows = SEED[name];
-    // 모든 값을 텍스트로 유지 (시트가 "09:00" · "7/20" · "2023-04" 등을 날짜로 자동 변환하지 않도록)
+    if (ss.getSheetByName(name)) return; // 이미 있으면 보존
+    var sh = ss.insertSheet(name);
+    var rows = SEED[name];
     sh.getRange(1, 1, sh.getMaxRows(), rows[0].length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
     sh.setFrozenRows(1);
     sh.getRange(1, 1, 1, rows[0].length).setFontWeight('bold');
   });
-  // 기본 Sheet1 제거
   const def = ss.getSheetByName('Sheet1') || ss.getSheetByName('시트1');
   if (def && ss.getSheets().length > 1) ss.deleteSheet(def);
-  return 'setup done: ' + Object.keys(SEED).join(', ');
+  return 'setup done (created missing only): ' + Object.keys(SEED).join(', ');
 }
 
 /** 웹 앱 GET — 전체 데이터를 JSON 으로 반환 */

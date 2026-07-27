@@ -1029,7 +1029,7 @@ button { font-family: inherit; }
 .stl-search { flex: 1; min-width: 200px; }
 
 .stl-board { border: 1px solid var(--line-soft); border-radius: var(--r-lg); background: var(--card-bg); overflow-x: auto; box-shadow: var(--shadow); }
-.stl-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+.stl-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 840px; }
 .stl-table th { text-align: left; padding: 13px 16px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-3); font-weight: 500; border-bottom: 1px solid var(--line); background: var(--panel); white-space: nowrap; }
 .stl-table th.stl-col-amt { text-align: right; }
 .stl-table td { padding: 14px 16px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }

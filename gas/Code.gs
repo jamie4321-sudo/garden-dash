@@ -369,10 +369,10 @@ function saveSettlement_(arr) {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sh = ss.getSheetByName('settlement') || ss.insertSheet('settlement');
     sh.clear();
-    var head = ['date', 'category', 'title', 'vendor', 'amount', 'status', 'paidDate', 'statementUrl', 'memo'];
+    var head = ['date', 'place', 'category', 'title', 'vendor', 'amount', 'status', 'paidDate', 'statementUrl', 'memo'];
     var rows = [head];
     (arr || []).forEach(function (x) {
-      rows.push([x.date || '', x.category || '', x.title || '', x.vendor || '',
+      rows.push([x.date || '', x.place || '', x.category || '', x.title || '', x.vendor || '',
         (x.amount == null ? '' : x.amount), x.status || '', x.paidDate || '', x.statementUrl || '', x.memo || '']);
     });
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');

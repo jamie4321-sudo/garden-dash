@@ -1269,7 +1269,7 @@
           </div>
           <div class="table-wrap">
             <table class="grid-table">
-              <thead><tr><th>이름 / 매장</th><th>구분</th><th class="num">입사 · 재직</th><th>상태</th><th>장애유형</th><th>태그</th><th>비고</th></tr></thead>
+              <thead><tr><th>이름 / 매장</th><th>구분</th><th class="num">입사 · 재직</th><th class="crew-status-col">상태</th><th>장애유형</th><th>태그</th><th>비고</th></tr></thead>
               <tbody id="crewBody">${rows}</tbody>
             </table>
           </div>

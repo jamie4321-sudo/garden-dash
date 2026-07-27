@@ -323,8 +323,9 @@ button { font-family: inherit; }
 
 /* 재직 기간 · 상태 · 비고 · 퇴사행 */
 .mono-cell { font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: nowrap; padding-top: 16px; padding-bottom: 16px; }
-.crew-since { display: block; color: var(--ink); }
-.crew-ten { display: block; margin-top: 6px; font-size: 10.5px; color: var(--accent-text); font-family: var(--mono); }
+.crew-since { color: var(--ink); }
+.crew-ten { margin-left: 10px; font-size: 10.5px; color: var(--accent-text); font-family: var(--mono); white-space: nowrap; }
+.grid-table td.crew-status, .grid-table th.crew-status-col { padding-left: 32px; }
 .crew-status { padding-top: 16px; padding-bottom: 16px; }
 .crew-status__row { display: flex; align-items: center; gap: 10px; }
 .crew-left { font-family: var(--mono); font-size: 10.5px; color: var(--slate); white-space: nowrap; }

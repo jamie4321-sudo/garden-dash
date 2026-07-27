@@ -268,6 +268,24 @@ button { font-family: inherit; }
 .todo__time { font-family: var(--mono); font-size: 10.5px; color: var(--accent-text); font-weight: 600; }
 .todo__txt { color: var(--ink); }
 
+/* ---------------- DASHBOARD: 최근 식물 이슈 ---------------- */
+.dri-more { margin-left: auto; font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--accent-text); }
+.dri-more:hover { text-decoration: underline; }
+.dri-list { display: flex; flex-direction: column; }
+.dri-row { display: grid; grid-template-columns: 46px minmax(96px, 1fr) minmax(0, 1.7fr) 48px auto; align-items: center; gap: 14px; padding: 11px 4px; border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background .12s; }
+.dri-row:last-child { border-bottom: none; }
+.dri-row:hover { background: var(--panel-2); }
+.dri-date { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.dri-loc { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dri-place { font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dri-title { font-size: 13px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dri-row .iss-row__urg { text-align: right; }
+
+@media (max-width: 720px) {
+  .dri-row { grid-template-columns: 44px 1fr auto; }
+  .dri-loc { display: none; }
+}
+
 /* ---------------- TABLE ---------------- */
 .toolbar-row { display: flex; gap: 14px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
 .searchbox {

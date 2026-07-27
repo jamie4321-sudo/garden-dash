@@ -1208,16 +1208,35 @@
   const views = {
     dashboard() {
       if (_booting && !getCrew().length) return dashSkeleton();
+      const recent = getIssues().map((x, i) => ({ x, i }))
+        .sort((a, b) => (a.x.date < b.x.date ? 1 : -1)).slice(0, 5);
+      const recentRows = recent.length
+        ? recent.map(({ x, i }) => {
+            const done = x.status === "완료";
+            return `<div class="dri-row" onclick="GARDEN.issueOpen(${i})">
+              <span class="dri-date">${esc(x.date) ? esc(x.date).slice(5) : "—"}</span>
+              <span class="dri-loc"><span class="iss-chip-b">${esc(x.building)}</span>${x.location ? `<span class="dri-place">${esc(x.location)}</span>` : ""}</span>
+              <span class="dri-title">${esc(x.detail) || "제목 없음"}</span>
+              <span class="iss-row__urg" data-u="${esc(x.urgency)}">${esc(x.urgency)}</span>
+              <span class="iss-tag ${done ? "iss-tag--done" : ""}">${esc(x.status)}</span>
+            </div>`;
+          }).join("")
+        : `<p class="muted" style="margin:8px 4px">등록된 식물 이슈가 없습니다.</p>`;
       return `
         <section class="view">
           <div class="page-head">
             <div>
               <p class="eyebrow">Overview · ${D.asOf || ""}</p>
               <h2>운영 대시보드</h2>
-              <p class="sub">근무 인원 · 장애유형 현황</p>
+              <p class="sub">근무 인원 · 장애유형 · 식물 이슈 현황</p>
             </div>
           </div>
           <div class="dash-grid">${crewStatusCard("근무 인원 현황")}${crewTypeCard()}</div>
+          <div class="dash-card" style="margin-top:16px">
+            <div class="card-head"><h3>최근 식물 이슈</h3>
+              <a class="dri-more" href="#issues">전체 보기 →</a></div>
+            <div class="dri-list">${recentRows}</div>
+          </div>
         </section>`;
     },
 

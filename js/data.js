@@ -60,4 +60,7 @@ window.DATA = {
 
   // 사고 대응 이력 (시트 safetyIncidents 탭에서 로드)
   safetyIncidents: [],
+
+  // 운영 정산 관리 — 비용 집행 내역 (시트 settlement 탭에서 로드)
+  settlement: [],
 };

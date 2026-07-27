@@ -1062,6 +1062,106 @@
       </div></div>`;
   }
 
+  /* ===== 운영 정산 관리 (비용 집행 원장 · 명세서 드라이브) ===== */
+  const STL_KEY = "garden-settlement";
+  const STL_CATEGORIES = ["식물 구매", "자재비", "인건비", "유지보수", "시설/공사", "기타"];
+  const STL_STATUS = ["예정", "청구", "정산완료"];
+  const SETTLE_DRIVE_URL = ""; // 명세서 드라이브 폴더 (별도 생성 예정 — URL 받으면 연결)
+  let _settle = null, _settleCat = "all", _settleQuery = "";
+
+  function normalizeSettle(arr) {
+    return (arr || []).map((x) => ({
+      date: x.date || "", category: x.category || "기타", title: x.title || "",
+      vendor: x.vendor || "", amount: Number(x.amount) || 0, status: x.status || "예정",
+      paidDate: x.paidDate || "", statementUrl: x.statementUrl || "", memo: x.memo || "",
+    }));
+  }
+  function getSettle() {
+    if (_settle) return _settle;
+    try { const s = localStorage.getItem(STL_KEY); if (s) _settle = normalizeSettle(JSON.parse(s)); } catch (e) {}
+    if (!_settle) _settle = normalizeSettle(D.settlement || []);
+    return _settle;
+  }
+  function saveSettle() {
+    try { localStorage.setItem(STL_KEY, JSON.stringify(_settle)); } catch (e) {}
+    pushSettleRemote();
+  }
+  let _pushSTL = null;
+  function pushSettleRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_settle) return;
+    clearTimeout(_pushSTL);
+    _pushSTL = setTimeout(() => {
+      fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "settlement", data: _settle }) })
+        .catch((e) => console.warn("[GARDEN] 정산 저장 실패:", e));
+    }, 700);
+  }
+  function reSettle() { app.innerHTML = views.settlement(); }
+  const won = (n) => "₩" + (Number(n) || 0).toLocaleString("en-US");
+  function settleMatch(x) {
+    if (_settleCat !== "all" && x.category !== _settleCat) return false;
+    if (_settleQuery) {
+      const hay = [x.date, x.category, x.title, x.vendor, x.status, x.memo].join(" ").toLowerCase();
+      if (hay.indexOf(_settleQuery) < 0) return false;
+    }
+    return true;
+  }
+  function settleRows() {
+    const list = getSettle().map((x, i) => ({ x, i })).filter(({ x }) => settleMatch(x))
+      .sort((a, b) => (a.x.date < b.x.date ? 1 : -1));
+    if (!list.length) return `<tr><td colspan="8" class="stl-empty">등록된 정산 내역이 없습니다.</td></tr>`;
+    return list.map(({ x, i }) => {
+      const done = x.status === "정산완료";
+      const stmt = x.statementUrl
+        ? `<a class="stl-stmt" href="${esc(x.statementUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">명세서 ↗</a>`
+        : `<span class="muted" style="font-size:11px">—</span>`;
+      return `<tr onclick="GARDEN.settleOpen(${i})">
+        <td class="mono">${esc(x.date) || "—"}</td>
+        <td>${esc(x.category)}</td>
+        <td class="stl-title">${esc(x.title) || "—"}</td>
+        <td>${esc(x.vendor) || "—"}</td>
+        <td class="stl-amt">${won(x.amount)}</td>
+        <td><span class="iss-tag ${done ? "iss-tag--done" : ""}">${esc(x.status)}</span></td>
+        <td>${stmt}</td>
+      </tr>`;
+    }).join("");
+  }
+  function settleModal(i) {
+    const isNew = i == null;
+    const x = isNew ? { date: "", category: "식물 구매", title: "", vendor: "", amount: "", status: "예정", paidDate: "", statementUrl: "", memo: "" } : getSettle()[i];
+    if (!x) return "";
+    const catOpts = STL_CATEGORIES.map((c) => `<option ${x.category === c ? "selected" : ""}>${c}</option>`).join("");
+    const stOpts = STL_STATUS.map((s) => `<option ${x.status === s ? "selected" : ""}>${s}</option>`).join("");
+    return `<div class="gmodal" id="settleModal">
+      <div class="gmodal__bd" onclick="GARDEN.settleClose()"></div>
+      <div class="gmodal__card gmodal__card--wide gmodal__card--brut">
+        <div class="gmodal__head"><h3>${isNew ? "정산 등록" : "정산 수정"}</h3>
+          <button class="gmodal__x" onclick="GARDEN.settleClose()">×</button></div>
+        <div class="gform">
+          <div class="fld-row fld-row--3">
+            <label class="fld"><span>작업일 *</span><input id="st_date" type="date" value="${esc(x.date)}"/></label>
+            <label class="fld"><span>구분 *</span><select id="st_cat">${catOpts}</select></label>
+            <label class="fld"><span>정산 상태</span><select id="st_status">${stOpts}</select></label>
+          </div>
+          <label class="fld"><span>작업 내용 *</span><input id="st_title" value="${esc(x.title)}" placeholder="예: 4층 북아지트 관엽 교체"/></label>
+          <div class="fld-row fld-row--3">
+            <label class="fld"><span>거래처</span><input id="st_vendor" value="${esc(x.vendor)}" placeholder="업체/거래처명"/></label>
+            <label class="fld"><span>비용(원) *</span><input id="st_amount" type="number" inputmode="numeric" value="${x.amount === "" ? "" : esc(x.amount)}" placeholder="0"/></label>
+            <label class="fld"><span>정산일</span><input id="st_paid" type="date" value="${esc(x.paidDate)}"/></label>
+          </div>
+          <label class="fld"><span>명세서 링크</span><input id="st_stmt" value="${esc(x.statementUrl)}" placeholder="구글 드라이브 명세서 파일 URL"/>
+            ${SETTLE_DRIVE_URL ? `<a class="fld-hint" href="${SETTLE_DRIVE_URL}" target="_blank" rel="noopener">명세서 폴더 열기 ↗</a>` : ""}</label>
+          <label class="fld"><span>비고</span><input id="st_memo" value="${esc(x.memo)}" placeholder="기타 특이사항(선택)"/></label>
+        </div>
+        <div class="gmodal__foot">
+          ${isNew ? "" : `<button class="btn-brut btn-brut--danger" onclick="GARDEN.settleDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
+          <button class="btn-brut" onclick="GARDEN.settleClose()">취소</button>
+          <button class="btn-brut btn-brut--primary" onclick="GARDEN.settleSave(${isNew ? "null" : i})">저장</button>
+        </div>
+      </div></div>`;
+  }
+
   /* ===== 로딩 스켈레톤 (시트 최초 로드 중) ===== */
   function sproutLoader(text) {
     return `<div class="boot">
@@ -1518,12 +1618,62 @@
           </div>
         </section>`;
     },
+
+    settlement() {
+      const list = getSettle();
+      const total = list.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+      const doneTotal = list.filter((x) => x.status === "정산완료").reduce((s, x) => s + (Number(x.amount) || 0), 0);
+      const pending = total - doneTotal;
+      const catChips = ["all"].concat(STL_CATEGORIES).map((c) =>
+        `<button class="stl-chip ${_settleCat === c ? "is-on" : ""}" onclick="GARDEN.settleCat('${c}')">${c === "all" ? "전체" : c}</button>`).join("");
+
+      return `
+        <section class="view stl">
+          <div class="page-head">
+            <div><p class="eyebrow">Operation</p><h2>운영 정산 관리</h2>
+              <p class="sub">비용 집행 내역과 명세서를 관리합니다 · 행을 누르면 상세가 열립니다</p></div>
+            <div class="seg">
+              ${SETTLE_DRIVE_URL ? `<a class="btn-brut" href="${SETTLE_DRIVE_URL}" target="_blank" rel="noopener">명세서 폴더 ↗</a>` : ""}
+              <button class="btn-brut" onclick="GARDEN.settleCsv()">CSV 내보내기</button>
+              <button class="btn-brut btn-brut--primary" onclick="GARDEN.settleAddOpen()">＋ 정산 등록</button>
+            </div>
+          </div>
+
+          <div class="stl-summary">
+            <div class="stl-total">
+              <span class="stl-total__lbl">총 집행 비용</span>
+              <span class="stl-total__num">${won(total)}</span>
+              <span class="stl-total__sub">${list.length}건</span>
+            </div>
+            <div class="stl-mini">
+              <div><span>정산완료</span><b>${won(doneTotal)}</b></div>
+              <div><span>미정산</span><b>${won(pending)}</b></div>
+            </div>
+          </div>
+
+          <div class="stl-toolbar">
+            <div class="stl-chips">${catChips}</div>
+            <input class="searchbox stl-search" placeholder="작업 내용 · 거래처 · 비고 검색" value="${esc(_settleQuery)}" oninput="GARDEN.settleSearch(this.value)"/>
+          </div>
+
+          <div class="stl-board">
+            <table class="stl-table">
+              <thead><tr>
+                <th>작업일</th><th>구분</th><th>작업 내용</th><th>거래처</th>
+                <th class="stl-col-amt">비용</th><th>상태</th><th>명세서</th>
+              </tr></thead>
+              <tbody>${settleRows()}</tbody>
+            </table>
+          </div>
+        </section>`;
+    },
   };
 
   const crumbMap = {
     dashboard: "MAIN / DASHBOARD",
     crew: "CREW / ROSTER",
     training: "CREW / TRAINING",
+    settlement: "OPERATION / SETTLEMENT",
     issues: "CREW / PLANT ISSUES",
     plants: "CREW / PLANT CHECK",
     floors: "CREW / FLOOR STATUS",
@@ -2170,6 +2320,59 @@
       toast("CSV 내보내기 완료 ✓");
     },
 
+    /* --- 운영 정산 관리 --- */
+    settleCat(c) { _settleCat = c; reSettle(); },
+    settleSearch(v) {
+      _settleQuery = String(v).trim().toLowerCase();
+      const b = document.querySelector(".stl-table tbody");
+      if (b) b.innerHTML = settleRows();
+    },
+    settleAddOpen() {
+      if (document.getElementById("settleModal")) return;
+      document.body.insertAdjacentHTML("beforeend", settleModal(null));
+      const n = document.getElementById("st_date"); if (n) n.focus();
+    },
+    settleOpen(i) {
+      if (document.getElementById("settleModal")) return;
+      document.body.insertAdjacentHTML("beforeend", settleModal(i));
+    },
+    settleClose() { const m = document.getElementById("settleModal"); if (m) m.remove(); },
+    settleSave(i) {
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const date = v("st_date"), title = v("st_title"), amount = v("st_amount");
+      if (!date) { const n = document.getElementById("st_date"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      if (!title) { const n = document.getElementById("st_title"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      if (amount === "") { const n = document.getElementById("st_amount"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      const rec = {
+        date, category: v("st_cat") || "기타", title, vendor: v("st_vendor"),
+        amount: Number(amount) || 0, status: v("st_status") || "예정",
+        paidDate: v("st_paid"), statementUrl: v("st_stmt"), memo: v("st_memo"),
+      };
+      const list = getSettle();
+      if (i == null) list.unshift(rec); else if (list[i]) list[i] = rec; else return;
+      saveSettle(); this.settleClose(); reSettle(); toast("정산 내역 저장됨 ✓");
+    },
+    settleDelete(i) {
+      const list = getSettle(); if (!list[i]) return;
+      if (!window.confirm("이 정산 내역을 삭제할까요? 되돌릴 수 없습니다.")) return;
+      list.splice(i, 1); saveSettle(); this.settleClose(); reSettle(); toast("정산 내역 삭제됨 ✓");
+    },
+    settleCsv() {
+      const list = getSettle();
+      const head = ["작업일", "구분", "작업내용", "거래처", "비용", "상태", "정산일", "명세서", "비고"];
+      const rows = list.map((x) => [x.date, x.category, x.title, x.vendor, x.amount, x.status, x.paidDate, x.statementUrl, x.memo]);
+      const total = list.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+      rows.push(["합계", "", "", "", total, "", "", "", ""]);
+      const csv = [head].concat(rows).map((r) => r.map((c) => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+      const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `운영정산_${issueTodayStr()}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast("CSV 내보내기 완료 ✓");
+    },
+
     wbException(dateStr) {
       const b = getBoard();
       b.exceptions = b.exceptions || [];
@@ -2247,6 +2450,9 @@
           // 크루 교육 이수도 시트가 항상 최신 소스
           _training = null;
           try { localStorage.removeItem(EDU_KEY); } catch (e) {}
+          // 운영 정산도 시트가 항상 최신 소스
+          _settle = null;
+          try { localStorage.removeItem(STL_KEY); } catch (e) {}
           render(currentView());    // 다시 렌더
         } else {
           render(currentView());    // 스켈레톤 해제

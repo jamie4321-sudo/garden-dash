@@ -216,6 +216,14 @@ function doGet(e) {
     return r;
   });
 
+  // 운영 정산 관리 — 비용 집행 내역
+  out.settlement = rows_(ss, 'settlement').map(function (r) {
+    r.date = dateStr_(r.date);
+    r.paidDate = dateStr_(r.paidDate);
+    r.amount = Number(r.amount) || 0;
+    return r;
+  });
+
   return ContentService
     .createTextOutput(JSON.stringify(out))
     .setMimeType(ContentService.MimeType.JSON);
@@ -260,6 +268,10 @@ function doPost(e) {
     if (body.type === 'safetyIncidents' && body.data) {
       saveSafetyIncidents_(body.data);
       return json_({ ok: true, saved: 'safetyIncidents' });
+    }
+    if (body.type === 'settlement' && body.data) {
+      saveSettlement_(body.data);
+      return json_({ ok: true, saved: 'settlement' });
     }
     return json_({ ok: false, error: 'unknown type' });
   } catch (err) {
@@ -399,6 +411,29 @@ function savePlantIssues_(arr) {
       rows.push([x.date || '', x.building || '', x.location || '', x.category || '',
         x.detail || '', x.species || '', x.urgency || '', x.status || '', x.assignee || '',
         x.action || '', x.photoUrl || '', x.recur ? 'TRUE' : 'FALSE', x.doneAt || '', x.memo || '']);
+    });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 운영 정산 관리 쓰기 — 비용 배열 → settlement 탭 */
+function saveSettlement_(arr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('settlement') || ss.insertSheet('settlement');
+    sh.clear();
+    var head = ['date', 'category', 'title', 'vendor', 'amount', 'status', 'paidDate', 'statementUrl', 'memo'];
+    var rows = [head];
+    (arr || []).forEach(function (x) {
+      rows.push([x.date || '', x.category || '', x.title || '', x.vendor || '',
+        (x.amount == null ? '' : x.amount), x.status || '', x.paidDate || '', x.statementUrl || '', x.memo || '']);
     });
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, head.length).setValues(rows);

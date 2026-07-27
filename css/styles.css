@@ -814,6 +814,25 @@ button { font-family: inherit; }
 .iss-stat__l { color: var(--ink-3); font-family: var(--mono); font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; margin-top: 10px; }
 
 .iss-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+
+/* 기간 네비게이터 (월간 / 연간) */
+.iss-period {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: radial-gradient(120% 180% at 0% 0%, var(--today-glow), transparent 60%), var(--card-bg);
+  border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; margin-bottom: 14px;
+}
+.iss-nav {
+  width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--ink-2); cursor: pointer; font-size: 15px; line-height: 1;
+  transition: border-color .12s, color .12s, transform .08s;
+}
+.iss-nav:hover { border-color: var(--accent); color: var(--ink); }
+.iss-nav:active { transform: scale(.92); }
+.iss-period__title { font-weight: 800; font-size: 16px; letter-spacing: -.4px; min-width: 108px; text-align: center; }
+.iss-modeseg { margin-left: auto; display: flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 999px; padding: 4px; }
+.iss-modebtn { border: none; background: transparent; color: var(--ink-3); cursor: pointer; font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px; transition: color .12s, background .12s; }
+.iss-modebtn:hover { color: var(--ink); }
+.iss-modebtn.is-on { background: var(--accent); color: var(--accent-ink); }
 .iss-seg { display: flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--line-soft); border-radius: 12px; padding: 4px; }
 .iss-segbtn { border: none; background: transparent; color: var(--ink-3); cursor: pointer; font-size: 12.5px; font-weight: 600; padding: 8px 16px; border-radius: 9px; transition: color .14s, background .14s; }
 .iss-segbtn:hover { color: var(--accent-text); }

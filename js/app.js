@@ -715,8 +715,8 @@
   const ISS_BUILDINGS = ["A동", "B동", "공용부", "외부"];
   const ISS_CATEGORIES = ["미화 관련", "유지관리 관련", "병해충", "관수/급수", "시설/환경", "기타"];
   const ISSUE_DRIVE_URL = "https://drive.google.com/drive/folders/1h4a18kLTyOhLhg0FMWOUaJLtGR6R8gPr";
-  let _issues = null, _issueView = "board", _issueUrg = "all", _issueQuery = "";
-  let _issueCollapsed = { "완료": true };
+  let _issues = null, _issueQuery = "";
+  let _issuePeriodMode = "year", _issueYear = new Date().getFullYear(), _issueMonth = new Date().getMonth() + 1;
 
   function normalizeIssues(arr) {
     return (arr || []).map((x) => ({
@@ -750,8 +750,13 @@
   }
   function reIssues() { app.innerHTML = views.issues(); }
   function issueTodayStr() { return `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`; }
+  function issueInPeriod(x) {
+    const d = String(x.date || "");
+    if (_issuePeriodMode === "year") return d.slice(0, 4) === String(_issueYear);
+    return d.slice(0, 7) === `${_issueYear}-${_pad(_issueMonth)}`;
+  }
   function issueMatch(x) {
-    if (_issueUrg !== "all" && x.urgency !== _issueUrg) return false;
+    if (!issueInPeriod(x)) return false;
     if (_issueQuery) {
       const hay = [x.date, x.building, x.location, x.category, x.detail, x.species, x.assignee, x.action, x.memo]
         .join(" ").toLowerCase();
@@ -762,37 +767,8 @@
   const issTag = (t) => `<span class="iss-tag">${esc(t)}</span>`;
   const issUrgText = (u) => `<span class="iss-urgtext" data-u="${esc(u)}">${esc(u)}</span>`;
 
-  function issueRow(x, i) {
-    const md = esc(x.date) ? esc(x.date).slice(5) : "—";
-    const right = (x.status === "완료" && x.doneAt)
-      ? `<span class="iss-row__done" title="완료일 ${esc(x.doneAt)}">✓ ${esc(x.doneAt).slice(5)}</span>`
-      : `<span class="iss-row__urg" data-u="${esc(x.urgency)}">${esc(x.urgency)}</span>`;
-    return `<div class="iss-row ${x.status === "완료" ? "iss-row--done" : ""}" onclick="GARDEN.issueOpen(${i})">
-      <span class="iss-row__date">${md}</span>
-      <span class="iss-row__loc"><span class="iss-chip-b">${esc(x.building)}</span>${x.location ? `<span class="iss-row__place">${esc(x.location)}</span>` : ""}</span>
-      <span class="iss-row__main"><span class="iss-row__title">${esc(x.detail) || "제목 없음"}</span>${x.category ? `<span class="iss-row__cat">${esc(x.category)}</span>` : ""}${x.recur ? `<span class="iss-recur-sm">반복</span>` : ""}</span>
-      ${right}
-      <span class="iss-row__who">${esc(x.assignee) || "—"}</span>
-    </div>`;
-  }
-  function issueGroups(withIdx) {
-    const groups = ISS_STATUS.map((st) => ({ st, items: withIdx.filter(({ x }) => x.status === st) }))
-      .filter((g) => g.items.length);
-    if (!groups.length) return `<div class="iss-empty"><p>표시할 이슈가 없습니다.</p></div>`;
-    return `<div class="iss-groups">` + groups.map(({ st, items }) => {
-      const collapsed = !!_issueCollapsed[st];
-      return `<section class="iss-group ${collapsed ? "is-collapsed" : ""}">
-        <button class="iss-ghead" onclick="GARDEN.issueGroup('${st}')">
-          <span class="iss-ghead__name">${st}</span>
-          <span class="iss-ghead__n">${items.length}</span>
-          <span class="iss-ghead__chev">▾</span>
-        </button>
-        ${collapsed ? "" : `<div class="iss-rows">${items.map(({ x, i }) => issueRow(x, i)).join("")}</div>`}
-      </section>`;
-    }).join("") + `</div>`;
-  }
   function issueList(withIdx) {
-    if (!withIdx.length) return `<div class="iss-empty"><p>표시할 이슈가 없습니다.</p></div>`;
+    if (!withIdx.length) return `<div class="iss-empty"><p>해당 기간에 등록된 이슈가 없습니다.</p></div>`;
     const sorted = withIdx.slice().sort((a, b) => (a.x.date < b.x.date ? 1 : -1));
     const rows = sorted.map(({ x, i }) => `<tr class="${x.status === "완료" ? "is-done" : ""}" onclick="GARDEN.issueOpen(${i})">
       <td class="mono">${esc(x.date) || "—"}</td>
@@ -802,15 +778,16 @@
       <td class="iss-td-title">${esc(x.detail) || "—"}${x.recur ? ` <span class="iss-recur-sm">반복</span>` : ""}</td>
       <td><span class="iss-row__urg" data-u="${esc(x.urgency)}">${esc(x.urgency)}</span></td>
       <td>${issTag(x.status)}</td>
+      <td class="mono">${x.doneAt ? esc(x.doneAt) : "—"}</td>
       <td>${esc(x.assignee) || "—"}</td>
     </tr>`).join("");
     return `<div class="table-wrap"><table class="grid-table iss-table">
-      <thead><tr><th>발생일</th><th>구역</th><th>상세구역</th><th>이슈분류</th><th>이슈세부</th><th>긴급도</th><th>처리상태</th><th>담당자</th></tr></thead>
+      <thead><tr><th>발생일</th><th>구역</th><th>상세구역</th><th>이슈분류</th><th>이슈세부</th><th>긴급도</th><th>처리상태</th><th>완료일</th><th>담당자</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   }
   function renderIssueBody() {
     const withIdx = getIssues().map((x, i) => ({ x, i })).filter(({ x }) => issueMatch(x));
-    return _issueView === "list" ? issueList(withIdx) : issueGroups(withIdx);
+    return issueList(withIdx);
   }
 
   function issueDetailModal(i) {
@@ -1506,7 +1483,7 @@
     },
 
     issues() {
-      const all = getIssues();
+      const all = getIssues().filter((x) => issueMatch(x));
       const total = all.length;
       const doneN = all.filter((x) => x.status === "완료").length;
       const openN = total - doneN;
@@ -1515,8 +1492,7 @@
       const rate = total ? Math.round((doneN / total) * 100) : 0;
       const stat = (label, val, unit, numMod) =>
         `<div class="iss-stat"><div class="iss-stat__n ${numMod || ""}">${val}<small>${unit}</small></div><div class="iss-stat__l">${label}</div></div>`;
-      const urgChips = ["all"].concat(ISS_URGENCY).map((u) =>
-        `<button class="iss-chip ${_issueUrg === u ? "is-on" : ""}" onclick="GARDEN.issueUrg('${u}')">${u === "all" ? "전체" : u}</button>`).join("");
+      const periodTitle = _issuePeriodMode === "year" ? `${_issueYear}년` : `${_issueYear}년 ${_issueMonth}월`;
 
       return `
         <section class="view">
@@ -1535,12 +1511,16 @@
             ${stat("긴급", urgentN, "건", urgentN ? "iss-stat__n--red" : "")}
             ${stat("해결률", rate, "%", "iss-stat__n--acid")}
           </div>
-          <div class="iss-toolbar">
-            <div class="iss-seg">
-              <button class="iss-segbtn ${_issueView === "board" ? "is-on" : ""}" onclick="GARDEN.issueView('board')">보드</button>
-              <button class="iss-segbtn ${_issueView === "list" ? "is-on" : ""}" onclick="GARDEN.issueView('list')">목록</button>
+          <div class="iss-period">
+            <button class="iss-nav" onclick="GARDEN.issuePeriodStep(-1)" title="이전">←</button>
+            <span class="iss-period__title">${periodTitle}</span>
+            <button class="iss-nav" onclick="GARDEN.issuePeriodStep(1)" title="다음">→</button>
+            <div class="iss-modeseg">
+              <button class="iss-modebtn ${_issuePeriodMode === "month" ? "is-on" : ""}" onclick="GARDEN.issueMode('month')">월간</button>
+              <button class="iss-modebtn ${_issuePeriodMode === "year" ? "is-on" : ""}" onclick="GARDEN.issueMode('year')">연간</button>
             </div>
-            <div class="iss-chips">${urgChips}</div>
+          </div>
+          <div class="iss-toolbar">
             <input class="searchbox iss-search" placeholder="구역 · 이슈 · 담당자 검색" value="${esc(_issueQuery)}" oninput="GARDEN.issueSearch(this.value)"/>
           </div>
           <div id="issBody">${renderIssueBody()}</div>
@@ -2241,12 +2221,19 @@
     },
 
     /* --- 식물 이슈 관리 --- */
-    issueView(m) { _issueView = m; reIssues(); },
-    issueUrg(u) { _issueUrg = u; reIssues(); },
-    issueGroup(st) {
-      _issueCollapsed[st] = !_issueCollapsed[st];
-      const b = document.getElementById("issBody");
-      if (b) b.innerHTML = renderIssueBody();
+    issueMode(m) {
+      _issuePeriodMode = m;
+      if (m === "month") { const n = new Date(); if (_issueYear === n.getFullYear() && !_issueMonth) _issueMonth = n.getMonth() + 1; }
+      reIssues();
+    },
+    issuePeriodStep(delta) {
+      if (_issuePeriodMode === "year") { _issueYear += delta; }
+      else {
+        _issueMonth += delta;
+        if (_issueMonth > 12) { _issueMonth = 1; _issueYear += 1; }
+        if (_issueMonth < 1) { _issueMonth = 12; _issueYear -= 1; }
+      }
+      reIssues();
     },
     issueSearch(v) {
       _issueQuery = String(v).trim().toLowerCase();

@@ -224,6 +224,11 @@ function doPost(e) {
       saveManagers_(body.data);
       return json_({ ok: true, saved: 'managers' });
     }
+    if (body.type === 'deletePhoto' && body.id) {
+      DriveApp.getFileById(String(body.id)).setTrashed(true); // 휴지통으로 이동(복구 가능)
+      try { CacheService.getScriptCache().remove('floors_v1'); } catch (e) {}
+      return json_({ ok: true, deleted: body.id });
+    }
     return json_({ ok: false, error: 'unknown type' });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
@@ -512,6 +517,7 @@ function listFloors_() {
       var files = f.getFiles();
       while (files.hasNext()) {
         var file = files.next();
+        if (file.isTrashed()) continue; // 휴지통 이동/삭제된 사진 제외
         var mt = file.getMimeType() || '';
         if (mt.indexOf('image/') === 0) {
           var id = file.getId();

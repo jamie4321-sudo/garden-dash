@@ -253,6 +253,7 @@
     const nav = ph.length > 1;
     elm.innerHTML = `
       <div class="lightbox__backdrop" onclick="GARDEN.flClose()"></div>
+      <button class="lightbox__del" onclick="GARDEN.flDelete()" title="사진 삭제 (드라이브 휴지통)">🗑 삭제</button>
       <button class="lightbox__close" onclick="GARDEN.flClose()" title="닫기 (Esc)">×</button>
       ${nav ? `<button class="lightbox__nav lightbox__nav--prev" onclick="GARDEN.flNav(-1)" title="이전">‹</button>` : ""}
       <figure class="lightbox__fig">
@@ -2042,6 +2043,29 @@
     flOpen(fi, pi) { _lb = { fi, pi }; flShow(); },
     flNav(d) { const ph = flPhotos(_lb.fi); if (!ph.length) return; _lb.pi = (_lb.pi + d + ph.length) % ph.length; flShow(); },
     flClose() { const el = document.getElementById("lightbox"); if (el) el.remove(); document.removeEventListener("keydown", flKey); },
+    flDelete() {
+      const floor = _floorsCache && _floorsCache[_lb.fi];
+      const ph = flPhotos(_lb.fi);
+      const p = ph[_lb.pi];
+      if (!floor || !p) return;
+      if (!ensureAdmin()) return;
+      if (!window.confirm(`이 사진을 삭제할까요?\n구글 드라이브 휴지통으로 이동됩니다 (복구 가능).`)) return;
+      // 드라이브 삭제 요청 (no-cors, fire-and-forget) — 서버에서 휴지통 이동 + 캐시 초기화
+      const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+      if (url) {
+        fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ type: "deletePhoto", id: p.id }) })
+          .catch((e) => console.warn("[GARDEN] 사진 삭제 실패:", e));
+      }
+      // 화면에서 즉시 제거 (낙관적) + 캐시 갱신
+      ph.splice(_lb.pi, 1);
+      floor.count = ph.length;
+      writeFloorsCache(_floorsCache);
+      const b = document.getElementById("floorsBody"); if (b) b.innerHTML = floorsRender(_floorsCache);
+      if (!ph.length) { this.flClose(); }
+      else { _lb.pi = _lb.pi % ph.length; flShow(); }
+      toast("사진 삭제됨 · 휴지통으로 이동");
+    },
 
     /* --- 산업안전보건 --- */
     loadSafetyFiles(force) {

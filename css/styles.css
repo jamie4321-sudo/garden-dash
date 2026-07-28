@@ -713,6 +713,14 @@ button { font-family: inherit; }
   transition: background .14s, transform .1s;
 }
 .lightbox__close:hover { background: rgba(0,0,0,.7); }
+.lightbox__del {
+  position: absolute; top: 18px; left: 20px; z-index: 2; height: 42px; padding: 0 16px; border-radius: 999px;
+  border: 1px solid rgba(255,90,82,.5); background: rgba(0,0,0,.4); color: #ff7a73;
+  font-family: var(--mono); font-size: 12.5px; font-weight: 700; cursor: pointer;
+  transition: background .14s, color .14s, transform .1s;
+}
+.lightbox__del:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.lightbox__del:active { transform: scale(.96); }
 .lightbox__nav {
   position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 48px; height: 48px; border-radius: 50%;
   border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.4); color: #fff; font-size: 26px; line-height: 1; cursor: pointer;

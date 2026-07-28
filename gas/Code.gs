@@ -70,6 +70,10 @@ function doGet(e) {
     const folder = DriveApp.getFolderById(SAFETY_MANUAL_FOLDER_ID);
     return json_({ manual: listFilesIn_(folder), folderUrl: folder.getUrl() });
   }
+  // 담당자(입장 비밀번호) 전용 경량 응답
+  if (e && e.parameter && e.parameter.action === 'managers') {
+    return json_({ managers: readManagers_(SpreadsheetApp.openById(SHEET_ID)) });
+  }
 
   const ss = SpreadsheetApp.openById(SHEET_ID);
   const out = {};
@@ -117,6 +121,9 @@ function doGet(e) {
     areas: areas,
     exceptions: exceptions,
   };
+
+  // 담당자(입장 비밀번호)
+  out.managers = readManagers_(ss);
 
   // 식물 상태 점검
   out.plants = readPlants_(ss);
@@ -212,6 +219,10 @@ function doPost(e) {
     if (body.type === 'settlement' && body.data) {
       saveSettlement_(body.data);
       return json_({ ok: true, saved: 'settlement' });
+    }
+    if (body.type === 'managers' && body.data) {
+      saveManagers_(body.data);
+      return json_({ ok: true, saved: 'managers' });
     }
     return json_({ ok: false, error: 'unknown type' });
   } catch (err) {
@@ -356,6 +367,33 @@ function savePlantIssues_(arr) {
     sh.getRange(1, 1, rows.length, head.length).setValues(rows);
     sh.setFrozenRows(1);
     sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 담당자 읽기 — managers 탭(name, pin) → [{name, pin}] (pin 문자열 유지) */
+function readManagers_(ss) {
+  return rows_(ss, 'managers').map(function (r) {
+    return { name: String(r.name == null ? '' : r.name), pin: String(r.pin == null ? '' : r.pin) };
+  }).filter(function (m) { return m.name || m.pin; });
+}
+
+/** 담당자 쓰기 — 배열 → managers 탭 (pin은 텍스트로 저장, 앞자리 0 보존) */
+function saveManagers_(arr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('managers') || ss.insertSheet('managers');
+    sh.clear();
+    var head = ['name', 'pin'];
+    var rows = [head];
+    (arr || []).forEach(function (m) { rows.push([m.name || '', m.pin == null ? '' : String(m.pin)]); });
+    sh.getRange(1, 1, sh.getMaxRows(), 2).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, 2).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, 2).setFontWeight('bold');
   } finally {
     lock.releaseLock();
   }

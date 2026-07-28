@@ -1887,7 +1887,7 @@
   /* ---------- crew filter + board editing ---------- */
   const GARDEN = {
     lock() {
-      try { localStorage.removeItem("garden-entry-ok"); } catch (e) {}
+      try { localStorage.removeItem("garden-entry-ok"); localStorage.removeItem("garden-entry-who"); } catch (e) {}
       location.reload();
     },
     filterCrew(q) {
@@ -2527,17 +2527,29 @@
       });
   }
 
-  /* ---------- 입장 비밀번호 게이트 ---------- */
+  /* ---------- 입장 비밀번호 게이트 (담당자별 · 시트 관리) ---------- */
   const ENTRY_KEY = "garden-entry-ok";
+  const WHO_KEY = "garden-entry-who";
   function entryPw() { return String((window.CONFIG && window.CONFIG.ENTRY_PASSWORD) || "").trim(); }
+  function entryEnabled() {
+    const hasApi = !!(window.CONFIG && window.CONFIG.API_URL || "").trim();
+    return !!entryPw() || hasApi; // 마스터 비번 또는 담당자(시트) 사용 가능
+  }
   function entryAuthed() {
-    if (!entryPw()) return true;
+    if (!entryEnabled()) return true;
     try { return localStorage.getItem(ENTRY_KEY) === "1"; } catch (e) { return false; }
+  }
+  function loadManagers() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url) return Promise.resolve([]);
+    return fetch(url + "?action=managers&cb=" + Date.now())
+      .then((r) => r.json()).then((j) => (j && j.managers) || []).catch(() => []);
   }
   function bootApp() {
     if ((window.CONFIG && window.CONFIG.API_URL || "").trim()) _booting = true;
     render(currentView());
     loadRemote();
+    try { const who = localStorage.getItem(WHO_KEY); const el = document.getElementById("whoami"); if (who && el) el.textContent = who + "님"; } catch (e) {}
   }
   function showEntryGate() {
     const g = document.createElement("div");
@@ -2546,8 +2558,8 @@
     g.innerHTML = `
       <div class="gate__card" id="gate_card">
         <div class="gate__brand"><img class="gate__icon" src="favicon.svg" alt=""/><span>AGIT GARDEN</span></div>
-        <p class="gate__sub">접속 비밀번호를 입력하세요</p>
-        <input class="gate__input" id="gate_pw" type="password" placeholder="비밀번호" autocomplete="off"/>
+        <p class="gate__sub">담당자 비밀번호를 입력하세요</p>
+        <input class="gate__input" id="gate_pw" type="password" inputmode="numeric" placeholder="비밀번호" autocomplete="off"/>
         <button class="btn btn--primary gate__btn" id="gate_btn">입장</button>
         <p class="gate__err" id="gate_err"></p>
       </div>`;
@@ -2555,16 +2567,27 @@
     const input = document.getElementById("gate_pw");
     const err = document.getElementById("gate_err");
     const card = document.getElementById("gate_card");
+    const mgrP = loadManagers();
+    const enter = (who) => {
+      try { localStorage.setItem(ENTRY_KEY, "1"); if (who) localStorage.setItem(WHO_KEY, who); } catch (e) {}
+      g.remove();
+      bootApp();
+    };
+    const fail = () => {
+      err.textContent = "비밀번호가 올바르지 않습니다.";
+      input.value = ""; input.focus();
+      card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake");
+    };
     const submit = () => {
-      if ((input.value || "").trim() === entryPw()) {
-        try { localStorage.setItem(ENTRY_KEY, "1"); } catch (e) {}
-        g.remove();
-        bootApp();
-      } else {
-        err.textContent = "비밀번호가 올바르지 않습니다.";
-        input.value = ""; input.focus();
-        card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake");
-      }
+      const pin = (input.value || "").trim();
+      if (!pin) return;
+      const master = entryPw();
+      if (master && pin === master) { enter("관리자"); return; }
+      err.textContent = "확인 중…";
+      mgrP.then((mgrs) => {
+        const mgr = (mgrs || []).find((m) => String(m.pin).trim() === pin);
+        if (mgr) enter(mgr.name); else fail();
+      });
     };
     document.getElementById("gate_btn").addEventListener("click", submit);
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });

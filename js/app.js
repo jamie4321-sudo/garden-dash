@@ -1886,6 +1886,10 @@
 
   /* ---------- crew filter + board editing ---------- */
   const GARDEN = {
+    lock() {
+      try { localStorage.removeItem("garden-entry-ok"); } catch (e) {}
+      location.reload();
+    },
     filterCrew(q) {
       q = q.trim().toLowerCase();
       document.querySelectorAll("#crewBody tr").forEach((tr) => {
@@ -2523,8 +2527,51 @@
       });
   }
 
+  /* ---------- 입장 비밀번호 게이트 ---------- */
+  const ENTRY_KEY = "garden-entry-ok";
+  function entryPw() { return String((window.CONFIG && window.CONFIG.ENTRY_PASSWORD) || "").trim(); }
+  function entryAuthed() {
+    if (!entryPw()) return true;
+    try { return localStorage.getItem(ENTRY_KEY) === "1"; } catch (e) { return false; }
+  }
+  function bootApp() {
+    if ((window.CONFIG && window.CONFIG.API_URL || "").trim()) _booting = true;
+    render(currentView());
+    loadRemote();
+  }
+  function showEntryGate() {
+    const g = document.createElement("div");
+    g.className = "gate";
+    g.id = "gate";
+    g.innerHTML = `
+      <div class="gate__card" id="gate_card">
+        <div class="gate__brand"><img class="gate__icon" src="favicon.svg" alt=""/><span>AGIT GARDEN</span></div>
+        <p class="gate__sub">접속 비밀번호를 입력하세요</p>
+        <input class="gate__input" id="gate_pw" type="password" placeholder="비밀번호" autocomplete="off"/>
+        <button class="btn btn--primary gate__btn" id="gate_btn">입장</button>
+        <p class="gate__err" id="gate_err"></p>
+      </div>`;
+    document.body.appendChild(g);
+    const input = document.getElementById("gate_pw");
+    const err = document.getElementById("gate_err");
+    const card = document.getElementById("gate_card");
+    const submit = () => {
+      if ((input.value || "").trim() === entryPw()) {
+        try { localStorage.setItem(ENTRY_KEY, "1"); } catch (e) {}
+        g.remove();
+        bootApp();
+      } else {
+        err.textContent = "비밀번호가 올바르지 않습니다.";
+        input.value = ""; input.focus();
+        card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake");
+      }
+    };
+    document.getElementById("gate_btn").addEventListener("click", submit);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+    input.focus();
+  }
+
   /* ---------- boot ---------- */
-  if ((window.CONFIG && window.CONFIG.API_URL || "").trim()) _booting = true;
-  render(currentView());
-  loadRemote();
+  if (entryAuthed()) bootApp();
+  else showEntryGate();
 })();

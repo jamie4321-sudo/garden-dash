@@ -1070,6 +1070,34 @@ button { font-family: inherit; }
   .bento--total { grid-column: 1 / 3; grid-row: auto; }
 }
 
+/* =========================================================
+   ENTRY GATE (입장 비밀번호)
+   ========================================================= */
+.gate { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 24px; background: var(--bg); }
+.gate__card {
+  width: 100%; max-width: 340px; text-align: center;
+  background: radial-gradient(130% 130% at 50% 0%, var(--today-glow), transparent 55%), var(--card-bg);
+  border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow);
+  padding: 34px 28px; animation: pop .24s cubic-bezier(.2,.9,.3,1.2);
+}
+.gate__brand { display: flex; align-items: center; justify-content: center; gap: 9px; font-weight: 800; font-size: 20px; letter-spacing: -.6px; color: var(--ink); }
+.gate__icon { width: 26px; height: 26px; border-radius: 7px; }
+.gate__sub { color: var(--ink-3); font-size: 13px; margin: 12px 0 20px; }
+.gate__input {
+  width: 100%; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-sm);
+  padding: 12px 14px; color: var(--ink); font-size: 15px; text-align: center; outline: none;
+  letter-spacing: 2px; transition: border-color .14s;
+}
+.gate__input:focus { border-color: var(--accent); }
+.gate__input::placeholder { color: var(--ink-3); letter-spacing: normal; }
+.gate__btn { width: 100%; margin-top: 12px; padding: 12px; }
+.gate__err { color: var(--red); font-size: 12px; min-height: 16px; margin: 12px 0 0; }
+.gate__card.shake { animation: gateShake .3s; }
+@keyframes gateShake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+
+.side__lock { margin-left: auto; background: none; border: none; color: var(--ink-3); cursor: pointer; font-size: 13px; line-height: 1; padding: 2px; transition: transform .1s, opacity .12s; opacity: .7; }
+.side__lock:hover { opacity: 1; transform: scale(1.12); }
+
 /* toast */
 .toast {
   position: fixed; right: 22px; bottom: 22px; z-index: 200;

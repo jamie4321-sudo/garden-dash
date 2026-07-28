@@ -286,7 +286,9 @@
     return "FILE";
   };
   function safetyManualBody(files, folderUrl) {
-    if (!files || !files.length) {
+    // 파일 이름 순 정렬 (앞자리 YYMM 날짜코드 오름차순 — 2506 → 2606)
+    files = (files || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), "ko", { numeric: true }));
+    if (!files.length) {
       return `<div class="sf-empty">
         <p>아직 등록된 안전매뉴얼이 없습니다. 드라이브 폴더에 파일을 올리면 게시판에 자동으로 추가됩니다.</p>
         <a class="btn btn--primary btn--sm" href="${folderUrl}" target="_blank" rel="noopener">＋ 매뉴얼 업로드</a>

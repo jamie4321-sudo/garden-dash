@@ -1630,11 +1630,15 @@
 
     settlement() {
       const list = getSettle();
-      const total = list.reduce((s, x) => s + (Number(x.amount) || 0), 0);
-      const doneTotal = list.filter((x) => x.status === "정산완료").reduce((s, x) => s + (Number(x.amount) || 0), 0);
-      const pending = total - doneTotal;
+      const sel = _settlePlace; // "all" | 카카오 | 아지뜰 | 기타
+      const sum = (arr) => arr.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+      const grand = sum(list);
+      const placeTotal = (p) => sum(list.filter((x) => x.place === p));
+      const filtered = list.filter((x) => sel === "all" || x.place === sel);
+      const total = sum(filtered);
+      const pending = sum(filtered.filter((x) => x.status !== "정산완료"));
       const catChips = ["all"].concat(STL_PLACES).map((c) =>
-        `<button class="iss-chip ${_settlePlace === c ? "is-on" : ""}" onclick="GARDEN.settlePlace('${c}')">${c === "all" ? "전체" : c}</button>`).join("");
+        `<button class="iss-chip ${sel === c ? "is-on" : ""}" onclick="GARDEN.settlePlace('${c}')">${c === "all" ? "전체" : c}</button>`).join("");
 
       return `
         <section class="view stl">
@@ -1649,22 +1653,23 @@
           </div>
 
           <div class="stl-bento">
-            <div class="bento bento--total">
-              <span class="bento__lbl">총 집행 비용</span>
+            <div class="bento bento--total ${sel !== "all" ? "is-filtered" : ""}" onclick="GARDEN.settlePlace('all')" title="${sel !== "all" ? "전체 보기" : ""}">
+              <span class="bento__lbl">${sel === "all" ? "총 집행 비용" : esc(sel) + " 집행 비용"}</span>
               <span class="bento__num">${won(total)}</span>
-              <span class="bento__sub">${list.length}건 집행</span>
+              <span class="bento__sub">${filtered.length}건${sel !== "all" ? ` · 전체 ${won(grand)}` : ""}</span>
             </div>
-            <div class="bento bento--done">
-              <span class="bento__lbl">정산 완료</span>
-              <span class="bento__num">${won(doneTotal)}</span>
-            </div>
+            ${STL_PLACES.map((p) => {
+              const pt = placeTotal(p);
+              const pct = grand ? Math.round((pt / grand) * 100) : 0;
+              return `<div class="bento bento--place ${sel === p ? "is-on" : ""}" onclick="GARDEN.settlePlace('${sel === p ? "all" : p}')">
+                <span class="bento__lbl">${esc(p)}</span>
+                <span class="bento__num bento__num--sm">${won(pt)}</span>
+                <span class="bento-bar"><span class="bento-bar__fill" style="width:${pct}%"></span></span>
+              </div>`;
+            }).join("")}
             <div class="bento bento--pending">
-              <span class="bento__lbl">미정산</span>
-              <span class="bento__num">${won(pending)}</span>
-            </div>
-            <div class="bento bento--count">
-              <span class="bento__lbl">건수</span>
-              <span class="bento__num">${list.length}<small>건</small></span>
+              <span class="bento__lbl">미정산${sel !== "all" ? " (" + esc(sel) + ")" : ""}</span>
+              <span class="bento__num bento__num--sm">${won(pending)}</span>
             </div>
           </div>
 

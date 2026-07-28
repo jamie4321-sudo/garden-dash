@@ -1601,7 +1601,7 @@
         <section class="view">
           <div class="page-head">
             <div><p class="eyebrow">Crew · 교육</p><h2>크루 교육 관리</h2>
-              <p class="sub">4대 법정의무교육 이수 현황 · 셀을 누르면 이수 기록을 남기고 이수증을 연결합니다</p></div>
+              <p class="sub">4대 법정의무교육 이수 현황</p></div>
             <div class="seg">
               ${EDU_DRIVE_URL ? `<a class="btn btn--sm" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">🔗 이수증 확인</a>` : ""}
               <button class="btn btn--primary btn--sm" onclick="GARDEN.trainingAddOpen()">＋ 이수 기록 추가</button>

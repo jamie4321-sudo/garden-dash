@@ -718,6 +718,7 @@
   const ISS_URGENCY = ["일반", "주의", "긴급"];
   const ISS_BUILDINGS = ["A동", "B동", "공용부", "외부"];
   const ISS_CATEGORIES = ["미화 관련", "유지관리 관련", "병해충", "관수/급수", "시설/환경", "기타"];
+  const ISS_SOURCES = ["VOK", "LKG"]; // VOK=카카오 민원 · LKG=내부 셀프 확인
   const ISSUE_DRIVE_URL = "https://drive.google.com/drive/folders/1h4a18kLTyOhLhg0FMWOUaJLtGR6R8gPr";
   let _issues = null, _issueQuery = "";
   let _issuePeriodMode = "year", _issueYear = new Date().getFullYear(), _issueMonth = new Date().getMonth() + 1;
@@ -727,7 +728,7 @@
       date: x.date || "", building: x.building || "A동", location: x.location || "",
       category: x.category || "미화 관련", detail: x.detail || "", species: x.species || "",
       urgency: x.urgency || "일반", status: x.status || "접수", assignee: x.assignee || "",
-      action: x.action || "", photoUrl: x.photoUrl || "", recur: !!x.recur,
+      source: x.source || "LKG", action: x.action || "", photoUrl: x.photoUrl || "", recur: !!x.recur,
       doneAt: x.doneAt || "", memo: x.memo || "",
     }));
   }
@@ -770,6 +771,7 @@
   }
   const issTag = (t) => `<span class="iss-tag">${esc(t)}</span>`;
   const issUrgText = (u) => `<span class="iss-urgtext" data-u="${esc(u)}">${esc(u)}</span>`;
+  const issSrc = (s) => `<span class="iss-src iss-src--${s === "VOK" ? "vok" : "lkg"}">${esc(s || "LKG")}</span>`;
 
   function issueList(withIdx) {
     if (!withIdx.length) return `<div class="iss-empty"><p>해당 기간에 등록된 이슈가 없습니다.</p></div>`;
@@ -783,10 +785,10 @@
       <td><span class="iss-row__urg" data-u="${esc(x.urgency)}">${esc(x.urgency)}</span></td>
       <td>${issTag(x.status)}</td>
       <td class="mono">${x.doneAt ? esc(x.doneAt) : "—"}</td>
-      <td>${esc(x.assignee) || "—"}</td>
+      <td>${issSrc(x.source)}</td>
     </tr>`).join("");
     return `<div class="table-wrap"><table class="grid-table iss-table">
-      <thead><tr><th>발생일</th><th>구역</th><th>상세구역</th><th>이슈분류</th><th>이슈세부</th><th>긴급도</th><th>처리상태</th><th>완료일</th><th>담당자</th></tr></thead>
+      <thead><tr><th>발생일</th><th>구역</th><th>상세구역</th><th>이슈분류</th><th>이슈세부</th><th>긴급도</th><th>처리상태</th><th>완료일</th><th>구분</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   }
   function renderIssueBody() {
@@ -812,6 +814,7 @@
           ${row("구역", esc(x.building))}
           ${row("상세구역", esc(x.location) || "—")}
           ${row("이슈 분류", esc(x.category))}
+          ${row("구분", issSrc(x.source) + (x.source === "VOK" ? " 카카오 민원" : " 내부 셀프 확인"))}
           ${row("대상 식물", esc(x.species) || "—")}
           ${row("담당자", esc(x.assignee) || "—")}
           ${row("처리 완료 일시", esc(x.doneAt) || "—")}
@@ -832,7 +835,7 @@
     const isNew = i == null;
     const x = isNew
       ? { date: "", building: "A동", location: "", category: "미화 관련", detail: "", species: "",
-          urgency: "일반", status: "접수", assignee: "", action: "", photoUrl: "", recur: false, doneAt: "", memo: "" }
+          urgency: "일반", status: "접수", assignee: "", source: "LKG", action: "", photoUrl: "", recur: false, doneAt: "", memo: "" }
       : getIssues()[i];
     if (!x) return "";
     const opt = (arr, cur) => arr.map((v) => `<option value="${esc(v)}" ${v === cur ? "selected" : ""}>${esc(v)}</option>`).join("");
@@ -854,13 +857,15 @@
           </div>
           <div class="fld-row fld-row--3">
             <label class="fld"><span>처리 상태 *</span><select id="if_status">${opt(ISS_STATUS, x.status)}</select></label>
+            <label class="fld"><span>구분 *</span><select id="if_source">${opt(ISS_SOURCES, x.source || "LKG")}</select>
+              <span class="fld-note">VOK=카카오 민원 · LKG=내부 확인</span></label>
             <label class="fld"><span>담당자</span><input id="if_assignee" value="${esc(x.assignee)}" placeholder="예: 데이지"/></label>
-            <label class="fld"><span>대상 식물</span><input id="if_species" value="${esc(x.species)}" placeholder="예: 테이블야자"/></label>
           </div>
-          <div class="fld-row">
+          <div class="fld-row fld-row--3">
+            <label class="fld"><span>대상 식물</span><input id="if_species" value="${esc(x.species)}" placeholder="예: 테이블야자"/></label>
             <label class="fld"><span>처리 완료 일시</span><input id="if_done" type="date" value="${esc(x.doneAt)}"/></label>
-            <label class="fld"><span>사진 링크</span><input id="if_photo" value="${esc(x.photoUrl)}" placeholder="사진 URL 붙여넣기(선택)"/>
-              <a class="fld-hint" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">🔗 이슈 드라이브 폴더 열기</a></label>
+            <label class="fld"><span>사진 링크</span><input id="if_photo" value="${esc(x.photoUrl)}" placeholder="사진 URL(선택)"/>
+              <a class="fld-hint" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">🔗 폴더 열기</a></label>
           </div>
           <label class="fld"><span>조치 내용</span><textarea id="if_action" rows="2" placeholder="어떻게 조치했는지 기록">${esc(x.action)}</textarea></label>
           <label class="fld"><span>비고</span><textarea id="if_memo" rows="2" placeholder="기타 특이사항">${esc(x.memo)}</textarea></label>
@@ -2314,7 +2319,7 @@
       const rec = {
         date, building: v("if_building"), location: v("if_loc"), category: v("if_cat"),
         detail: v("if_detail"), species: v("if_species"), urgency: v("if_urg"), status: v("if_status") || "접수",
-        assignee: v("if_assignee"), action: v("if_action"), photoUrl: v("if_photo"), recur: !!(chk && chk.checked),
+        assignee: v("if_assignee"), source: v("if_source") || "LKG", action: v("if_action"), photoUrl: v("if_photo"), recur: !!(chk && chk.checked),
         doneAt: v("if_done"), memo: v("if_memo"),
       };
       if (rec.status === "완료" && !rec.doneAt) rec.doneAt = issueTodayStr();

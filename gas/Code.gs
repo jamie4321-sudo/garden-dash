@@ -361,11 +361,11 @@ function savePlantIssues_(arr) {
     var sh = ss.getSheetByName('plantIssues') || ss.insertSheet('plantIssues');
     sh.clear();
     var head = ['date', 'building', 'location', 'category', 'detail', 'species',
-      'urgency', 'status', 'assignee', 'action', 'photoUrl', 'recur', 'doneAt', 'memo'];
+      'urgency', 'status', 'assignee', 'source', 'action', 'photoUrl', 'recur', 'doneAt', 'memo'];
     var rows = [head];
     (arr || []).forEach(function (x) {
       rows.push([x.date || '', x.building || '', x.location || '', x.category || '',
-        x.detail || '', x.species || '', x.urgency || '', x.status || '', x.assignee || '',
+        x.detail || '', x.species || '', x.urgency || '', x.status || '', x.assignee || '', x.source || '',
         x.action || '', x.photoUrl || '', x.recur ? 'TRUE' : 'FALSE', x.doneAt || '', x.memo || '']);
     });
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');

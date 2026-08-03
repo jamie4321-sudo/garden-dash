@@ -171,6 +171,12 @@ function doGet(e) {
     return r;
   });
 
+  // 공지사항 — 대시보드 상단(이력 누적)
+  out.notices = rows_(ss, 'notices').map(function (r) {
+    r.date = dateStr_(r.date);
+    return r;
+  });
+
   return ContentService
     .createTextOutput(JSON.stringify(out))
     .setMimeType(ContentService.MimeType.JSON);
@@ -223,6 +229,10 @@ function doPost(e) {
     if (body.type === 'managers' && body.data) {
       saveManagers_(body.data);
       return json_({ ok: true, saved: 'managers' });
+    }
+    if (body.type === 'notices' && body.data) {
+      saveNotices_(body.data);
+      return json_({ ok: true, saved: 'notices' });
     }
     if (body.type === 'deletePhoto' && body.id) {
       DriveApp.getFileById(String(body.id)).setTrashed(true); // 휴지통으로 이동(복구 가능)
@@ -399,6 +409,28 @@ function saveManagers_(arr) {
     sh.getRange(1, 1, rows.length, 2).setValues(rows);
     sh.setFrozenRows(1);
     sh.getRange(1, 1, 1, 2).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 공지사항 쓰기 — 공지 배열 → notices 탭 (전체 이력 누적) */
+function saveNotices_(arr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('notices') || ss.insertSheet('notices');
+    sh.clear();
+    var head = ['date', 'text', 'author'];
+    var rows = [head];
+    (arr || []).forEach(function (n) {
+      rows.push([n.date || '', n.text || '', n.author || '']);
+    });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
   } finally {
     lock.releaseLock();
   }

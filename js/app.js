@@ -75,6 +75,92 @@
       <div class="tbars">${bars}</div></div>`;
   }
 
+  /* ===== 공지사항 (대시보드 상단 · 이력 누적 · 작성/수정/삭제는 제이미만) ===== */
+  const NOTICE_KEY = "garden-notices";
+  let _notices = null, _pushNT = null, _noticeOK = false;
+  function normalizeNotices(arr) {
+    return (arr || []).map((n) => ({ date: n.date || "", text: n.text || "", author: n.author || "" }));
+  }
+  function getNotices() {
+    if (_notices) return _notices;
+    try { const s = localStorage.getItem(NOTICE_KEY); if (s) _notices = normalizeNotices(JSON.parse(s)); } catch (e) {}
+    if (!_notices) _notices = normalizeNotices(D.notices || []);
+    return _notices;
+  }
+  function saveNotices() {
+    try { localStorage.setItem(NOTICE_KEY, JSON.stringify(_notices)); } catch (e) {}
+    pushNoticesRemote();
+  }
+  function pushNoticesRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_notices) return;
+    clearTimeout(_pushNT);
+    _pushNT = setTimeout(() => {
+      fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "notices", data: _notices }) })
+        .then(() => toast("공지사항 시트에 저장됨 ✓"))
+        .catch((e) => { console.warn("[GARDEN] 공지사항 저장 실패:", e); toast("저장 실패 — 로컬만 저장됨", true); });
+    }, 500);
+  }
+  // 공지사항 전용 비밀번호 — 다른 관리자 비밀번호와 별개(제이미만 인지)
+  function checkNoticePw() {
+    if (_noticeOK) return true;
+    const pw = String((window.CONFIG && window.CONFIG.NOTICE_PASSWORD) || "").trim();
+    if (!pw) { _noticeOK = true; return true; }
+    const input = window.prompt("공지사항 작성/수정/삭제 — 비밀번호를 입력하세요 (제이미 전용)");
+    if (input === null) return false;
+    if (input.trim() !== pw) { toast("비밀번호가 올바르지 않습니다", true); return false; }
+    _noticeOK = true;
+    return true;
+  }
+  function reDash() { app.innerHTML = views.dashboard(); }
+  function noticeCard() {
+    const list = getNotices();
+    const latest = list[0];
+    const older = list.slice(1, 6);
+    const meta = latest ? `${latest.author ? esc(latest.author) + " · " : ""}${esc(latest.date)}` : "";
+    const olderRows = older.length
+      ? `<div class="notice-old">` + older.map((n, idx) => {
+          const i = idx + 1;
+          return `<div class="notice-old__row" onclick="GARDEN.noticeOpen(${i})" title="클릭해서 수정">
+            <span class="notice-old__date">${esc(n.date)}</span>
+            <span class="notice-old__text">${esc(n.text)}</span>
+          </div>`;
+        }).join("") + `</div>`
+      : "";
+    return `<div class="dash-card notice-card${latest ? "" : " notice-card--empty"}" style="margin-bottom:16px">
+      <div class="card-head">
+        <h3>📢 공지사항</h3>
+        ${meta ? `<span class="asof">${meta}</span>` : ""}
+        <button class="btn btn--sm" style="margin-left:${meta ? "10px" : "auto"}" onclick="GARDEN.noticeOpen(null)">＋ 공지 등록</button>
+      </div>
+      ${latest
+        ? `<p class="notice-card__text" onclick="GARDEN.noticeOpen(0)" title="클릭해서 수정">${esc(latest.text).replace(/\n/g, "<br>")}</p>`
+        : `<p class="notice-card__text">등록된 공지사항이 없습니다.</p>`}
+      ${olderRows}
+    </div>`;
+  }
+  function noticeModal(i) {
+    const isNew = i == null;
+    const list = getNotices();
+    const n = isNew ? { date: todayKey(), text: "" } : list[i];
+    if (!isNew && !n) return "";
+    return `<div class="gmodal" id="noticeModal">
+      <div class="gmodal__bd" onclick="GARDEN.noticeClose()"></div>
+      <div class="gmodal__card">
+        <div class="gmodal__head"><h3>${isNew ? "공지사항 등록" : "공지사항 수정"}</h3><button class="gmodal__x" onclick="GARDEN.noticeClose()">×</button></div>
+        <div class="gform">
+          <label class="fld"><span>날짜</span><input id="nt_date" type="date" value="${esc(n.date)}"/></label>
+          <label class="fld"><span>내용 *</span><textarea id="nt_text" rows="5" placeholder="근무 인원에게 전달할 공지 내용을 입력하세요">${esc(n.text)}</textarea></label>
+        </div>
+        <div class="gmodal__foot">
+          ${isNew ? "" : `<button class="btn btn--sm btn--danger" onclick="GARDEN.noticeDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
+          <button class="btn btn--sm" onclick="GARDEN.noticeClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.noticeSave(${isNew ? "null" : i})">저장</button>
+        </div>
+      </div></div>`;
+  }
+
   /* ===== 크루 로스터 상태 (localStorage 오버레이 + 시트 저장) ===== */
   const CREW_KEY = "garden-crew";
   let _crew = null, _pushCT = null;
@@ -1239,6 +1325,7 @@
               <p class="sub">근무 인원 · 장애유형 · 식물 이슈 현황</p>
             </div>
           </div>
+          ${noticeCard()}
           <div class="dash-grid">${crewStatusCard("근무 인원 현황")}${crewTypeCard()}</div>
           <div class="dash-card" style="margin-top:16px">
             <div class="card-head"><h3>최근 식물 이슈</h3>
@@ -1903,6 +1990,31 @@
       });
     },
 
+    /* --- 공지사항 (제이미 전용 · 이력 누적) --- */
+    noticeOpen(i) {
+      if (!checkNoticePw()) return;
+      if (document.getElementById("noticeModal")) return;
+      document.body.insertAdjacentHTML("beforeend", noticeModal(i));
+      const n = document.getElementById("nt_text"); if (n) n.focus();
+    },
+    noticeClose() { const m = document.getElementById("noticeModal"); if (m) m.remove(); },
+    noticeSave(i) {
+      if (!checkNoticePw()) return;
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const text = v("nt_text");
+      if (!text) { const n = document.getElementById("nt_text"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      const rec = { date: v("nt_date") || todayKey(), text, author: "제이미" };
+      const list = getNotices();
+      if (i == null) list.unshift(rec); else if (list[i]) list[i] = rec; else return;
+      saveNotices(); this.noticeClose(); reDash(); toast("공지사항 저장됨 ✓");
+    },
+    noticeDelete(i) {
+      if (!checkNoticePw()) return;
+      const list = getNotices(); if (!list[i]) return;
+      if (!window.confirm("이 공지사항을 삭제할까요? 되돌릴 수 없습니다.")) return;
+      list.splice(i, 1); saveNotices(); this.noticeClose(); reDash(); toast("공지사항 삭제됨 ✓");
+    },
+
     /* --- 항목 편집 --- */
     wbEdit(elm) {
       const b = getBoard();
@@ -2544,6 +2656,9 @@
           // 운영 정산도 시트가 항상 최신 소스
           _settle = null;
           try { localStorage.removeItem(STL_KEY); } catch (e) {}
+          // 공지사항도 시트가 항상 최신 소스(여러 이력 누적)
+          _notices = null;
+          try { localStorage.removeItem(NOTICE_KEY); } catch (e) {}
           render(currentView());    // 다시 렌더
         } else {
           render(currentView());    // 스켈레톤 해제

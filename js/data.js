@@ -48,4 +48,7 @@ window.DATA = {
 
   // 운영 정산 관리 — 비용 집행 내역 (시트 settlement 탭에서 로드)
   settlement: [],
+
+  // 공지사항 — 대시보드 상단, 이력 누적(시트 notices 탭에서 로드, 제이미만 작성·수정·삭제)
+  notices: [],
 };

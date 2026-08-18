@@ -177,6 +177,13 @@ function doGet(e) {
     return r;
   });
 
+  // 월간리포트 — 카카오–링키지랩 월간 리뷰(이력 누적)
+  out.monthlyReports = rows_(ss, 'monthlyReports').map(function (r) {
+    r.month = String(r.month || '');
+    r.meetingDate = dateStr_(r.meetingDate);
+    return r;
+  });
+
   return ContentService
     .createTextOutput(JSON.stringify(out))
     .setMimeType(ContentService.MimeType.JSON);
@@ -233,6 +240,10 @@ function doPost(e) {
     if (body.type === 'notices' && body.data) {
       saveNotices_(body.data);
       return json_({ ok: true, saved: 'notices' });
+    }
+    if (body.type === 'monthlyReports' && body.data) {
+      saveMonthlyReports_(body.data);
+      return json_({ ok: true, saved: 'monthlyReports' });
     }
     if (body.type === 'deletePhoto' && body.id) {
       DriveApp.getFileById(String(body.id)).setTrashed(true); // 휴지통으로 이동(복구 가능)
@@ -426,6 +437,29 @@ function saveNotices_(arr) {
     var rows = [head];
     (arr || []).forEach(function (n) {
       rows.push([n.date || '', n.text || '', n.author || '']);
+    });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** 월간리포트 쓰기 — 리포트 배열 → monthlyReports 탭 (전체 이력 누적) */
+function saveMonthlyReports_(arr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('monthlyReports') || ss.insertSheet('monthlyReports');
+    sh.clear();
+    var head = ['month', 'meetingDate', 'attendees', 'issues', 'kakaoComment', 'lkgComment', 'driveUrl'];
+    var rows = [head];
+    (arr || []).forEach(function (x) {
+      rows.push([x.month || '', x.meetingDate || '', x.attendees || '', x.issues || '',
+        x.kakaoComment || '', x.lkgComment || '', x.driveUrl || '']);
     });
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, head.length).setValues(rows);

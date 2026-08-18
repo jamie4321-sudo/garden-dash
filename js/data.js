@@ -51,4 +51,7 @@ window.DATA = {
 
   // 공지사항 — 대시보드 상단, 이력 누적(시트 notices 탭에서 로드, 제이미만 작성·수정·삭제)
   notices: [],
+
+  // 월간리포트 — 카카오–링키지랩 월간 리뷰(미팅일·이슈사항·카카오 담당자 코멘트, 시트 monthlyReports 탭에서 로드)
+  monthlyReports: [],
 };

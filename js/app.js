@@ -1255,6 +1255,102 @@
       </div></div>`;
   }
 
+  /* ===== 월간리포트 — 카카오–링키지랩 월간 리뷰 ===== */
+  const MR_KEY = "garden-monthly";
+  // 카카오–링키지랩 월간 리뷰 자료 공유 드라이브 폴더
+  const MONTHLY_DRIVE_URL = "https://drive.google.com/drive/folders/1NR4Rf8-NdkNhjNXmDU9PxzuCzCr9sQpm";
+  let _monthly = null, _pushMR = null;
+  function normalizeMonthly(arr) {
+    return (arr || []).map((x) => ({
+      month: x.month || "", meetingDate: x.meetingDate || "", attendees: x.attendees || "",
+      issues: x.issues || "", kakaoComment: x.kakaoComment || "", lkgComment: x.lkgComment || "",
+      driveUrl: x.driveUrl || "",
+    }));
+  }
+  function getMonthly() {
+    if (_monthly) return _monthly;
+    try { const s = localStorage.getItem(MR_KEY); if (s) _monthly = normalizeMonthly(JSON.parse(s)); } catch (e) {}
+    if (!_monthly) _monthly = normalizeMonthly(D.monthlyReports || []);
+    return _monthly;
+  }
+  function saveMonthly() {
+    try { localStorage.setItem(MR_KEY, JSON.stringify(_monthly)); } catch (e) {}
+    pushMonthlyRemote();
+  }
+  function pushMonthlyRemote() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_monthly) return;
+    clearTimeout(_pushMR);
+    _pushMR = setTimeout(() => {
+      fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "monthlyReports", data: _monthly }) })
+        .then(() => toast("월간리포트 시트에 저장됨 ✓"))
+        .catch((e) => { console.warn("[GARDEN] 월간리포트 저장 실패:", e); toast("저장 실패 — 로컬만 저장됨", true); });
+    }, 600);
+  }
+  function reMonthly() { app.innerHTML = views.monthly(); }
+  // "YYYY-MM" → "YYYY년 M월"
+  function ymLabel(m) {
+    const mm = String(m || "").match(/^(\d{4})-(\d{2})$/);
+    return mm ? `${mm[1]}년 ${Number(mm[2])}월` : (m || "—");
+  }
+  function nl2br(s) { return esc(s).replace(/\n/g, "<br>"); }
+  function monthlyCard(x, i) {
+    const block = (label, val, mod) => `
+      <div class="mr-block ${mod || ""}">
+        <div class="mr-block__lbl">${label}</div>
+        <div class="mr-block__val">${val ? nl2br(val) : '<span class="muted">—</span>'}</div>
+      </div>`;
+    const drive = x.driveUrl
+      ? `<a class="chip-mono" href="${esc(x.driveUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 자료</a>` : "";
+    return `<article class="mr-card">
+      <div class="mr-card__head">
+        <div class="mr-card__title">
+          <span class="mr-badge">${ymLabel(x.month)}</span>
+          <span class="mr-meet">${x.meetingDate ? `📅 미팅 ${esc(x.meetingDate)}` : '<span class="muted">미팅일 미기재</span>'}</span>
+          ${x.attendees ? `<span class="mr-att">· 참석 ${esc(x.attendees)}</span>` : ""}
+        </div>
+        <div class="mr-card__act">
+          ${drive}
+          <button class="btn btn--sm" onclick="GARDEN.monthlyOpen(${i})">수정</button>
+        </div>
+      </div>
+      <div class="mr-card__body">
+        ${block("이슈 사항", x.issues)}
+        ${block("카카오 담당자 코멘트", x.kakaoComment, "mr-block--kakao")}
+        ${block("링키지랩 코멘트", x.lkgComment, "mr-block--lkg")}
+      </div>
+    </article>`;
+  }
+  function monthlyModal(i) {
+    const isNew = i == null;
+    const x = isNew ? { month: "", meetingDate: "", attendees: "", issues: "", kakaoComment: "", lkgComment: "", driveUrl: "" } : getMonthly()[i];
+    if (!x) return "";
+    return `<div class="gmodal" id="monthlyModal">
+      <div class="gmodal__bd" onclick="GARDEN.monthlyClose()"></div>
+      <div class="gmodal__card gmodal__card--wide">
+        <div class="gmodal__head"><h3>${isNew ? "월간리포트 등록" : "월간리포트 수정"}</h3>
+          <button class="gmodal__x" onclick="GARDEN.monthlyClose()">×</button></div>
+        <div class="gform">
+          <div class="fld-row fld-row--3">
+            <label class="fld"><span>리뷰 월 *</span><input id="mr_month" type="month" value="${esc(x.month)}"/></label>
+            <label class="fld"><span>월간 미팅일</span><input id="mr_meet" type="date" value="${esc(x.meetingDate)}"/></label>
+            <label class="fld"><span>참석자</span><input id="mr_att" value="${esc(x.attendees)}" placeholder="예: 카카오 김OO · 링키지랩 제이미"/></label>
+          </div>
+          <label class="fld"><span>이슈 사항</span><textarea id="mr_issues" rows="3" placeholder="이번 달 이슈·특이사항 (없으면 비워두세요)">${esc(x.issues)}</textarea></label>
+          <label class="fld"><span>카카오 담당자 코멘트</span><textarea id="mr_kakao" rows="3" placeholder="카카오 담당자 리뷰 코멘트를 작성하세요">${esc(x.kakaoComment)}</textarea></label>
+          <label class="fld"><span>링키지랩 코멘트</span><textarea id="mr_lkg" rows="3" placeholder="링키지랩 공유사항 / 답변 (선택)">${esc(x.lkgComment)}</textarea></label>
+          <label class="fld"><span>관련 자료 링크</span><input id="mr_drive" value="${esc(x.driveUrl)}" placeholder="해당 월 리뷰 자료 드라이브 URL (선택)"/>
+            <a class="fld-hint" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">🔗 월간 리뷰 드라이브 폴더 열기</a></label>
+        </div>
+        <div class="gmodal__foot">
+          ${isNew ? "" : `<button class="btn btn--sm btn--danger" onclick="GARDEN.monthlyDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
+          <button class="btn btn--sm" onclick="GARDEN.monthlyClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.monthlySave(${isNew ? "null" : i})">저장</button>
+        </div>
+      </div></div>`;
+  }
+
   /* ===== 로딩 스켈레톤 (시트 최초 로드 중) ===== */
   function sproutLoader(text) {
     return `<div class="boot">
@@ -1470,6 +1566,34 @@
               <p class="sub">매장별 · 추이 분석</p></div>
           </div>
           <div class="dash-grid">${bars(D.storeSales)}${spark(D.weekTrend)}</div>
+        </section>`;
+    },
+
+    monthly() {
+      const list = getMonthly().map((x, i) => ({ x, i }))
+        .sort((a, b) => (a.x.month < b.x.month ? 1 : a.x.month > b.x.month ? -1 : 0));
+      const cards = list.length
+        ? list.map(({ x, i }) => monthlyCard(x, i)).join("")
+        : `<div class="mr-empty">아직 등록된 월간리포트가 없습니다.<br>우측 상단 <b>＋ 리포트 등록</b>으로 첫 리뷰를 추가하세요.</div>`;
+      return `
+        <section class="view">
+          <div class="page-head">
+            <div><p class="eyebrow">Operation · 카카오–링키지랩</p><h2>월간리포트</h2>
+              <p class="sub">카카오–링키지랩 월간 리뷰 자료를 공유합니다 · 미팅일 · 이슈 사항 · 카카오 담당자 코멘트</p></div>
+            <div class="seg">
+              <a class="btn btn--sm" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">🔗 드라이브 열기</a>
+              <button class="btn btn--primary btn--sm" onclick="GARDEN.monthlyAddOpen()">＋ 리포트 등록</button>
+            </div>
+          </div>
+          <div class="mr-drivebar">
+            <span class="mr-drivebar__ic">📁</span>
+            <div class="mr-drivebar__txt">
+              <b>월간 리뷰 자료 드라이브</b>
+              <span>발표자료·회의록·사진 등 월간 리뷰 관련 파일을 이 폴더에서 공유합니다.</span>
+            </div>
+            <a class="btn btn--sm" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">폴더 열기 →</a>
+          </div>
+          <div class="mr-list">${cards}</div>
         </section>`;
     },
 
@@ -1796,6 +1920,7 @@
     floors: "CREW / FLOOR STATUS",
     safety: "CREW / SAFETY & HEALTH",
     schedule: "OPERATION / SCHEDULE",
+    monthly: "OPERATION / MONTHLY REVIEW",
     sales: "OPERATION / SALES",
   };
 
@@ -2576,6 +2701,37 @@
       toast("CSV 내보내기 완료 ✓");
     },
 
+    /* ---------- 월간리포트 ---------- */
+    monthlyAddOpen() {
+      if (document.getElementById("monthlyModal")) return;
+      document.body.insertAdjacentHTML("beforeend", monthlyModal(null));
+      const n = document.getElementById("mr_month"); if (n) n.focus();
+    },
+    monthlyOpen(i) {
+      if (document.getElementById("monthlyModal")) return;
+      document.body.insertAdjacentHTML("beforeend", monthlyModal(i));
+    },
+    monthlyClose() { const m = document.getElementById("monthlyModal"); if (m) m.remove(); },
+    monthlySave(i) {
+      if (i != null && !ensureAdmin()) return; // 기존 리포트 수정은 관리자 확인
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const month = v("mr_month");
+      if (!month) { const n = document.getElementById("mr_month"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
+      const rec = {
+        month, meetingDate: v("mr_meet"), attendees: v("mr_att"),
+        issues: v("mr_issues"), kakaoComment: v("mr_kakao"), lkgComment: v("mr_lkg"), driveUrl: v("mr_drive"),
+      };
+      const list = getMonthly();
+      if (i == null) list.unshift(rec); else if (list[i]) list[i] = rec; else return;
+      saveMonthly(); this.monthlyClose(); reMonthly(); toast("월간리포트 저장됨 ✓");
+    },
+    monthlyDelete(i) {
+      if (!ensureAdmin()) return;
+      const list = getMonthly(); if (!list[i]) return;
+      if (!window.confirm("이 월간리포트를 삭제할까요? 되돌릴 수 없습니다.")) return;
+      list.splice(i, 1); saveMonthly(); this.monthlyClose(); reMonthly(); toast("월간리포트 삭제됨 ✓");
+    },
+
     wbException(dateStr) {
       const b = getBoard();
       b.exceptions = b.exceptions || [];
@@ -2659,6 +2815,9 @@
           // 공지사항도 시트가 항상 최신 소스(여러 이력 누적)
           _notices = null;
           try { localStorage.removeItem(NOTICE_KEY); } catch (e) {}
+          // 월간리포트도 시트가 항상 최신 소스(여러 이력 누적)
+          _monthly = null;
+          try { localStorage.removeItem(MR_KEY); } catch (e) {}
           render(currentView());    // 다시 렌더
         } else {
           render(currentView());    // 스켈레톤 해제

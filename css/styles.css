@@ -1157,3 +1157,62 @@ button { font-family: inherit; }
   .page-head h2 { font-size: 26px; }
   .view { padding: 20px; }
 }
+
+/* ===== 월간리포트 (카카오–링키지랩 월간 리뷰) ===== */
+.mr-drivebar {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 16px 18px; margin-bottom: 18px;
+}
+.mr-drivebar__ic {
+  font-size: 20px; width: 42px; height: 42px; flex: none;
+  display: grid; place-items: center; border-radius: var(--r);
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.mr-drivebar__txt { display: grid; gap: 3px; margin-right: auto; }
+.mr-drivebar__txt b { font-size: 13.5px; font-weight: 800; }
+.mr-drivebar__txt span { font-size: 12px; color: var(--ink-3); }
+
+.mr-list { display: grid; gap: 16px; }
+.mr-empty {
+  text-align: center; color: var(--ink-3); font-size: 13.5px; line-height: 1.7;
+  padding: 46px 20px; border: 1px dashed var(--line); border-radius: var(--r-lg);
+  background: var(--panel);
+}
+.mr-card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 18px 20px; transition: border-color .14s;
+}
+.mr-card:hover { border-color: var(--line); }
+.mr-card__head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line-soft);
+}
+.mr-card__title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-right: auto; }
+.mr-badge {
+  font-family: var(--mono); font-size: 12.5px; font-weight: 800;
+  background: var(--accent); color: var(--accent-ink);
+  padding: 4px 11px; border-radius: 999px; letter-spacing: -.2px;
+}
+.mr-meet { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.mr-att { font-size: 12px; color: var(--ink-3); }
+.mr-card__act { display: flex; align-items: center; gap: 8px; }
+
+.mr-card__body { display: grid; gap: 12px; }
+.mr-block {
+  background: var(--panel-2); border: 1px solid var(--line-soft);
+  border-radius: var(--r); padding: 12px 14px; border-left: 3px solid var(--line);
+}
+.mr-block__lbl {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .5px; text-transform: uppercase;
+  color: var(--ink-3); margin-bottom: 6px;
+}
+.mr-block__val { font-size: 13.5px; line-height: 1.65; color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+.mr-block--kakao { border-left-color: #ffe600; }
+.mr-block--kakao .mr-block__lbl { color: #b39700; }
+.mr-block--lkg { border-left-color: var(--accent); }
+
+@media (max-width: 720px) {
+  .mr-card__head { flex-direction: column; align-items: flex-start; }
+  .mr-card__act { width: 100%; }
+}

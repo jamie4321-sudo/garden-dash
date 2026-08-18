@@ -1654,7 +1654,7 @@
             <div class="mr-top__l">
               <p class="mr-eyebrow">KAKAO<span>×</span>LINKAGELAB · MONTHLY REVIEW</p>
               <h2 class="mr-title">월간 리뷰 보드</h2>
-              <p class="mr-lead">한 달에 하나의 스레드. 미팅·이슈를 남기면 카카오 담당자가 코멘트로 답합니다.</p>
+              <p class="mr-lead">한 달에 하나의 스레드. 미팅·이슈를 남기면 담당자가 코멘트가 있다면 기록합니다.</p>
             </div>
             <div class="mr-top__r">
               <a class="mr-drive" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">

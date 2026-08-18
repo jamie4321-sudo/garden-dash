@@ -1373,7 +1373,10 @@
             <label class="mr-att"><span class="mr-att__ic">참석</span>
               <input type="text" class="mr-att__in" value="${esc(x.attendees)}" placeholder="참석자 입력" data-i="${i}" onblur="GARDEN.mrField(this,'attendees')"/></label>
           </div>
-          <button class="mr-post__del" title="이 리뷰 삭제" onclick="GARDEN.mrDelete(${i})">✕</button>
+          <div class="mr-post__ctl">
+            <button class="mr-post__edit" title="리뷰 정보 수정 (월·미팅일·참석자)" onclick="GARDEN.monthlyEditOpen(${i})">✎</button>
+            <button class="mr-post__del" title="이 리뷰 삭제" onclick="GARDEN.mrDelete(${i})">✕</button>
+          </div>
         </header>
 
         <div class="mr-issue">
@@ -1400,7 +1403,7 @@
     return `<div class="gmodal" id="monthlyModal">
       <div class="gmodal__bd" onclick="GARDEN.monthlyClose()"></div>
       <div class="gmodal__card">
-        <div class="gmodal__head"><h3>월간 리뷰 열기</h3>
+        <div class="gmodal__head"><h3>${isNew ? "월간 리뷰 열기" : "리뷰 정보 수정"}</h3>
           <button class="gmodal__x" onclick="GARDEN.monthlyClose()">×</button></div>
         <div class="gform">
           <label class="fld"><span>리뷰 월 *</span><input id="mr_month" type="month" value="${esc(x.month)}"/></label>
@@ -1408,11 +1411,11 @@
             <label class="fld"><span>월간 미팅일</span><input id="mr_meet" type="date" value="${esc(x.meetingDate)}"/></label>
             <label class="fld"><span>참석자</span><input id="mr_att" value="${esc(x.attendees)}" placeholder="예: 카렌 · 제이미"/></label>
           </div>
-          <p class="fld-note">열고 나면 이슈·코멘트는 게시판에서 바로 입력·수정할 수 있어요.</p>
+          <p class="fld-note">${isNew ? "열고 나면 이슈·코멘트는 게시판에서 바로 입력·수정할 수 있어요." : "이슈·코멘트는 게시판에서 바로 수정할 수 있어요. 여기서는 월·미팅일·참석자를 수정합니다."}</p>
         </div>
         <div class="gmodal__foot">
           <button class="btn btn--sm" onclick="GARDEN.monthlyClose()">취소</button>
-          <button class="btn btn--primary btn--sm" onclick="GARDEN.monthlySave()">리뷰 열기</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.monthlySave(${isNew ? "null" : i})">${isNew ? "리뷰 열기" : "저장"}</button>
         </div>
       </div></div>`;
   }
@@ -2777,15 +2780,27 @@
       document.body.insertAdjacentHTML("beforeend", monthlyModal(null));
       const n = document.getElementById("mr_month"); if (n) n.focus();
     },
+    monthlyEditOpen(i) {
+      if (document.getElementById("monthlyModal")) return;
+      if (!getMonthly()[i]) return;
+      document.body.insertAdjacentHTML("beforeend", monthlyModal(i));
+      const n = document.getElementById("mr_month"); if (n) n.focus();
+    },
     monthlyClose() { const m = document.getElementById("monthlyModal"); if (m) m.remove(); },
-    monthlySave() {
+    monthlySave(i) {
       const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
       const month = v("mr_month");
       if (!month) { const n = document.getElementById("mr_month"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
       const list = getMonthly();
-      if (list.some((r) => r.month === month)) { toast("이미 해당 월 리뷰가 있습니다", true); this.monthlyClose(); location.hash = "#monthly"; reMonthly(); return; }
-      list.push({ month, meetingDate: v("mr_meet"), attendees: v("mr_att"), issues: "", comments: [] });
-      saveMonthly(); this.monthlyClose(); reMonthly(); toast("월간 리뷰 스레드가 열렸어요 ✓");
+      // 다른 리뷰와 월 중복 방지(수정 시 자기 자신은 제외)
+      if (list.some((r, k) => r.month === month && k !== i)) { toast("이미 해당 월 리뷰가 있습니다", true); return; }
+      if (i == null) {
+        list.push({ month, meetingDate: v("mr_meet"), attendees: v("mr_att"), issues: "", comments: [] });
+        saveMonthly(); this.monthlyClose(); reMonthly(); toast("월간 리뷰 스레드가 열렸어요 ✓");
+      } else if (list[i]) {
+        list[i].month = month; list[i].meetingDate = v("mr_meet"); list[i].attendees = v("mr_att");
+        saveMonthly(); this.monthlyClose(); reMonthly(); toast("리뷰 정보 수정됨 ✓");
+      }
     },
     // 게시판 인라인 필드 저장(이슈·미팅일·참석자)
     mrField(el, field) {

@@ -1171,7 +1171,7 @@ button { font-family: inherit; }
 }
 .mr-eyebrow span { color: var(--accent-text); font-weight: 800; }
 .mr-title { margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
-.mr-lead { margin: 10px 0 0; font-size: 13px; color: var(--ink-2); max-width: 46ch; line-height: 1.55; }
+.mr-lead { margin: 10px 0 0; font-size: 13px; color: var(--ink-2); max-width: 60ch; line-height: 1.55; text-wrap: balance; word-break: keep-all; }
 .mr-top__r { display: flex; align-items: center; gap: 8px; }
 .mr-drive {
   display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px;
@@ -1231,23 +1231,27 @@ button { font-family: inherit; }
 .mr-post__date { display: flex; align-items: baseline; gap: 5px; }
 .mr-post__mo { font-family: var(--mono); font-size: 27px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; color: var(--ink); }
 .mr-post__yr { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink-3); }
-.mr-post__meta { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; margin-right: auto; }
+.mr-post__meta { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; margin-right: 4px; }
 .mr-meet, .mr-att { display: inline-flex; align-items: center; gap: 6px; }
+.mr-meet { flex: 0 0 auto; }
+.mr-att { flex: 1 1 220px; min-width: 0; }
 .mr-meet__ic, .mr-att__ic {
   font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
   color: var(--ink-3); padding: 2px 6px; border: 1px solid var(--mr-line); border-radius: 5px; }
 .mr-meet__in, .mr-att__in {
   background: transparent; border: none; color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 600;
   padding: 3px 4px; border-radius: 5px; outline: none; transition: background .14s; min-width: 0; }
-.mr-att__in { width: 15ch; }
+.mr-att__in { width: 100%; }
 .mr-meet__in:hover, .mr-att__in:hover { background: var(--panel-2); }
 .mr-meet__in:focus, .mr-att__in:focus { background: var(--panel-2); box-shadow: inset 0 -2px 0 var(--accent); }
 .mr-att__in::placeholder { color: var(--ink-3); }
-.mr-post__del {
+.mr-post__ctl { flex: none; display: flex; align-items: center; gap: 4px; }
+.mr-post__edit, .mr-post__del {
   flex: none; width: 26px; height: 26px; border-radius: 7px; border: 1px solid transparent;
   background: transparent; color: var(--ink-3); cursor: pointer; font-size: 12px;
   opacity: 0; transition: opacity .16s, color .16s, border-color .16s; }
-.mr-post:hover .mr-post__del { opacity: 1; }
+.mr-post:hover .mr-post__edit, .mr-post:hover .mr-post__del { opacity: 1; }
+.mr-post__edit:hover { color: var(--accent-text); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .mr-post__del:hover { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, transparent); }
 
 /* 이슈 = 라벨 | 본문 가로 배치 */

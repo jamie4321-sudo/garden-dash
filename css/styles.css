@@ -1231,10 +1231,10 @@ button { font-family: inherit; }
 .mr-post__date { display: flex; align-items: baseline; gap: 5px; }
 .mr-post__mo { font-family: var(--mono); font-size: 27px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; color: var(--ink); }
 .mr-post__yr { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink-3); }
-.mr-post__meta { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0; margin-right: 4px; }
+.mr-post__meta { display: flex; align-items: center; gap: 6px 14px; flex-wrap: nowrap; flex: 1 1 auto; min-width: 0; margin-right: 4px; }
 .mr-meet, .mr-att { display: inline-flex; align-items: center; gap: 6px; }
 .mr-meet { flex: 0 0 auto; }
-.mr-att { flex: 1 1 220px; min-width: 0; }
+.mr-att { flex: 1 1 auto; min-width: 0; }
 .mr-meet__ic, .mr-att__ic {
   font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
   color: var(--ink-3); padding: 2px 6px; border: 1px solid var(--mr-line); border-radius: 5px; }
@@ -1320,6 +1320,8 @@ button { font-family: inherit; }
   .mr-thread { padding-left: 0; }
   .mr-issue { grid-template-columns: 44px 1fr; gap: 8px; }
   .mr-post__head { flex-wrap: wrap; }
+  .mr-post__meta { flex-wrap: wrap; }
+  .mr-att { flex: 1 1 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .mr-post, .mr-cmt { animation: none; }

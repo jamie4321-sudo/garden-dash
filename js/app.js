@@ -1255,17 +1255,42 @@
       </div></div>`;
   }
 
-  /* ===== 월간리포트 — 카카오–링키지랩 월간 리뷰 ===== */
+  /* ===== 월간리포트 — 카카오–링키지랩 월간 리뷰 (게시판/스레드) ===== */
   const MR_KEY = "garden-monthly";
   // 카카오–링키지랩 월간 리뷰 자료 공유 드라이브 폴더
   const MONTHLY_DRIVE_URL = "https://drive.google.com/drive/folders/1NR4Rf8-NdkNhjNXmDU9PxzuCzCr9sQpm";
+  // 카카오 담당자 코멘트 작성 권한 — 이 이름으로 로그인한 계정만 코멘트 등록/수정/삭제 가능
+  const KAKAO_EDITORS = ["카렌", "조지"];
   let _monthly = null, _pushMR = null;
+
+  // 로그인 계정명(입장 게이트에서 저장) — 코멘트 작성자 식별
+  function currentUser() { try { return (localStorage.getItem("garden-entry-who") || "").trim(); } catch (e) { return ""; } }
+  function canComment() { const u = currentUser(); return KAKAO_EDITORS.some((n) => u.indexOf(n) >= 0); }
+  function isAdminUser() { const u = currentUser(); return u === "관리자" || u.indexOf("제이미") >= 0; }
+  function authorHue(name) {
+    name = name || "";
+    if (name.indexOf("카렌") >= 0) return "#ffe600";   // 카카오 옐로우
+    if (name.indexOf("조지") >= 0) return "#8ab4ff";   // 스카이
+    if (name.indexOf("제이미") >= 0 || name === "관리자") return "var(--accent)";
+    return "#c9a6ff";
+  }
+  function authorInitial(name) { return (String(name || "?").trim().charAt(0)) || "?"; }
+
   function normalizeMonthly(arr) {
-    return (arr || []).map((x) => ({
-      month: x.month || "", meetingDate: x.meetingDate || "", attendees: x.attendees || "",
-      issues: x.issues || "", kakaoComment: x.kakaoComment || "", lkgComment: x.lkgComment || "",
-      driveUrl: x.driveUrl || "",
-    }));
+    return (arr || []).map((x) => {
+      let comments = Array.isArray(x.comments) ? x.comments : [];
+      if (!comments.length && typeof x.commentsJson === "string" && x.commentsJson) {
+        try { const p = JSON.parse(x.commentsJson); if (Array.isArray(p)) comments = p; } catch (e) {}
+      }
+      // 구버전(단일 코멘트 필드) 데이터 이전
+      if (!comments.length && x.kakaoComment) comments.push({ author: x.kakaoAuthor || "카카오", text: x.kakaoComment, at: x.kakaoAt || "" });
+      if (!comments.length && x.lkgComment) comments.push({ author: "링키지랩", text: x.lkgComment, at: "" });
+      comments = comments.map((c) => ({ author: c.author || "", text: c.text || "", at: c.at || "" }));
+      return {
+        month: x.month || "", meetingDate: x.meetingDate || "", attendees: x.attendees || "",
+        issues: x.issues || "", comments,
+      };
+    });
   }
   function getMonthly() {
     if (_monthly) return _monthly;
@@ -1289,64 +1314,106 @@
     }, 600);
   }
   function reMonthly() { app.innerHTML = views.monthly(); }
-  // "YYYY-MM" → "YYYY년 M월"
-  function ymLabel(m) {
-    const mm = String(m || "").match(/^(\d{4})-(\d{2})$/);
-    return mm ? `${mm[1]}년 ${Number(mm[2])}월` : (m || "—");
+  // 정렬 인덱스(최신월 우선)와 원본 배열 인덱스를 매핑
+  function monthlyOrder() {
+    return getMonthly().map((x, i) => ({ x, i }))
+      .sort((a, b) => (a.x.month < b.x.month ? 1 : a.x.month > b.x.month ? -1 : 0));
   }
-  function nl2br(s) { return esc(s).replace(/\n/g, "<br>"); }
-  function monthlyCard(x, i) {
-    const block = (label, val, mod) => `
-      <div class="mr-block ${mod || ""}">
-        <div class="mr-block__lbl">${label}</div>
-        <div class="mr-block__val">${val ? nl2br(val) : '<span class="muted">—</span>'}</div>
-      </div>`;
-    const drive = x.driveUrl
-      ? `<a class="chip-mono" href="${esc(x.driveUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 자료</a>` : "";
-    return `<article class="mr-card">
-      <div class="mr-card__head">
-        <div class="mr-card__title">
-          <span class="mr-badge">${ymLabel(x.month)}</span>
-          <span class="mr-meet">${x.meetingDate ? `📅 미팅 ${esc(x.meetingDate)}` : '<span class="muted">미팅일 미기재</span>'}</span>
-          ${x.attendees ? `<span class="mr-att">· 참석 ${esc(x.attendees)}</span>` : ""}
+  // "YYYY-MM" → { yr:"2026", mo:"08" }
+  function ymParts(m) {
+    const mm = String(m || "").match(/^(\d{4})-(\d{2})$/);
+    return mm ? { yr: mm[1], mo: mm[2] } : { yr: "----", mo: "--" };
+  }
+  // 미팅일 "2026-08-14" → "08.14"
+  function meetShort(d) {
+    const mm = String(d || "").match(/^\d{4}-(\d{2})-(\d{2})$/);
+    return mm ? `${mm[1]}.${mm[2]}` : (d || "");
+  }
+
+  // 코멘트 한 줄
+  function commentRow(c, i, ci) {
+    const mine = c.author && c.author === currentUser();
+    const canDel = mine || isAdminUser();
+    const hue = authorHue(c.author);
+    return `<li class="mr-cmt" style="--hue:${hue}">
+      <span class="mr-cmt__ava" aria-hidden="true">${esc(authorInitial(c.author))}</span>
+      <div class="mr-cmt__body">
+        <div class="mr-cmt__meta">
+          <b class="mr-cmt__who">${esc(c.author) || "익명"}</b>
+          ${c.at ? `<span class="mr-cmt__at">${esc(c.at)}</span>` : ""}
+          ${canDel ? `<button class="mr-cmt__x" title="코멘트 삭제" onclick="GARDEN.mrCommentDel(${i},${ci})">삭제</button>` : ""}
         </div>
-        <div class="mr-card__act">
-          ${drive}
-          <button class="btn btn--sm" onclick="GARDEN.monthlyOpen(${i})">수정</button>
-        </div>
+        <div class="mr-cmt__text${canDel ? " is-editable" : ""}"${canDel ? ` contenteditable="true" spellcheck="false" data-i="${i}" data-ci="${ci}" onblur="GARDEN.mrCommentEdit(this)"` : ""}>${esc(c.text)}</div>
       </div>
-      <div class="mr-card__body">
-        ${block("이슈 사항", x.issues)}
-        ${block("카카오 담당자 코멘트", x.kakaoComment, "mr-block--kakao")}
-        ${block("링키지랩 코멘트", x.lkgComment, "mr-block--lkg")}
+    </li>`;
+  }
+
+  // 월간 리뷰 게시판 한 건(스레드)
+  function monthlyPost(x, i, idx) {
+    const p = ymParts(x.month);
+    const comments = (x.comments || []).map((c, ci) => commentRow(c, i, ci)).join("");
+    const composer = canComment()
+      ? `<div class="mr-compose">
+          <span class="mr-compose__ava" style="--hue:${authorHue(currentUser())}" aria-hidden="true">${esc(authorInitial(currentUser()))}</span>
+          <input class="mr-compose__in" id="mr_cin_${i}" placeholder="${esc(currentUser())}(으)로 코멘트 남기기 — Enter"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();GARDEN.mrCommentAdd(${i})}"/>
+          <button class="mr-compose__go" onclick="GARDEN.mrCommentAdd(${i})" title="등록">↵</button>
+        </div>`
+      : `<p class="mr-compose__lock">카카오 담당자(${KAKAO_EDITORS.join(" · ")})로 로그인하면 코멘트를 남길 수 있어요.</p>`;
+    return `<article class="mr-post" style="--d:${idx}">
+      <div class="mr-post__spine" aria-hidden="true"><span class="mr-post__node"></span></div>
+      <div class="mr-post__main">
+        <header class="mr-post__head">
+          <div class="mr-post__date">
+            <span class="mr-post__mo">${p.mo}</span>
+            <span class="mr-post__yr">${p.yr}</span>
+          </div>
+          <div class="mr-post__meta">
+            <label class="mr-meet"><span class="mr-meet__ic">미팅</span>
+              <input type="date" class="mr-meet__in" value="${esc(x.meetingDate)}" data-i="${i}" onchange="GARDEN.mrField(this,'meetingDate')"/></label>
+            <label class="mr-att"><span class="mr-att__ic">참석</span>
+              <input type="text" class="mr-att__in" value="${esc(x.attendees)}" placeholder="참석자 입력" data-i="${i}" onblur="GARDEN.mrField(this,'attendees')"/></label>
+          </div>
+          <button class="mr-post__del" title="이 리뷰 삭제" onclick="GARDEN.mrDelete(${i})">✕</button>
+        </header>
+
+        <div class="mr-issue">
+          <span class="mr-issue__lbl">이슈</span>
+          <div class="mr-issue__val" contenteditable="true" spellcheck="false" data-i="${i}"
+               data-ph="이슈·특이사항을 입력하세요 (없으면 비워두세요)"
+               onblur="GARDEN.mrField(this,'issues')">${esc(x.issues)}</div>
+        </div>
+
+        <div class="mr-thread">
+          <div class="mr-thread__bar"><span class="mr-thread__lbl">카카오 담당자 코멘트</span>
+            <span class="mr-thread__n">${(x.comments || []).length}</span></div>
+          ${comments ? `<ul class="mr-cmts">${comments}</ul>` : `<p class="mr-thread__empty">아직 코멘트가 없어요.</p>`}
+          ${composer}
+        </div>
       </div>
     </article>`;
   }
+
   function monthlyModal(i) {
     const isNew = i == null;
-    const x = isNew ? { month: "", meetingDate: "", attendees: "", issues: "", kakaoComment: "", lkgComment: "", driveUrl: "" } : getMonthly()[i];
+    const x = isNew ? { month: "", meetingDate: "", attendees: "" } : getMonthly()[i];
     if (!x) return "";
     return `<div class="gmodal" id="monthlyModal">
       <div class="gmodal__bd" onclick="GARDEN.monthlyClose()"></div>
-      <div class="gmodal__card gmodal__card--wide">
-        <div class="gmodal__head"><h3>${isNew ? "월간리포트 등록" : "월간리포트 수정"}</h3>
+      <div class="gmodal__card">
+        <div class="gmodal__head"><h3>월간 리뷰 열기</h3>
           <button class="gmodal__x" onclick="GARDEN.monthlyClose()">×</button></div>
         <div class="gform">
-          <div class="fld-row fld-row--3">
-            <label class="fld"><span>리뷰 월 *</span><input id="mr_month" type="month" value="${esc(x.month)}"/></label>
+          <label class="fld"><span>리뷰 월 *</span><input id="mr_month" type="month" value="${esc(x.month)}"/></label>
+          <div class="fld-row">
             <label class="fld"><span>월간 미팅일</span><input id="mr_meet" type="date" value="${esc(x.meetingDate)}"/></label>
-            <label class="fld"><span>참석자</span><input id="mr_att" value="${esc(x.attendees)}" placeholder="예: 카카오 김OO · 링키지랩 제이미"/></label>
+            <label class="fld"><span>참석자</span><input id="mr_att" value="${esc(x.attendees)}" placeholder="예: 카렌 · 제이미"/></label>
           </div>
-          <label class="fld"><span>이슈 사항</span><textarea id="mr_issues" rows="3" placeholder="이번 달 이슈·특이사항 (없으면 비워두세요)">${esc(x.issues)}</textarea></label>
-          <label class="fld"><span>카카오 담당자 코멘트</span><textarea id="mr_kakao" rows="3" placeholder="카카오 담당자 리뷰 코멘트를 작성하세요">${esc(x.kakaoComment)}</textarea></label>
-          <label class="fld"><span>링키지랩 코멘트</span><textarea id="mr_lkg" rows="3" placeholder="링키지랩 공유사항 / 답변 (선택)">${esc(x.lkgComment)}</textarea></label>
-          <label class="fld"><span>관련 자료 링크</span><input id="mr_drive" value="${esc(x.driveUrl)}" placeholder="해당 월 리뷰 자료 드라이브 URL (선택)"/>
-            <a class="fld-hint" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">🔗 월간 리뷰 드라이브 폴더 열기</a></label>
+          <p class="fld-note">열고 나면 이슈·코멘트는 게시판에서 바로 입력·수정할 수 있어요.</p>
         </div>
         <div class="gmodal__foot">
-          ${isNew ? "" : `<button class="btn btn--sm btn--danger" onclick="GARDEN.monthlyDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
           <button class="btn btn--sm" onclick="GARDEN.monthlyClose()">취소</button>
-          <button class="btn btn--primary btn--sm" onclick="GARDEN.monthlySave(${isNew ? "null" : i})">저장</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.monthlySave()">리뷰 열기</button>
         </div>
       </div></div>`;
   }
@@ -1570,30 +1637,34 @@
     },
 
     monthly() {
-      const list = getMonthly().map((x, i) => ({ x, i }))
-        .sort((a, b) => (a.x.month < b.x.month ? 1 : a.x.month > b.x.month ? -1 : 0));
-      const cards = list.length
-        ? list.map(({ x, i }) => monthlyCard(x, i)).join("")
-        : `<div class="mr-empty">아직 등록된 월간리포트가 없습니다.<br>우측 상단 <b>＋ 리포트 등록</b>으로 첫 리뷰를 추가하세요.</div>`;
+      const list = monthlyOrder();
+      const posts = list.length
+        ? list.map(({ x, i }, idx) => monthlyPost(x, i, idx)).join("")
+        : `<div class="mr-empty">
+             <span class="mr-empty__mark">01</span>
+             <p>첫 월간 리뷰를 시작해 보세요.</p>
+             <span class="mr-empty__sub">＋ 리뷰 열기 로 이번 달 스레드를 만들면 이슈·코멘트를 바로 남길 수 있어요.</span>
+           </div>`;
+      const meN = currentUser();
       return `
-        <section class="view">
-          <div class="page-head">
-            <div><p class="eyebrow">Operation · 카카오–링키지랩</p><h2>월간리포트</h2>
-              <p class="sub">카카오–링키지랩 월간 리뷰 자료를 공유합니다 · 미팅일 · 이슈 사항 · 카카오 담당자 코멘트</p></div>
-            <div class="seg">
-              <a class="btn btn--sm" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">🔗 드라이브 열기</a>
-              <button class="btn btn--primary btn--sm" onclick="GARDEN.monthlyAddOpen()">＋ 리포트 등록</button>
+        <section class="view mr-view">
+          <div class="mr-top">
+            <div class="mr-top__l">
+              <p class="mr-eyebrow">KAKAO<span>×</span>LINKAGELAB · MONTHLY REVIEW</p>
+              <h2 class="mr-title">월간 리뷰 보드</h2>
+              <p class="mr-lead">한 달에 하나의 스레드. 미팅·이슈를 남기면 카카오 담당자가 코멘트로 답합니다.</p>
+            </div>
+            <div class="mr-top__r">
+              <a class="mr-drive" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">
+                <span class="mr-drive__ic">↗</span><span class="mr-drive__t">리뷰 자료 드라이브</span></a>
+              <button class="mr-new" onclick="GARDEN.monthlyAddOpen()"><span>＋</span> 리뷰 열기</button>
             </div>
           </div>
-          <div class="mr-drivebar">
-            <span class="mr-drivebar__ic">📁</span>
-            <div class="mr-drivebar__txt">
-              <b>월간 리뷰 자료 드라이브</b>
-              <span>발표자료·회의록·사진 등 월간 리뷰 관련 파일을 이 폴더에서 공유합니다.</span>
-            </div>
-            <a class="btn btn--sm" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">폴더 열기 →</a>
+          <div class="mr-who">
+            <span class="mr-who__dot" style="--hue:${authorHue(meN)}"></span>
+            ${meN ? `<b>${esc(meN)}</b> 계정으로 접속 중 · ${canComment() ? "코멘트 작성 가능" : "코멘트는 카카오 담당자(" + KAKAO_EDITORS.join(" · ") + ")만 가능"}` : "로그인 계정 정보 없음"}
           </div>
-          <div class="mr-list">${cards}</div>
+          <div class="mr-board">${posts}</div>
         </section>`;
     },
 
@@ -2701,35 +2772,62 @@
       toast("CSV 내보내기 완료 ✓");
     },
 
-    /* ---------- 월간리포트 ---------- */
+    /* ---------- 월간리포트 (게시판) ---------- */
     monthlyAddOpen() {
       if (document.getElementById("monthlyModal")) return;
       document.body.insertAdjacentHTML("beforeend", monthlyModal(null));
       const n = document.getElementById("mr_month"); if (n) n.focus();
     },
-    monthlyOpen(i) {
-      if (document.getElementById("monthlyModal")) return;
-      document.body.insertAdjacentHTML("beforeend", monthlyModal(i));
-    },
     monthlyClose() { const m = document.getElementById("monthlyModal"); if (m) m.remove(); },
-    monthlySave(i) {
-      if (i != null && !ensureAdmin()) return; // 기존 리포트 수정은 관리자 확인
+    monthlySave() {
       const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
       const month = v("mr_month");
       if (!month) { const n = document.getElementById("mr_month"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
-      const rec = {
-        month, meetingDate: v("mr_meet"), attendees: v("mr_att"),
-        issues: v("mr_issues"), kakaoComment: v("mr_kakao"), lkgComment: v("mr_lkg"), driveUrl: v("mr_drive"),
-      };
       const list = getMonthly();
-      if (i == null) list.unshift(rec); else if (list[i]) list[i] = rec; else return;
-      saveMonthly(); this.monthlyClose(); reMonthly(); toast("월간리포트 저장됨 ✓");
+      if (list.some((r) => r.month === month)) { toast("이미 해당 월 리뷰가 있습니다", true); this.monthlyClose(); location.hash = "#monthly"; reMonthly(); return; }
+      list.push({ month, meetingDate: v("mr_meet"), attendees: v("mr_att"), issues: "", comments: [] });
+      saveMonthly(); this.monthlyClose(); reMonthly(); toast("월간 리뷰 스레드가 열렸어요 ✓");
     },
-    monthlyDelete(i) {
-      if (!ensureAdmin()) return;
+    // 게시판 인라인 필드 저장(이슈·미팅일·참석자)
+    mrField(el, field) {
+      const i = +el.dataset.i; const list = getMonthly(); if (!list[i]) return;
+      const val = (el.tagName === "INPUT" ? el.value : el.innerText).replace(/ /g, " ").replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
+      if (list[i][field] === val) return;
+      list[i][field] = val; saveMonthly();
+    },
+    // 코멘트 등록 (카카오 담당자만)
+    mrCommentAdd(i) {
+      if (!canComment()) { toast("카카오 담당자만 코멘트를 남길 수 있어요", true); return; }
+      const inp = document.getElementById("mr_cin_" + i); if (!inp) return;
+      const text = (inp.value || "").trim(); if (!text) { inp.focus(); return; }
       const list = getMonthly(); if (!list[i]) return;
-      if (!window.confirm("이 월간리포트를 삭제할까요? 되돌릴 수 없습니다.")) return;
-      list.splice(i, 1); saveMonthly(); this.monthlyClose(); reMonthly(); toast("월간리포트 삭제됨 ✓");
+      list[i].comments = list[i].comments || [];
+      list[i].comments.push({ author: currentUser(), text, at: issueTodayStr() });
+      saveMonthly(); reMonthly(); toast("코멘트 등록됨 ✓");
+    },
+    // 코멘트 인라인 수정 (작성자 본인 또는 관리자)
+    mrCommentEdit(el) {
+      const i = +el.dataset.i, ci = +el.dataset.ci;
+      const list = getMonthly(); if (!list[i] || !list[i].comments || !list[i].comments[ci]) return;
+      const c = list[i].comments[ci];
+      if (!(c.author === currentUser() || isAdminUser())) return;
+      const val = el.innerText.replace(/ /g, " ").replace(/\r/g, "").trim();
+      if (c.text === val) return;
+      if (!val) return; // 빈 값으로 지우려면 삭제 버튼 사용
+      c.text = val; saveMonthly();
+    },
+    mrCommentDel(i, ci) {
+      const list = getMonthly(); if (!list[i] || !list[i].comments || !list[i].comments[ci]) return;
+      const c = list[i].comments[ci];
+      if (!(c.author === currentUser() || isAdminUser())) { toast("본인 코멘트만 삭제할 수 있어요", true); return; }
+      if (!window.confirm("이 코멘트를 삭제할까요?")) return;
+      list[i].comments.splice(ci, 1); saveMonthly(); reMonthly(); toast("코멘트 삭제됨 ✓");
+    },
+    mrDelete(i) {
+      const list = getMonthly(); if (!list[i]) return;
+      const label = ymParts(list[i].month);
+      if (!window.confirm(`${label.yr}년 ${Number(label.mo)}월 리뷰를 삭제할까요?\n코멘트 ${(list[i].comments || []).length}건도 함께 삭제됩니다.`)) return;
+      list.splice(i, 1); saveMonthly(); reMonthly(); toast("월간 리뷰 삭제됨 ✓");
     },
 
     wbException(dateStr) {

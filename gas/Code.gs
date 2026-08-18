@@ -177,11 +177,17 @@ function doGet(e) {
     return r;
   });
 
-  // 월간리포트 — 카카오–링키지랩 월간 리뷰(이력 누적)
+  // 월간리포트 — 카카오–링키지랩 월간 리뷰(게시판/스레드, 이력 누적)
   out.monthlyReports = rows_(ss, 'monthlyReports').map(function (r) {
-    r.month = String(r.month || '');
-    r.meetingDate = dateStr_(r.meetingDate);
-    return r;
+    var comments = [];
+    try { var p = JSON.parse(r.commentsJson || '[]'); if (p && p.length) comments = p; } catch (e) {}
+    return {
+      month: String(r.month || ''),
+      meetingDate: dateStr_(r.meetingDate),
+      attendees: r.attendees || '',
+      issues: r.issues || '',
+      comments: comments,
+    };
   });
 
   return ContentService
@@ -447,7 +453,7 @@ function saveNotices_(arr) {
   }
 }
 
-/** 월간리포트 쓰기 — 리포트 배열 → monthlyReports 탭 (전체 이력 누적) */
+/** 월간리포트 쓰기 — 리포트 배열 → monthlyReports 탭 (코멘트는 JSON 셀로 저장) */
 function saveMonthlyReports_(arr) {
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -455,11 +461,11 @@ function saveMonthlyReports_(arr) {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sh = ss.getSheetByName('monthlyReports') || ss.insertSheet('monthlyReports');
     sh.clear();
-    var head = ['month', 'meetingDate', 'attendees', 'issues', 'kakaoComment', 'lkgComment', 'driveUrl'];
+    var head = ['month', 'meetingDate', 'attendees', 'issues', 'commentsJson'];
     var rows = [head];
     (arr || []).forEach(function (x) {
-      rows.push([x.month || '', x.meetingDate || '', x.attendees || '', x.issues || '',
-        x.kakaoComment || '', x.lkgComment || '', x.driveUrl || '']);
+      var comments = (x && x.comments && x.comments.length) ? JSON.stringify(x.comments) : '';
+      rows.push([x.month || '', x.meetingDate || '', x.attendees || '', x.issues || '', comments]);
     });
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, head.length).setValues(rows);

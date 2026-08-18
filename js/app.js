@@ -1336,9 +1336,9 @@
     const canDel = mine || isAdminUser();
     const hue = authorHue(c.author);
     return `<li class="mr-cmt" style="--hue:${hue}">
-      <span class="mr-cmt__ava" aria-hidden="true">${esc(authorInitial(c.author))}</span>
       <div class="mr-cmt__body">
         <div class="mr-cmt__meta">
+          <span class="mr-cmt__dot" aria-hidden="true"></span>
           <b class="mr-cmt__who">${esc(c.author) || "익명"}</b>
           ${c.at ? `<span class="mr-cmt__at">${esc(c.at)}</span>` : ""}
           ${canDel ? `<button class="mr-cmt__x" title="코멘트 삭제" onclick="GARDEN.mrCommentDel(${i},${ci})">삭제</button>` : ""}
@@ -1353,8 +1353,7 @@
     const p = ymParts(x.month);
     const comments = (x.comments || []).map((c, ci) => commentRow(c, i, ci)).join("");
     const composer = canComment()
-      ? `<div class="mr-compose">
-          <span class="mr-compose__ava" style="--hue:${authorHue(currentUser())}" aria-hidden="true">${esc(authorInitial(currentUser()))}</span>
+      ? `<div class="mr-compose" style="--hue:${authorHue(currentUser())}">
           <input class="mr-compose__in" id="mr_cin_${i}" placeholder="${esc(currentUser())}(으)로 코멘트 남기기 — Enter"
                  onkeydown="if(event.key==='Enter'){event.preventDefault();GARDEN.mrCommentAdd(${i})}"/>
           <button class="mr-compose__go" onclick="GARDEN.mrCommentAdd(${i})" title="등록">↵</button>

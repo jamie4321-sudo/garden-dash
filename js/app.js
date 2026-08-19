@@ -1285,13 +1285,30 @@
       // 구버전(단일 코멘트 필드) 데이터 이전
       if (!comments.length && x.kakaoComment) comments.push({ author: x.kakaoAuthor || "카카오", text: x.kakaoComment, at: x.kakaoAt || "" });
       if (!comments.length && x.lkgComment) comments.push({ author: "링키지랩", text: x.lkgComment, at: "" });
-      comments = comments.map((c) => ({ author: c.author || "", text: c.text || "", at: c.at || "" }));
+      comments = comments.map((c) => ({ author: c.author || "", text: c.text || "", at: c.at || "", hearts: Array.isArray(c.hearts) ? c.hearts.filter(Boolean) : [] }));
+      let minutes = Array.isArray(x.minutes) ? x.minutes : [];
+      if (!minutes.length && typeof x.minutesJson === "string" && x.minutesJson) {
+        try { const p = JSON.parse(x.minutesJson); if (Array.isArray(p)) minutes = p; } catch (e) {}
+      }
+      minutes = normalizeMinutes(minutes);
       return {
         month: x.month || "", meetingDate: x.meetingDate || "", attendees: x.attendees || "",
-        issues: x.issues || "", comments,
+        issues: x.issues || "", comments, minutes,
       };
     });
   }
+  function mrUid() { return "m" + Math.random().toString(36).slice(2, 9); }
+  function normalizeMinutes(arr) {
+    return (Array.isArray(arr) ? arr : []).map((m) => ({
+      id: m.id || mrUid(), title: m.title || "", at: m.at || "", raw: m.raw || "",
+      summary: Array.isArray(m.summary) ? m.summary : [],
+      decisions: Array.isArray(m.decisions) ? m.decisions : [],
+      actions: Array.isArray(m.actions) ? m.actions : [],
+    }));
+  }
+  // ── 확인 하트: 링키지랩(제이미·엘리)만 코멘트에 "확인" 표식을 남길 수 있음
+  const ACK_USERS = ["제이미", "엘리", "관리자"];
+  function canAck() { const u = currentUser(); return ACK_USERS.some((n) => u.indexOf(n) >= 0); }
   function getMonthly() {
     if (_monthly) return _monthly;
     try { const s = localStorage.getItem(MR_KEY); if (s) _monthly = normalizeMonthly(JSON.parse(s)); } catch (e) {}
@@ -1330,6 +1347,32 @@
     return mm ? `${mm[1]}.${mm[2]}` : (d || "");
   }
 
+  // 확인 하트 버튼 (제이미·엘리가 "확인했다" 표식 → 누르면 숫자가 뜸)
+  function heartBtn(c, i, ci) {
+    const hearts = Array.isArray(c.hearts) ? c.hearts : [];
+    const on = hearts.indexOf(currentUser()) >= 0;
+    const n = hearts.length;
+    const who = n ? hearts.join(" · ") + " 확인" : "확인 표시하기";
+    return `<button class="mr-heart${on ? " is-on" : ""}${canAck() ? "" : " is-ro"}" data-i="${i}" data-ci="${ci}"
+      title="${esc(who)}" aria-label="${esc(who)}" onclick="GARDEN.mrHeart(${i},${ci})">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.7l-1.4-1.3C5.4 14.7 2 11.6 2 7.9 2 5.1 4.2 3 6.9 3c1.6 0 3.1.7 4.1 1.9l1 1.2 1-1.2C14 3.7 15.5 3 17.1 3 19.8 3 22 5.1 22 7.9c0 3.7-3.4 6.8-8.6 11.5L12 20.7z"/></svg>
+      <span class="mr-heart__n"${n ? "" : " hidden"}>${n}</span>
+    </button>`;
+  }
+
+  // 하트 버튼 DOM 을 재렌더 없이 즉시 갱신 (입력 중인 회의록 초안 보호)
+  function updateHeartBtn(btn, hearts) {
+    hearts = Array.isArray(hearts) ? hearts : [];
+    const on = hearts.indexOf(currentUser()) >= 0;
+    const n = hearts.length;
+    btn.classList.toggle("is-on", on);
+    const who = n ? hearts.join(" · ") + " 확인" : "확인 표시하기";
+    btn.title = who; btn.setAttribute("aria-label", who);
+    const nEl = btn.querySelector(".mr-heart__n");
+    if (nEl) { nEl.textContent = n; nEl.hidden = !n; }
+    btn.classList.remove("is-pop"); void btn.offsetWidth; btn.classList.add("is-pop");
+  }
+
   // 코멘트 한 줄
   function commentRow(c, i, ci) {
     const mine = c.author && c.author === currentUser();
@@ -1341,6 +1384,7 @@
           <span class="mr-cmt__dot" aria-hidden="true"></span>
           <b class="mr-cmt__who">${esc(c.author) || "익명"}</b>
           ${c.at ? `<span class="mr-cmt__at">${esc(c.at)}</span>` : ""}
+          ${heartBtn(c, i, ci)}
           ${canDel ? `<button class="mr-cmt__x" title="코멘트 삭제" onclick="GARDEN.mrCommentDel(${i},${ci})">삭제</button>` : ""}
         </div>
         <div class="mr-cmt__text${canDel ? " is-editable" : ""}"${canDel ? ` contenteditable="true" spellcheck="false" data-i="${i}" data-ci="${ci}" onblur="GARDEN.mrCommentEdit(this)"` : ""}>${esc(c.text)}</div>
@@ -1392,8 +1436,110 @@
           ${comments ? `<ul class="mr-cmts">${comments}</ul>` : `<p class="mr-thread__empty">아직 코멘트가 없어요.</p>`}
           ${composer}
         </div>
+
+        ${minutesPanel(x, i)}
       </div>
     </article>`;
+  }
+
+  /* ===== 회의록 스튜디오 — 녹취 텍스트 → 스마트 정리 ===== */
+  function mmTokens(s) {
+    return String(s).toLowerCase().replace(/[^가-힣a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  }
+  const MM_STOP = new Set("그리고 그래서 하지만 그런데 근데 저희 우리 그거 이거 오늘 이번 대해 대한 관련 경우 정도 하는 해서 있는 있고 같은 같아요 네 예 음 그 좀 이 저 그럼 일단 그냥 진짜 약간".split(" "));
+  function mmSummarize(sentences, n) {
+    const freq = {};
+    sentences.forEach((s) => mmTokens(s).forEach((w) => { if (w.length > 1 && !MM_STOP.has(w)) freq[w] = (freq[w] || 0) + 1; }));
+    return sentences.map((s, idx) => { const ws = mmTokens(s); let sc = 0; ws.forEach((w) => (sc += freq[w] || 0)); return { s, idx, score: sc / Math.sqrt(ws.length || 1) }; })
+      .sort((a, b) => b.score - a.score).slice(0, n).sort((a, b) => a.idx - b.idx).map((o) => o.s);
+  }
+  // 녹취 텍스트 → { summary[], decisions[], actions[] }
+  function mmStructure(raw) {
+    const text = String(raw || "").replace(/\r/g, "").trim();
+    if (!text) return { summary: [], decisions: [], actions: [] };
+    const lines = text.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    const sentences = text.split(/(?<=[.!?。…])\s+|\n+/).map((s) => s.replace(/^[-•\d.)\s]+/, "").trim()).filter((s) => s.length > 6);
+    const D_KW = /(결정|확정|합의|승인|채택|하기로\s*(함|했|결정)|로\s*정(함|했|하기로))/;
+    const A_KW = /(하기로|해야|할\s*것|액션|todo|to-?do|담당|까지|예정|팔로업|follow[\s-]?up|공유(하|해|할)|확인(하|해|할)|처리|준비|전달|요청|검토|반영|정리(하|해|할))/i;
+    const seen = new Set(), decisions = [], actions = [];
+    lines.forEach((l) => {
+      const key = l.replace(/\s/g, "").slice(0, 40);
+      if (seen.has(key)) return; seen.add(key);
+      if (D_KW.test(l)) decisions.push(l);
+      else if (A_KW.test(l)) actions.push(l);
+    });
+    return { summary: mmSummarize(sentences, 3), decisions: decisions.slice(0, 12), actions: actions.slice(0, 20) };
+  }
+  function mmMarkdown(x, m) {
+    const meta = [x.month ? x.month : "", x.meetingDate ? "미팅 " + x.meetingDate : "", x.attendees ? "참석 " + x.attendees : ""].filter(Boolean).join(" · ");
+    let md = `# ${m.title || (x.month + " 회의록")}\n`;
+    if (meta) md += `> ${meta}\n`;
+    md += `_작성 ${m.at || ""} · AGIT GARDEN_\n`;
+    if (m.summary && m.summary.length) md += `\n## 📌 핵심 요약\n` + m.summary.map((s) => `- ${s}`).join("\n") + "\n";
+    if (m.decisions && m.decisions.length) md += `\n## ✅ 결정사항\n` + m.decisions.map((s) => `- ${s}`).join("\n") + "\n";
+    if (m.actions && m.actions.length) md += `\n## 🎯 액션 아이템\n` + m.actions.map((s) => `- [ ] ${s}`).join("\n") + "\n";
+    if (m.raw) md += `\n## 🗒 전체 기록\n${m.raw}\n`;
+    return md;
+  }
+  function mmChips(m) {
+    const parts = [];
+    if (m.summary && m.summary.length) parts.push(`<span class="mm-chip mm-chip--sum">📌 요약 ${m.summary.length}</span>`);
+    if (m.decisions && m.decisions.length) parts.push(`<span class="mm-chip mm-chip--dec">✅ 결정 ${m.decisions.length}</span>`);
+    if (m.actions && m.actions.length) parts.push(`<span class="mm-chip mm-chip--act">🎯 액션 ${m.actions.length}</span>`);
+    return parts.join("");
+  }
+  function mmSaved(x, m, i) {
+    const body = [
+      m.summary && m.summary.length ? `<div class="mm-sec"><p class="mm-sec__h">📌 핵심 요약</p><ul>${m.summary.map((s) => `<li>${esc(s)}</li>`).join("")}</ul></div>` : "",
+      m.decisions && m.decisions.length ? `<div class="mm-sec"><p class="mm-sec__h">✅ 결정사항</p><ul>${m.decisions.map((s) => `<li>${esc(s)}</li>`).join("")}</ul></div>` : "",
+      m.actions && m.actions.length ? `<div class="mm-sec mm-sec--act"><p class="mm-sec__h">🎯 액션 아이템</p><ul>${m.actions.map((s) => `<li>${esc(s)}</li>`).join("")}</ul></div>` : "",
+    ].join("");
+    return `<article class="mm-card" data-mid="${m.id}">
+      <header class="mm-card__top">
+        <button class="mm-card__toggle" onclick="GARDEN.mmView('${m.id}')" aria-expanded="false">
+          <span class="mm-card__title">${esc(m.title) || (esc(x.month) + " 회의록")}</span>
+          <span class="mm-card__chev">▾</span>
+        </button>
+        <div class="mm-card__chips">${mmChips(m)}</div>
+      </header>
+      <p class="mm-card__at">${esc(m.at)}</p>
+      <div class="mm-card__body" hidden>
+        ${body || `<p class="mm-empty">추출된 항목이 없어요. 전체 기록만 저장되었습니다.</p>`}
+        ${m.raw ? `<details class="mm-raw"><summary>🗒 전체 녹취 보기</summary><pre>${esc(m.raw)}</pre></details>` : ""}
+        <div class="mm-card__act">
+          <button class="mm-mini" onclick="GARDEN.mmCopy(${i},'${m.id}')">복사</button>
+          <button class="mm-mini" onclick="GARDEN.mmDownload(${i},'${m.id}')">.md 저장</button>
+          <button class="mm-mini mm-mini--del" onclick="GARDEN.mmDelete(${i},'${m.id}')">삭제</button>
+        </div>
+      </div>
+    </article>`;
+  }
+  function minutesPanel(x, i) {
+    const list = x.minutes || [];
+    const saved = list.length ? list.map((m) => mmSaved(x, m, i)).join("") : `<p class="mm-none">저장된 회의록이 없어요. 녹취 텍스트를 붙여넣고 <b>스마트 정리</b>를 눌러보세요.</p>`;
+    const def = `${x.month || ""} 정기미팅 회의록`;
+    return `<details class="mm" data-i="${i}">
+      <summary class="mm__sum">
+        <span class="mm__ic">🎙</span>
+        <span class="mm__lbl">회의록 스튜디오</span>
+        <span class="mm__count">${list.length ? list.length + "건" : "NEW"}</span>
+        <span class="mm__chev">▾</span>
+      </summary>
+      <div class="mm__body">
+        <div class="mm-studio">
+          <input class="mm-studio__title" id="mm_title_${i}" value="${esc(def)}" placeholder="회의록 제목" />
+          <textarea class="mm-studio__ta" id="mm_raw_${i}" rows="6"
+            placeholder="회의 녹음을 텍스트로 변환해 여기에 붙여넣으세요.&#10;줄바꿈으로 발언을 구분하면 결정·액션 추출이 더 정확해져요."
+            oninput="GARDEN.mmPreview(${i})"></textarea>
+          <div class="mm-studio__bar">
+            <span class="mm-studio__hint" id="mm_hint_${i}">✨ 붙여넣으면 자동으로 요약·결정·액션을 뽑아드려요</span>
+            <button class="mm-studio__save" onclick="GARDEN.mmSave(${i})">💾 회의록 저장</button>
+          </div>
+          <div class="mm-prev" id="mm_prev_${i}" hidden></div>
+        </div>
+        <div class="mm-list" id="mm_list_${i}">${saved}</div>
+      </div>
+    </details>`;
   }
 
   function monthlyModal(i) {
@@ -2842,6 +2988,85 @@
       const label = ymParts(list[i].month);
       if (!window.confirm(`${label.yr}년 ${Number(label.mo)}월 리뷰를 삭제할까요?\n코멘트 ${(list[i].comments || []).length}건도 함께 삭제됩니다.`)) return;
       list.splice(i, 1); saveMonthly(); reMonthly(); toast("월간 리뷰 삭제됨 ✓");
+    },
+
+    // 확인 하트 토글 (제이미·엘리) — 재렌더 없이 해당 버튼만 갱신
+    mrHeart(i, ci) {
+      if (!canAck()) { toast("확인 표시는 제이미·엘리만 남길 수 있어요", true); return; }
+      const list = getMonthly(); const c = list[i] && list[i].comments && list[i].comments[ci]; if (!c) return;
+      c.hearts = Array.isArray(c.hearts) ? c.hearts : [];
+      const me = currentUser(); const at = c.hearts.indexOf(me);
+      if (at >= 0) c.hearts.splice(at, 1); else c.hearts.push(me);
+      saveMonthly();
+      const btn = document.querySelector('.mr-heart[data-i="' + i + '"][data-ci="' + ci + '"]');
+      if (btn) updateHeartBtn(btn, c.hearts);
+    },
+
+    /* ---------- 회의록 스튜디오 ---------- */
+    mmPreview(i) {
+      const raw = (document.getElementById("mm_raw_" + i) || {}).value || "";
+      const prev = document.getElementById("mm_prev_" + i);
+      const hint = document.getElementById("mm_hint_" + i);
+      if (!prev) return;
+      if (!raw.trim()) { prev.hidden = true; if (hint) hint.textContent = "✨ 붙여넣으면 자동으로 요약·결정·액션을 뽑아드려요"; return; }
+      const s = mmStructure(raw);
+      const block = (h, items, cls) => items.length ? `<div class="mm-prev__sec ${cls || ""}"><p class="mm-prev__h">${h} <em>${items.length}</em></p><ul>${items.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>` : "";
+      prev.innerHTML = `<p class="mm-prev__cap">미리보기 · 저장하면 아래 목록에 남아요</p>` +
+        block("📌 핵심 요약", s.summary) + block("✅ 결정사항", s.decisions, "is-dec") + block("🎯 액션 아이템", s.actions, "is-act");
+      prev.hidden = false;
+      if (hint) hint.textContent = `📌 ${s.summary.length} · ✅ ${s.decisions.length} · 🎯 ${s.actions.length} 자동 추출됨`;
+    },
+    mmSave(i) {
+      const list = getMonthly(); const x = list[i]; if (!x) return;
+      const raw = (document.getElementById("mm_raw_" + i) || {}).value || "";
+      if (!raw.trim()) { toast("녹취 텍스트를 먼저 붙여넣어 주세요", true); return; }
+      const title = ((document.getElementById("mm_title_" + i) || {}).value || "").trim() || (x.month + " 회의록");
+      const s = mmStructure(raw);
+      x.minutes = Array.isArray(x.minutes) ? x.minutes : [];
+      x.minutes.unshift({ id: mrUid(), title, at: issueTodayStr(), raw: raw.trim(), summary: s.summary, decisions: s.decisions, actions: s.actions });
+      saveMonthly();
+      // 패널을 닫지 않고 목록만 갱신 + 작성창 초기화
+      this.mmRefresh(i);
+      const ta = document.getElementById("mm_raw_" + i); if (ta) ta.value = "";
+      const prev = document.getElementById("mm_prev_" + i); if (prev) { prev.hidden = true; prev.innerHTML = ""; }
+      const hint = document.getElementById("mm_hint_" + i); if (hint) hint.textContent = "✨ 붙여넣으면 자동으로 요약·결정·액션을 뽑아드려요";
+      toast("회의록 저장됨 ✓ (📌" + s.summary.length + " ✅" + s.decisions.length + " 🎯" + s.actions.length + ")");
+    },
+    mmRefresh(i) {
+      const x = getMonthly()[i]; if (!x) return;
+      const list = x.minutes || [];
+      const listEl = document.getElementById("mm_list_" + i);
+      if (listEl) listEl.innerHTML = list.length ? list.map((m) => mmSaved(x, m, i)).join("") : `<p class="mm-none">저장된 회의록이 없어요. 녹취 텍스트를 붙여넣고 <b>스마트 정리</b>를 눌러보세요.</p>`;
+      const cnt = document.querySelector('.mm[data-i="' + i + '"] .mm__count');
+      if (cnt) cnt.textContent = list.length ? list.length + "건" : "NEW";
+    },
+    mmView(id) {
+      const card = document.querySelector('.mm-card[data-mid="' + id + '"]'); if (!card) return;
+      const body = card.querySelector(".mm-card__body"); const tg = card.querySelector(".mm-card__toggle");
+      const open = body.hidden; body.hidden = !open;
+      if (tg) tg.setAttribute("aria-expanded", String(open));
+      card.classList.toggle("is-open", open);
+    },
+    mmFind(i, id) { const x = getMonthly()[i]; return x && (x.minutes || []).find((m) => m.id === id); },
+    mmCopy(i, id) {
+      const x = getMonthly()[i]; const m = this.mmFind(i, id); if (!m) return;
+      const md = mmMarkdown(x, m);
+      navigator.clipboard && navigator.clipboard.writeText(md).then(() => toast("회의록 복사됨 ✓ (Markdown)")).catch(() => toast("복사 실패", true));
+    },
+    mmDownload(i, id) {
+      const x = getMonthly()[i]; const m = this.mmFind(i, id); if (!m) return;
+      const md = mmMarkdown(x, m);
+      const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob); const a = document.createElement("a");
+      a.href = url; a.download = (m.title || x.month + "-회의록").replace(/[\\/:*?"<>|]/g, "_") + ".md";
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1500);
+      toast("회의록 .md 내려받기 ✓");
+    },
+    mmDelete(i, id) {
+      const list = getMonthly(); const x = list[i]; if (!x || !x.minutes) return;
+      const idx = x.minutes.findIndex((m) => m.id === id); if (idx < 0) return;
+      if (!window.confirm("이 회의록을 삭제할까요?")) return;
+      x.minutes.splice(idx, 1); saveMonthly(); this.mmRefresh(i); toast("회의록 삭제됨 ✓");
     },
 
     wbException(dateStr) {

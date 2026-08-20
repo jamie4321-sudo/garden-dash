@@ -1418,6 +1418,7 @@
               <input type="text" class="mr-att__in" value="${esc(x.attendees)}" placeholder="참석자 입력" data-i="${i}" onblur="GARDEN.mrField(this,'attendees')"/></label>
           </div>
           <div class="mr-post__ctl">
+            ${minutesBtn(x, i)}
             <button class="mr-post__edit" title="리뷰 정보 수정 (월·미팅일·참석자)" onclick="GARDEN.monthlyEditOpen(${i})">✎</button>
             <button class="mr-post__del" title="이 리뷰 삭제" onclick="GARDEN.mrDelete(${i})">✕</button>
           </div>
@@ -1436,8 +1437,6 @@
           ${comments ? `<ul class="mr-cmts">${comments}</ul>` : `<p class="mr-thread__empty">아직 코멘트가 없어요.</p>`}
           ${composer}
         </div>
-
-        ${minutesPanel(x, i)}
       </div>
     </article>`;
   }
@@ -1514,18 +1513,28 @@
       </div>
     </article>`;
   }
-  function minutesPanel(x, i) {
+  // 스레드에 붙는 작은 회의록 버튼 (누르면 팝업)
+  function minutesBtn(x, i) {
+    const n = (x.minutes || []).length;
+    return `<button class="mm-btn" onclick="GARDEN.mmOpen(${i})" title="회의록 스튜디오 열기">
+      <span class="mm-btn__ic">🎙</span><span class="mm-btn__t">회의록</span>
+      <span class="mm-btn__n" data-i="${i}">${n ? n : "＋"}</span>
+    </button>`;
+  }
+  // 회의록 스튜디오 — 팝업(모달)
+  function minutesModal(i) {
+    const x = getMonthly()[i]; if (!x) return "";
     const list = x.minutes || [];
     const saved = list.length ? list.map((m) => mmSaved(x, m, i)).join("") : `<p class="mm-none">저장된 회의록이 없어요. 녹취 텍스트를 붙여넣고 <b>스마트 정리</b>를 눌러보세요.</p>`;
     const def = `${x.month || ""} 정기미팅 회의록`;
-    return `<details class="mm" data-i="${i}">
-      <summary class="mm__sum">
-        <span class="mm__ic">🎙</span>
-        <span class="mm__lbl">회의록 스튜디오</span>
-        <span class="mm__count">${list.length ? list.length + "건" : "NEW"}</span>
-        <span class="mm__chev">▾</span>
-      </summary>
-      <div class="mm__body">
+    const p = ymParts(x.month);
+    return `<div class="gmodal" id="minutesModal">
+      <div class="gmodal__bd" onclick="GARDEN.mmClose()"></div>
+      <div class="gmodal__card gmodal__card--wide mm-modal">
+        <div class="gmodal__head">
+          <h3>🎙 회의록 스튜디오 <span class="mm-modal__sub">${p.yr}.${p.mo}</span></h3>
+          <button class="gmodal__x" onclick="GARDEN.mmClose()">×</button>
+        </div>
         <div class="mm-studio">
           <input class="mm-studio__title" id="mm_title_${i}" value="${esc(def)}" placeholder="회의록 제목" />
           <textarea class="mm-studio__ta" id="mm_raw_${i}" rows="6"
@@ -1539,7 +1548,7 @@
         </div>
         <div class="mm-list" id="mm_list_${i}">${saved}</div>
       </div>
-    </details>`;
+    </div>`;
   }
 
   function monthlyModal(i) {
@@ -3002,7 +3011,14 @@
       if (btn) updateHeartBtn(btn, c.hearts);
     },
 
-    /* ---------- 회의록 스튜디오 ---------- */
+    /* ---------- 회의록 스튜디오 (팝업) ---------- */
+    mmOpen(i) {
+      if (document.getElementById("minutesModal")) return;
+      if (!getMonthly()[i]) return;
+      document.body.insertAdjacentHTML("beforeend", minutesModal(i));
+      const ta = document.getElementById("mm_raw_" + i); if (ta) ta.focus();
+    },
+    mmClose() { const m = document.getElementById("minutesModal"); if (m) m.remove(); },
     mmPreview(i) {
       const raw = (document.getElementById("mm_raw_" + i) || {}).value || "";
       const prev = document.getElementById("mm_prev_" + i);
@@ -3037,8 +3053,8 @@
       const list = x.minutes || [];
       const listEl = document.getElementById("mm_list_" + i);
       if (listEl) listEl.innerHTML = list.length ? list.map((m) => mmSaved(x, m, i)).join("") : `<p class="mm-none">저장된 회의록이 없어요. 녹취 텍스트를 붙여넣고 <b>스마트 정리</b>를 눌러보세요.</p>`;
-      const cnt = document.querySelector('.mm[data-i="' + i + '"] .mm__count');
-      if (cnt) cnt.textContent = list.length ? list.length + "건" : "NEW";
+      const badge = document.querySelector('.mm-btn__n[data-i="' + i + '"]');
+      if (badge) badge.textContent = list.length ? list.length : "＋";
     },
     mmView(id) {
       const card = document.querySelector('.mm-card[data-mid="' + id + '"]'); if (!card) return;

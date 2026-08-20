@@ -1335,21 +1335,26 @@ button { font-family: inherit; }
   55% { transform: scale(.9); } 100% { transform: scale(1); } }
 
 /* ── 회의록 스튜디오 ─────────────────────────────────── */
-.mm { margin: 16px 0 2px; padding-left: 52px; }
-.mm__sum {
-  display: flex; align-items: center; gap: 9px; cursor: pointer; list-style: none;
-  padding: 9px 12px; border-radius: 11px; border: 1px dashed var(--mr-line);
-  background: color-mix(in srgb, var(--panel-2) 60%, transparent); transition: background .15s, border-color .15s; }
-.mm__sum::-webkit-details-marker { display: none; }
-.mm__sum:hover { background: var(--panel-2); border-color: color-mix(in srgb, var(--accent) 40%, var(--mr-line)); }
-.mm__ic { font-size: 14px; }
-.mm__lbl { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--ink); }
-.mm__count {
-  font-family: var(--mono); font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+/* 스레드 헤더의 작은 회의록 버튼 */
+.mm-btn {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  padding: 4px 9px; border-radius: 999px; border: 1px solid var(--mr-line);
+  background: color-mix(in srgb, var(--panel-2) 70%, transparent); color: var(--ink-2);
+  font-size: 11.5px; font-weight: 700; line-height: 1;
+  transition: background .14s, border-color .14s, color .14s, transform .12s; }
+.mm-btn:hover { background: var(--panel-2); color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--mr-line)); }
+.mm-btn:active { transform: scale(.96); }
+.mm-btn__ic { font-size: 12px; }
+.mm-btn__t { letter-spacing: .2px; }
+.mm-btn__n {
+  font-family: var(--mono); font-size: 10px; font-weight: 800; min-width: 15px; text-align: center;
+  padding: 1px 5px; border-radius: 999px;
   background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
-.mm__chev { margin-left: auto; color: var(--ink-3); font-size: 11px; transition: transform .2s; }
-.mm[open] .mm__chev { transform: rotate(180deg); }
-.mm__body { padding: 14px 2px 4px; animation: mrIn .34s var(--mr-ease) both; }
+
+/* 모달 */
+.mm-modal .gmodal__head { margin-bottom: 14px; }
+.mm-modal__sub { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--ink-3); margin-left: 6px; }
+.mm-modal .mm-list { max-height: none; }
 
 .mm-studio {
   border: 1px solid var(--mr-line); border-radius: 13px; padding: 12px;
@@ -1418,12 +1423,12 @@ button { font-family: inherit; }
 .mm-mini:hover { background: var(--panel-2); color: var(--ink); }
 .mm-mini--del:hover { color: var(--red); border-color: color-mix(in srgb, var(--red) 45%, var(--mr-line)); }
 @media (max-width: 640px) {
-  .mm { padding-left: 0; }
+  .mm-btn__t { display: none; }
   .mm-studio__save { margin-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mr-heart.is-pop svg, .mm__body, .mm-prev { animation: none; }
-  .mm-studio__save, .mm-heart, .mr-heart { transition: none; }
+  .mr-heart.is-pop svg, .mm-prev { animation: none; }
+  .mm-studio__save, .mm-btn, .mr-heart { transition: none; }
 }
 
 @media (max-width: 640px) {

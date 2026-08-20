@@ -34,4 +34,12 @@ window.CONFIG = {
   // 공지사항(대시보드 상단) 작성·수정 비밀번호 — 제이미만 아는 값으로 바꿔서 사용하세요.
   // ⚠️ 다른 비밀번호들과 반드시 다른 값으로 설정해야 "제이미만" 수정 가능이 유지됩니다.
   NOTICE_PASSWORD: "jamie",
+
+  // 산업안전보건 · 안전매뉴얼 드라이브 폴더 바로가기 URL.
+  // 비워두면 GAS(?action=safety)가 돌려주는 folderUrl 을 사용합니다. 명시하면 항상 이 값이 우선됩니다.
+  SAFETY_FOLDER_URL: "",
+
+  // 크루 교육 서명 사이트(edu-sign)의 서명 페이지 URL.
+  // 크루가 이름 로그인 → 교육 선택 → 서명하는 공용 페이지입니다.
+  CREW_SIGN_URL: "https://jamie4321-sudo.github.io/edu-sign/sign.html",
 };

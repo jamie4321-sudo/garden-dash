@@ -1893,7 +1893,9 @@
 
     safety() {
       const manual = _safetyCache && _safetyCache.manual;
-      const folderUrl = (_safetyCache && _safetyCache.folderUrl) || "";
+      const cfgFolder = (window.CONFIG && window.CONFIG.SAFETY_FOLDER_URL) || "";
+      const folderUrl = cfgFolder || (_safetyCache && _safetyCache.folderUrl) || "";
+      const signUrl = (window.CONFIG && window.CONFIG.CREW_SIGN_URL) || "";
       const meetingList = getSafetyMeetings();
       const meetingsAll = meetingList.map((m, i) => ({ m, i })).sort((a, b) => (a.m.date < b.m.date ? 1 : -1));
       const meetingsShown = _safetyExpand.meetings ? meetingsAll : meetingsAll.slice(0, SAFETY_BOARD_LIMIT);
@@ -1918,7 +1920,12 @@
           <div class="page-head">
             <div><p class="eyebrow">Crew · 안전</p><h2>산업안전보건</h2>
               <p class="sub">정기회의 · 정기 안전점검 · 안전매뉴얼</p></div>
-            <button class="btn btn--primary btn--sm" onclick="GARDEN.loadSafetyFiles(true)">↻ 새로고침</button>
+            <div class="seg" style="margin-left:auto;flex-wrap:wrap">
+              <a class="btn btn--sm sf-quick" id="safetyFolderBtn" href="${folderUrl || "#"}"
+                 target="_blank" rel="noopener"${folderUrl ? "" : ' style="display:none"'}>📁 안전매뉴얼 폴더</a>
+              ${signUrl ? `<a class="btn btn--sm sf-quick" href="${signUrl}" target="_blank" rel="noopener">✍️ 크루 서명받기</a>` : ""}
+              <button class="btn btn--primary btn--sm" onclick="GARDEN.loadSafetyFiles(true)">↻ 새로고침</button>
+            </div>
           </div>
 
           <div class="dash-card sf-card">
@@ -2555,6 +2562,14 @@
         .then((j) => {
           _safetyCache = { manual: j.manual || [], folderUrl: j.folderUrl || "" };
           const mb = document.getElementById("safetyManualBody"); if (mb) mb.innerHTML = safetyManualBody(_safetyCache.manual, _safetyCache.folderUrl);
+          // CONFIG 명시값이 없으면 GAS가 준 folderUrl 로 헤더 "바로가기" 버튼 갱신
+          const cfgFolder = (window.CONFIG && window.CONFIG.SAFETY_FOLDER_URL) || "";
+          const fBtn = document.getElementById("safetyFolderBtn");
+          if (fBtn && !cfgFolder) {
+            const fu = _safetyCache.folderUrl;
+            if (fu) { fBtn.href = fu; fBtn.style.display = ""; }
+            else { fBtn.style.display = "none"; }
+          }
         })
         .catch((e) => {
           console.warn("[GARDEN] 산업안전보건 자료 로드 실패:", e);

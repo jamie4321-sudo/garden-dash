@@ -2056,6 +2056,7 @@
               <p class="sub">4대 법정의무교육 이수 현황</p></div>
             <div class="seg">
               ${EDU_DRIVE_URL ? `<a class="btn btn--sm" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">🔗 이수증 확인</a>` : ""}
+              ${(window.CONFIG && window.CONFIG.CREW_SIGN_URL) ? `<a class="btn btn--sm sf-quick" href="${window.CONFIG.CREW_SIGN_URL}" target="_blank" rel="noopener">✍️ 크루 서명받기</a>` : ""}
               <button class="btn btn--primary btn--sm" onclick="GARDEN.trainingAddOpen()">＋ 이수 기록 추가</button>
             </div>
           </div>

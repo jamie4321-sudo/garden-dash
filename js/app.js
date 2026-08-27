@@ -19,6 +19,12 @@
   };
   const disColor = (d) => DIS_COLORS[d] || "var(--violet)";
 
+  /* 현재 연·월 기준 라벨 — 월이 바뀌면 자동 갱신 (예: '26년 8월 기준) */
+  function asOfLabel() {
+    const d = new Date();
+    return `'${String(d.getFullYear()).slice(2)}년 ${d.getMonth() + 1}월 기준`;
+  }
+
   /* 크루 요약 카드 (대시보드 · 크루 공용) */
   function crewStatusCard(title) {
     const crew = getCrew().filter((c) => c.status === "active");
@@ -48,7 +54,7 @@
         <span class="dleg__pct">${pct(s.val)}%</span></li>`).join("");
     return `<div class="dash-card dash-card--donut">
       <div class="card-head"><h3>${title}</h3><span class="chip-mono">${total}명</span>
-        <span class="asof" style="margin-left:auto">'26년 7월 기준</span></div>
+        <span class="asof" style="margin-left:auto">${asOfLabel()}</span></div>
       <div class="donut-wrap">
         <svg class="donut" viewBox="0 0 190 190">${rings}
           <text class="donut__num" x="95" y="92" text-anchor="middle">${total}</text>
@@ -113,7 +119,7 @@
     _noticeOK = true;
     return true;
   }
-  function reDash() { app.innerHTML = views.dashboard(); }
+  function reDash() { app.innerHTML = views.dashboard(); if (window.GARDEN) GARDEN.loadWeather(); }
   function noticeCard() {
     const list = getNotices();
     const latest = list[0];
@@ -129,15 +135,22 @@
         }).join("") + `</div>`
       : "";
     return `<div class="dash-card notice-card${latest ? "" : " notice-card--empty"}" style="margin-bottom:16px">
-      <div class="card-head">
-        <h3>📢 공지사항</h3>
-        ${meta ? `<span class="asof">${meta}</span>` : ""}
-        <button class="btn btn--sm" style="margin-left:${meta ? "10px" : "auto"}" onclick="GARDEN.noticeOpen(null)">＋ 공지 등록</button>
+      <div class="notice-tools">
+        <span class="notice-box red"></span>
+        <span class="notice-box yellow"></span>
+        <span class="notice-box green"></span>
       </div>
-      ${latest
-        ? `<p class="notice-card__text" onclick="GARDEN.noticeOpen(0)" title="클릭해서 수정">${esc(latest.text).replace(/\n/g, "<br>")}</p>`
-        : `<p class="notice-card__text">등록된 공지사항이 없습니다.</p>`}
-      ${olderRows}
+      <div class="notice-card__in">
+        <div class="card-head">
+          <h3>📢 공지사항</h3>
+          ${meta ? `<span class="asof">${meta}</span>` : ""}
+          <button class="btn btn--sm" style="margin-left:${meta ? "10px" : "auto"}" onclick="GARDEN.noticeOpen(null)">＋ 공지 등록</button>
+        </div>
+        ${latest
+          ? `<p class="notice-card__text" onclick="GARDEN.noticeOpen(0)" title="클릭해서 수정">${esc(latest.text).replace(/\n/g, "<br>")}</p>`
+          : `<p class="notice-card__text">등록된 공지사항이 없습니다.</p>`}
+        ${olderRows}
+      </div>
     </div>`;
   }
   function noticeModal(i) {
@@ -159,6 +172,75 @@
           <button class="btn btn--primary btn--sm" onclick="GARDEN.noticeSave(${isNew ? "null" : i})">저장</button>
         </div>
       </div></div>`;
+  }
+
+  /* ===== 오늘의 날씨 (경기 성남 분당구 · Open-Meteo, 매일 자동 갱신) ===== */
+  const WX_KEY = "garden-weather";
+  const WX_COORD = { lat: 37.3822, lon: 127.1187, name: "분당구" };
+  const WX_URL =
+    `https://api.open-meteo.com/v1/forecast?latitude=${WX_COORD.lat}&longitude=${WX_COORD.lon}` +
+    `&current=temperature_2m,apparent_temperature,weather_code&timezone=Asia%2FSeoul`;
+  const WX_DOW = ["일", "월", "화", "수", "목", "금", "토"];
+  const WX_CODES = {
+    0: ["☀️", "맑음"], 1: ["🌤️", "대체로 맑음"], 2: ["⛅", "구름 조금"], 3: ["☁️", "흐림"],
+    45: ["🌫️", "안개"], 48: ["🌫️", "짙은 안개"],
+    51: ["🌦️", "약한 이슬비"], 53: ["🌦️", "이슬비"], 55: ["🌦️", "강한 이슬비"],
+    56: ["🌧️", "어는 이슬비"], 57: ["🌧️", "어는 이슬비"],
+    61: ["🌧️", "약한 비"], 63: ["🌧️", "비"], 65: ["🌧️", "강한 비"],
+    66: ["🌧️", "어는 비"], 67: ["🌧️", "어는 비"],
+    71: ["🌨️", "약한 눈"], 73: ["🌨️", "눈"], 75: ["🌨️", "강한 눈"], 77: ["🌨️", "싸락눈"],
+    80: ["🌦️", "약한 소나기"], 81: ["🌦️", "소나기"], 82: ["🌦️", "강한 소나기"],
+    85: ["🌨️", "소나기눈"], 86: ["🌨️", "강한 소나기눈"],
+    95: ["⛈️", "뇌우"], 96: ["⛈️", "우박 뇌우"], 99: ["⛈️", "강한 우박 뇌우"],
+  };
+  const wxCode = (c) => WX_CODES[c] || ["🌡️", "—"];
+  const wxDate = (d) => `${_pad(d.getMonth() + 1)}.${_pad(d.getDate())} ${WX_DOW[d.getDay()]}`;
+
+  function wxWidgetHTML() {
+    return `<div class="wxw" id="wxWidget" aria-live="polite" title="경기 성남시 분당구 · 매일 자동 갱신">
+      <div class="wxw__bg"><span></span><span></span><span></span></div>
+      <div class="wxw__body" id="wxBody">
+        <div class="wxw__left">
+          <div class="wxw__temp"><span class="wxw__ico">⏳</span><span class="wxw__deg">--°</span></div>
+          <div class="wxw__feel">불러오는 중…</div>
+        </div>
+        <div class="wxw__right">
+          <div class="wxw__loc">📍 ${WX_COORD.name}</div>
+          <div class="wxw__date">${wxDate(new Date())}</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function wxFill(cur, stale) {
+    const body = document.getElementById("wxBody");
+    if (!body || !cur) return;
+    const [ico, label] = wxCode(cur.weather_code);
+    const t = Math.round(cur.temperature_2m);
+    const f = Math.round(cur.apparent_temperature);
+    body.innerHTML = `
+      <div class="wxw__left">
+        <div class="wxw__temp"><span class="wxw__ico">${ico}</span><span class="wxw__deg">${t}°</span></div>
+        <div class="wxw__feel">체감 ${f}° · ${label}${stale ? " ·" : ""}</div>
+      </div>
+      <div class="wxw__right">
+        <div class="wxw__loc">📍 ${WX_COORD.name}</div>
+        <div class="wxw__date">${wxDate(new Date())}</div>
+      </div>`;
+  }
+
+  function wxCache() {
+    try { const s = localStorage.getItem(WX_KEY); if (s) return JSON.parse(s); } catch (e) {}
+    return null;
+  }
+  async function wxFetch() {
+    const res = await fetch(WX_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error("weather http " + res.status);
+    const j = await res.json();
+    if (!j || !j.current) throw new Error("weather bad payload");
+    const rec = { cur: j.current, ts: Date.now() };
+    try { localStorage.setItem(WX_KEY, JSON.stringify(rec)); } catch (e) {}
+    return rec;
   }
 
   /* ===== 크루 로스터 상태 (localStorage 오버레이 + 시트 저장) ===== */
@@ -1644,6 +1726,7 @@
               <h2>운영 대시보드</h2>
               <p class="sub">근무 인원 · 장애유형 · 식물 이슈 현황</p>
             </div>
+            ${wxWidgetHTML()}
           </div>
           ${noticeCard()}
           <div class="dash-grid">${crewStatusCard("근무 인원 현황")}${crewTypeCard()}</div>
@@ -2177,6 +2260,7 @@
     });
     if (view === "floors") GARDEN.loadFloors();
     if (view === "safety") GARDEN.loadSafetyFiles();
+    if (view === "dashboard") GARDEN.loadWeather();
     window.scrollTo(0, 0);
   }
 
@@ -2349,6 +2433,27 @@
       document.querySelectorAll("#crewBody tr").forEach((tr) => {
         tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
       });
+    },
+
+    /* --- 오늘의 날씨 (분당구 · 1시간 캐시, 매일 자동 갱신) --- */
+    async loadWeather() {
+      if (!document.getElementById("wxWidget")) return;
+      const cached = wxCache();
+      if (cached && cached.cur) wxFill(cached.cur, true);
+      const fresh = cached && (Date.now() - cached.ts < 60 * 60 * 1000);
+      if (fresh) { wxFill(cached.cur); return; }
+      try {
+        const rec = await wxFetch();
+        wxFill(rec.cur);
+      } catch (e) {
+        console.warn("[GARDEN] 날씨 로드 실패:", e);
+        if (!cached) {
+          const el = document.querySelector("#wxBody .wxw__feel");
+          const ic = document.querySelector("#wxBody .wxw__ico");
+          if (el) el.textContent = "날씨 정보 없음";
+          if (ic) ic.textContent = "🌡️";
+        }
+      }
     },
 
     /* --- 공지사항 (제이미 전용 · 이력 누적) --- */

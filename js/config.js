@@ -42,4 +42,20 @@ window.CONFIG = {
   // 크루 교육 서명 사이트(edu-sign)의 서명 페이지 URL.
   // 크루가 이름 로그인 → 교육 선택 → 서명하는 공용 페이지입니다.
   CREW_SIGN_URL: "https://jamie4321-sudo.github.io/edu-sign/sign.html",
+
+  /* =======================================================
+     Supabase (신규 DB) — 채우면 자동으로 구글시트 대신 Supabase 를 사용합니다.
+     (각층 현황·안전매뉴얼 드라이브 사진, 정산 명세서/사진 링크는 계속 구글 드라이브 그대로)
+     ---------------------------------------------------------
+     · Supabase 대시보드 > Project Settings > API 에서 복사:
+         url     = Project URL
+         anonKey = Project API keys 의 "anon public"
+     · anon 키는 공개돼도 되는 키입니다(설계상 공개). 실제 보안은 DB의 RLS 정책이 담당합니다.
+     · url/anonKey 를 비우면 → 즉시 위 API_URL(구글시트/GAS)로 롤백됩니다.
+     · supabase/schema.sql 을 Supabase SQL Editor 에서 먼저 1회 실행해야 합니다.
+     ======================================================= */
+  supabase: {
+    url: "",
+    anonKey: "",
+  },
 };

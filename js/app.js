@@ -8,6 +8,35 @@
   const crumb = document.getElementById("crumb");
   let _booting = false; // 시트 최초 로딩 중 → 스켈레톤 표시
 
+  /* ---------- Supabase (신규 DB — config.js 에 url/anonKey 채우면 자동 활성화) ----------
+     edu-sign 프로젝트(js/store.js)와 동일한 패턴: 화면은 "저장" 시 배열 전체를 넘기고,
+     구글시트가 매번 탭을 clear() 후 다시 쓰던 것과 같은 의미로 여기서도
+     "테이블 전체 삭제 후 재삽입"으로 옮긴다 — 앱 로직/위험도는 그대로, 저장소만 교체. */
+  const SUPA = !!(window.CONFIG && window.CONFIG.supabase && window.CONFIG.supabase.url && window.CONFIG.supabase.anonKey);
+  // Supabase 로 이관 완료된 화면의 D 키 — GAS(loadRemote)가 이 키들을 덮어쓰지 않도록 제외.
+  // (이관 단계가 늘어날 때마다 이 목록에 추가)
+  const SUPA_MIGRATED_KEYS = ["notices", "settlement", "plantIssues", "trainingRecords", "safetyMeetings", "safetyChecks", "safetyIncidents"];
+  let _sb = null;
+  function sb() {
+    if (!_sb) {
+      if (!window.supabase || !window.supabase.createClient) throw new Error("supabase-js 가 로드되지 않았습니다.");
+      _sb = window.supabase.createClient(window.CONFIG.supabase.url, window.CONFIG.supabase.anonKey);
+    }
+    return _sb;
+  }
+  async function supaReplaceAll(table, rows, mapOut) {
+    const del = await sb().from(table).delete().neq("id", 0);
+    if (del.error) throw del.error;
+    if (!rows || !rows.length) return;
+    const ins = await sb().from(table).insert(rows.map(mapOut));
+    if (ins.error) throw ins.error;
+  }
+  async function supaSelectAll(table, mapIn) {
+    const res = await sb().from(table).select("*").order("id");
+    if (res.error) throw res.error;
+    return (res.data || []).map(mapIn);
+  }
+
   /* ---------- helpers ---------- */
   const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -98,9 +127,18 @@
     pushNoticesRemote();
   }
   function pushNoticesRemote() {
-    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
-    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_notices) return;
+    if (!_notices) return;
     clearTimeout(_pushNT);
+    if (SUPA) {
+      _pushNT = setTimeout(() => {
+        supaReplaceAll("notices", _notices, (n) => ({ date: n.date, text: n.text, author: n.author }))
+          .then(() => toast("공지사항 저장됨 ✓"))
+          .catch((e) => { console.warn("[GARDEN] 공지사항 저장 실패:", e); toast("저장 실패 — 로컬만 저장됨", true); });
+      }, 500);
+      return;
+    }
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK)) return;
     _pushNT = setTimeout(() => {
       fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ type: "notices", data: _notices }) })
@@ -495,9 +533,17 @@
   }
   let _pushSMT = null;
   function pushSafetyMeetingsRemote() {
-    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
-    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_safetyMeetings) return;
+    if (!_safetyMeetings) return;
     clearTimeout(_pushSMT);
+    if (SUPA) {
+      _pushSMT = setTimeout(() => {
+        supaReplaceAll("safety_meetings", _safetyMeetings, (m) => ({ date: m.date, org: m.org, title: m.title, attendees: m.attendees, link: m.link }))
+          .catch((e) => { console.warn("[GARDEN] 산업안전보건 회의기록 저장 실패:", e); toast("저장 실패 — 로컬만 저장됨", true); });
+      }, 700);
+      return;
+    }
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK)) return;
     _pushSMT = setTimeout(() => {
       fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ type: "safetyMeetings", data: _safetyMeetings }) })
@@ -569,9 +615,19 @@
   }
   let _pushSCT = null;
   function pushSafetyChecksRemote() {
-    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
-    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_safetyChecks) return;
+    if (!_safetyChecks) return;
     clearTimeout(_pushSCT);
+    if (SUPA) {
+      _pushSCT = setTimeout(() => {
+        supaReplaceAll("safety_checks", _safetyChecks, (c) => ({
+          title: c.title, date: c.date, org: c.org, result: c.result, action: c.action,
+          sent_date: c.sentDate, drive_url: c.driveUrl, done: !!c.done,
+        })).catch((e) => { console.warn("[GARDEN] 산업안전보건 점검기록 저장 실패:", e); toast("저장 실패 — 로컬만 저장됨", true); });
+      }, 700);
+      return;
+    }
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK)) return;
     _pushSCT = setTimeout(() => {
       fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ type: "safetyChecks", data: _safetyChecks }) })
@@ -663,9 +719,19 @@
   }
   let _pushSICT = null;
   function pushIncidentsRemote() {
-    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
-    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_safetyIncidents) return;
+    if (!_safetyIncidents) return;
     clearTimeout(_pushSICT);
+    if (SUPA) {
+      _pushSICT = setTimeout(() => {
+        supaReplaceAll("safety_incidents", _safetyIncidents, (x) => ({
+          date: x.date, type: x.type, place: x.place, status: x.status,
+          resolved_date: x.resolvedDate, content: x.content, action: x.action, memo: x.memo,
+        })).catch((e) => { console.warn("[GARDEN] 사고 이력 저장 실패:", e); toast("저장 실패 — 로컬만 저장됨", true); });
+      }, 700);
+      return;
+    }
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK)) return;
     _pushSICT = setTimeout(() => {
       fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ type: "safetyIncidents", data: _safetyIncidents }) })
@@ -912,9 +978,21 @@
   }
   let _pushIT = null;
   function pushIssuesRemote() {
-    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
-    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_issues) return;
+    if (!_issues) return;
     clearTimeout(_pushIT);
+    if (SUPA) {
+      _pushIT = setTimeout(() => {
+        supaReplaceAll("plant_issues", _issues, (x) => ({
+          date: x.date, building: x.building, location: x.location, category: x.category,
+          detail: x.detail, species: x.species, urgency: x.urgency, status: x.status,
+          assignee: x.assignee, source: x.source, action: x.action, photo_url: x.photoUrl,
+          recur: !!x.recur, done_at: x.doneAt, memo: x.memo,
+        })).catch((e) => { console.warn("[GARDEN] 식물 이슈 저장 실패:", e); toast("저장 실패 — 로컬만 저장됨", true); });
+      }, 700);
+      return;
+    }
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK)) return;
     _pushIT = setTimeout(() => {
       fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ type: "plantIssues", data: _issues }) })
@@ -1172,9 +1250,18 @@
   }
   let _pushTRT = null;
   function pushTrainingRemote() {
-    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
-    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_training) return;
+    if (!_training) return;
     clearTimeout(_pushTRT);
+    if (SUPA) {
+      _pushTRT = setTimeout(() => {
+        supaReplaceAll("training_records", _training, (r) => ({
+          name: r.name, key: r.key, year: r.year, date: r.date, method: r.method, cert_url: r.certUrl, memo: r.memo,
+        })).catch((e) => { console.warn("[GARDEN] 크루 교육 저장 실패:", e); toast("저장 실패 — 로컬만 저장됨", true); });
+      }, 700);
+      return;
+    }
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK)) return;
     _pushTRT = setTimeout(() => {
       fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ type: "trainingRecords", data: _training }) })
@@ -1258,9 +1345,20 @@
   }
   let _pushSTL = null;
   function pushSettleRemote() {
-    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
-    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK) || !_settle) return;
+    if (!_settle) return;
     clearTimeout(_pushSTL);
+    if (SUPA) {
+      _pushSTL = setTimeout(() => {
+        supaReplaceAll("settlement", _settle, (x) => ({
+          date: x.date, place: x.place, category: x.category, title: x.title, vendor: x.vendor,
+          amount: x.amount, status: x.status, paid_date: x.paidDate,
+          statement_url: x.statementUrl, photo_url: x.photoUrl, memo: x.memo,
+        })).catch((e) => { console.warn("[GARDEN] 정산 저장 실패:", e); toast("저장 실패 — 로컬만 저장됨", true); });
+      }, 700);
+      return;
+    }
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK)) return;
     _pushSTL = setTimeout(() => {
       fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ type: "settlement", data: _settle }) })
@@ -3258,6 +3356,7 @@
         if (json && typeof json === "object") {
           // 빈 값(빈 배열/빈 문자열)은 무시 → 백엔드 미설정 시 목 데이터 보존
           Object.keys(json).forEach((k) => {
+            if (SUPA && SUPA_MIGRATED_KEYS.indexOf(k) >= 0) return; // Supabase가 최신 소스
             const v = json[k];
             if (v == null) return;
             if (Array.isArray(v) && v.length === 0) return;
@@ -3309,6 +3408,54 @@
       });
   }
 
+  /* ---------- data source: Supabase (이관된 화면만) ---------- */
+  function loadSupaGroup1() {
+    if (!SUPA) return;
+    Promise.all([
+      supaSelectAll("notices", (r) => ({ date: r.date || "", text: r.text || "", author: r.author || "" })),
+      supaSelectAll("settlement", (r) => ({
+        date: r.date || "", place: r.place || "", category: r.category || "", title: r.title || "",
+        vendor: r.vendor || "", amount: Number(r.amount) || 0, status: r.status || "",
+        paidDate: r.paid_date || "", statementUrl: r.statement_url || "", photoUrl: r.photo_url || "", memo: r.memo || "",
+      })),
+      supaSelectAll("plant_issues", (r) => ({
+        date: r.date || "", building: r.building || "", location: r.location || "", category: r.category || "",
+        detail: r.detail || "", species: r.species || "", urgency: r.urgency || "", status: r.status || "",
+        assignee: r.assignee || "", source: r.source || "", action: r.action || "", photoUrl: r.photo_url || "",
+        recur: !!r.recur, doneAt: r.done_at || "", memo: r.memo || "",
+      })),
+      supaSelectAll("training_records", (r) => ({
+        name: r.name || "", key: r.key || "", year: String(r.year || ""), date: r.date || "",
+        method: r.method || "", certUrl: r.cert_url || "", memo: r.memo || "",
+      })),
+      supaSelectAll("safety_meetings", (r) => ({ date: r.date || "", org: r.org || "", title: r.title || "", attendees: r.attendees || "", link: r.link || "" })),
+      supaSelectAll("safety_checks", (r) => ({
+        title: r.title || "", date: r.date || "", org: r.org || "", result: r.result || "양호",
+        action: r.action || "", sentDate: r.sent_date || "", driveUrl: r.drive_url || "", done: !!r.done,
+      })),
+      supaSelectAll("safety_incidents", (r) => ({
+        date: r.date || "", type: r.type || "", place: r.place || "", status: r.status || "",
+        resolvedDate: r.resolved_date || "", content: r.content || "", action: r.action || "", memo: r.memo || "",
+      })),
+    ]).then(([notices, settlement, plantIssues, trainingRecords, safetyMeetings, safetyChecks, safetyIncidents]) => {
+      _booting = false;
+      D.notices = notices; D.settlement = settlement; D.plantIssues = plantIssues; D.trainingRecords = trainingRecords;
+      D.safetyMeetings = safetyMeetings; D.safetyChecks = safetyChecks; D.safetyIncidents = safetyIncidents;
+      _notices = null; try { localStorage.removeItem(NOTICE_KEY); } catch (e) {}
+      _settle = null; try { localStorage.removeItem(STL_KEY); } catch (e) {}
+      _issues = null; try { localStorage.removeItem(PI_KEY); } catch (e) {}
+      _training = null; try { localStorage.removeItem(EDU_KEY); } catch (e) {}
+      _safetyMeetings = null; try { localStorage.removeItem(SAFETY_KEY); } catch (e) {}
+      _safetyChecks = null; try { localStorage.removeItem(CHECK_KEY); } catch (e) {}
+      _safetyIncidents = null; try { localStorage.removeItem(SIC_KEY); } catch (e) {}
+      render(currentView());
+    }).catch((err) => {
+      _booting = false;
+      console.warn("[GARDEN] Supabase 로드 실패:", err);
+      render(currentView());
+    });
+  }
+
   /* ---------- 입장 비밀번호 게이트 (담당자별 · 시트 관리) ---------- */
   const ENTRY_KEY = "garden-entry-ok";
   const WHO_KEY = "garden-entry-who";
@@ -3328,9 +3475,10 @@
       .then((r) => r.json()).then((j) => (j && j.managers) || []).catch(() => []);
   }
   function bootApp() {
-    if ((window.CONFIG && window.CONFIG.API_URL || "").trim()) _booting = true;
+    if ((window.CONFIG && window.CONFIG.API_URL || "").trim() || SUPA) _booting = true;
     render(currentView());
     loadRemote();
+    loadSupaGroup1();
     try { const who = localStorage.getItem(WHO_KEY); const el = document.getElementById("whoami"); if (who && el) el.textContent = who + "님"; } catch (e) {}
   }
   function showEntryGate() {

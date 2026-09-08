@@ -1243,7 +1243,7 @@
     return (arr || []).map((x) => ({
       date: x.date || "", place: x.place || "", category: x.category || "기타", title: x.title || "",
       vendor: x.vendor || "", amount: Number(x.amount) || 0, status: x.status || "예정",
-      paidDate: x.paidDate || "", statementUrl: x.statementUrl || "", memo: x.memo || "",
+      paidDate: x.paidDate || "", statementUrl: x.statementUrl || "", photoUrl: x.photoUrl || "", memo: x.memo || "",
     }));
   }
   function getSettle() {
@@ -1286,6 +1286,9 @@
       const stmt = x.statementUrl
         ? `<a class="stl-stmt" href="${esc(x.statementUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 명세서</a>`
         : `<span class="muted" style="font-size:11px">—</span>`;
+      const photo = x.photoUrl
+        ? `<a class="stl-photo" href="${esc(x.photoUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📷 사진</a>`
+        : `<span class="muted" style="font-size:11px">—</span>`;
       return `<tr onclick="GARDEN.settleOpen(${i})">
         <td class="mono">${esc(x.date) || "—"}</td>
         <td>${esc(x.place) || "—"}</td>
@@ -1295,12 +1298,13 @@
         <td class="stl-amt">${won(x.amount)}</td>
         <td><span class="iss-tag ${done ? "iss-tag--done" : ""}">${esc(x.status)}</span></td>
         <td>${stmt}</td>
+        <td>${photo}</td>
       </tr>`;
     }).join("");
   }
   function settleModal(i) {
     const isNew = i == null;
-    const x = isNew ? { date: "", place: "카카오", category: "식물 구매", title: "", vendor: "", amount: "", status: "예정", paidDate: "", statementUrl: "", memo: "" } : getSettle()[i];
+    const x = isNew ? { date: "", place: "카카오", category: "식물 구매", title: "", vendor: "", amount: "", status: "예정", paidDate: "", statementUrl: "", photoUrl: "", memo: "" } : getSettle()[i];
     if (!x) return "";
     const placeOpts = STL_PLACES.map((p) => `<option ${x.place === p ? "selected" : ""}>${p}</option>`).join("");
     const catOpts = STL_CATEGORIES.map((c) => `<option ${x.category === c ? "selected" : ""}>${c}</option>`).join("");
@@ -1327,6 +1331,7 @@
           </div>
           <label class="fld"><span>명세서 링크</span><input id="st_stmt" value="${esc(x.statementUrl)}" placeholder="구글 드라이브 명세서 파일 URL"/>
             ${SETTLE_DRIVE_URL ? `<a class="fld-hint" href="${SETTLE_DRIVE_URL}" target="_blank" rel="noopener">🔗 명세서 폴더 열기</a>` : ""}</label>
+          <label class="fld"><span>작업 사진 링크</span><input id="st_photo" value="${esc(x.photoUrl)}" placeholder="구글 드라이브 사진(폴더) URL"/></label>
           <label class="fld"><span>비고</span><input id="st_memo" value="${esc(x.memo)}" placeholder="기타 특이사항(선택)"/></label>
         </div>
         <div class="gmodal__foot">
@@ -2220,7 +2225,7 @@
             <table class="stl-table">
               <thead><tr>
                 <th>작업일</th><th>장소</th><th>구분</th><th>작업 내용</th><th>거래처</th>
-                <th class="stl-col-amt">비용</th><th>상태</th><th>명세서</th>
+                <th class="stl-col-amt">비용</th><th>상태</th><th>명세서</th><th>사진</th>
               </tr></thead>
               <tbody>${settleRows()}</tbody>
             </table>
@@ -3022,7 +3027,7 @@
       const rec = {
         date, place: v("st_place") || "", category: v("st_cat") || "기타", title, vendor: v("st_vendor"),
         amount: Number(amount) || 0, status: v("st_status") || "예정",
-        paidDate: v("st_paid"), statementUrl: v("st_stmt"), memo: v("st_memo"),
+        paidDate: v("st_paid"), statementUrl: v("st_stmt"), photoUrl: v("st_photo"), memo: v("st_memo"),
       };
       const list = getSettle();
       if (i == null) list.unshift(rec); else if (list[i]) list[i] = rec; else return;
@@ -3036,10 +3041,10 @@
     },
     settleCsv() {
       const list = getSettle();
-      const head = ["작업일", "장소", "구분", "작업내용", "거래처", "비용", "상태", "정산일", "명세서", "비고"];
-      const rows = list.map((x) => [x.date, x.place, x.category, x.title, x.vendor, x.amount, x.status, x.paidDate, x.statementUrl, x.memo]);
+      const head = ["작업일", "장소", "구분", "작업내용", "거래처", "비용", "상태", "정산일", "명세서", "작업사진", "비고"];
+      const rows = list.map((x) => [x.date, x.place, x.category, x.title, x.vendor, x.amount, x.status, x.paidDate, x.statementUrl, x.photoUrl, x.memo]);
       const total = list.reduce((s, x) => s + (Number(x.amount) || 0), 0);
-      rows.push(["합계", "", "", "", "", total, "", "", "", ""]);
+      rows.push(["합계", "", "", "", "", total, "", "", "", "", ""]);
       const csv = [head].concat(rows).map((r) => r.map((c) => `"${String(c == null ? "" : c).replace(/"/g, '""')}"`).join(",")).join("\r\n");
       const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);

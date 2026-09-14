@@ -2404,6 +2404,30 @@
     _board = normalizeBoard(JSON.parse(JSON.stringify(D.weekBoard || {})));
     return _board;
   }
+  /* 2026년 대한민국 법정 공휴일(관공서의 공휴일에 관한 규정 · 대체공휴일 포함) */
+  const HOLIDAYS = {
+    "2026-01-01": "신정",
+    "2026-02-16": "설날 연휴",
+    "2026-02-17": "설날",
+    "2026-02-18": "설날 연휴",
+    "2026-03-01": "삼일절",
+    "2026-03-02": "대체공휴일(삼일절)",
+    "2026-05-05": "어린이날",
+    "2026-05-24": "부처님오신날",
+    "2026-05-25": "대체공휴일(부처님오신날)",
+    "2026-06-06": "현충일",
+    "2026-08-15": "광복절",
+    "2026-08-17": "대체공휴일(광복절)",
+    "2026-09-24": "추석 연휴",
+    "2026-09-25": "추석",
+    "2026-09-26": "추석 연휴",
+    "2026-09-28": "대체공휴일(추석)",
+    "2026-10-03": "개천절",
+    "2026-10-05": "대체공휴일(개천절)",
+    "2026-10-09": "한글날",
+    "2026-12-25": "성탄절",
+  };
+
   /* 동적 월간 달력 (변동사항 있는 날만 점 표시) */
   function calendarCard(b) {
     const y = _calYM.y, m = _calYM.m;
@@ -2426,8 +2450,10 @@
         const isToday = isThisMonth && d === _now.getDate();
         const wknd = ci === 0 || ci === 6;
         const ex = exMap[ds];
-        return `<button class="mc__d ${isToday ? "is-today" : ""} ${wknd ? "is-wknd" : ""} ${ex ? "has-ex" : ""}"
-          title="${ex ? esc(ex) : "변동사항 추가"}" onclick="GARDEN.wbException('${ds}')">${d}${ex ? '<i class="mc__dot"></i>' : ""}</button>`;
+        const hol = HOLIDAYS[ds];
+        const tip = [hol, ex].filter(Boolean).join(" · ") || "변동사항 추가";
+        return `<button class="mc__d ${isToday ? "is-today" : ""} ${wknd ? "is-wknd" : ""} ${hol ? "is-holiday" : ""} ${ex ? "has-ex" : ""}"
+          title="${esc(tip)}" onclick="GARDEN.wbException('${ds}')">${d}${ex ? '<i class="mc__dot"></i>' : ""}</button>`;
       }).join("");
       grid += `<div class="mc__row">${week}</div>`;
     }
@@ -2437,6 +2463,12 @@
 
     // 변동사항 목록은 현재 달력에 표시 중인 달(y-m)의 항목만 노출
     const ym = `${y}-${_pad(m + 1)}`;
+    // 이번 달 공휴일 목록
+    const holList = Object.keys(HOLIDAYS).filter((ds) => ds.indexOf(ym) === 0).sort();
+    const holHtml = holList.length
+      ? `<div class="mc__hol">` + holList.map((ds) =>
+          `<span class="mc__holrow"><b>${ds.slice(5).replace("-", "/")}</b><span>${esc(HOLIDAYS[ds])}</span></span>`).join("") + `</div>`
+      : "";
     const exList = (b.exceptions || []).filter((e) => e.date.indexOf(ym) === 0).slice().sort((a, c) => a.date.localeCompare(c.date));
     const exHtml = exList.length
       ? `<div class="mc__ex">` + exList.map((e) =>
@@ -2456,7 +2488,9 @@
         <div class="mc__grid">${grid}</div>
         <div class="mcal__foot">
           <span class="mcal__legend"><i class="mc__dot mc__dot--legend"></i> 변동사항</span>
+          <span class="mcal__legend"><i class="mc__hol--legend"></i> 공휴일</span>
         </div>
+        ${holHtml}
         ${exHtml}
       </div>`;
   }

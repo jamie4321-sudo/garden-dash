@@ -999,7 +999,7 @@
         .catch((e) => console.warn("[GARDEN] 식물 이슈 저장 실패:", e));
     }, 700);
   }
-  function reIssues() { app.innerHTML = currentView() === "monthly" ? views.monthly() : views.issues(); }
+  function reIssues() { app.innerHTML = currentView() === "report" ? views.report() : views.issues(); }
   function issueTodayStr() { return `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`; }
   function issueInPeriod(x) {
     const d = String(x.date || "");
@@ -1365,7 +1365,7 @@
         .catch((e) => console.warn("[GARDEN] 정산 저장 실패:", e));
     }, 700);
   }
-  function reSettle() { app.innerHTML = currentView() === "monthly" ? views.monthly() : views.settlement(); }
+  function reSettle() { app.innerHTML = currentView() === "report" ? views.report() : views.settlement(); }
   const won = (n) => "₩" + (Number(n) || 0).toLocaleString("en-US");
   function settleMatch(x) {
     if (_settlePlace !== "all" && x.place !== _settlePlace) return false;
@@ -1804,9 +1804,8 @@
   }
 
   /* ===== 월간리포트 — 자동 산출 리포트 (식물 이슈 · 운영 비용 · 안전) ===== */
-  const MR_TAB_KEY = "garden-monthly-tab";
-  let _mrTab = (() => { try { return localStorage.getItem(MR_TAB_KEY) || "report"; } catch (e) { return "report"; } })();
   let _rpY = new Date().getFullYear(), _rpM = new Date().getMonth() + 1;
+  function reReport() { app.innerHTML = views.report(); }
 
   const rpYm = (y, m) => `${y}-${m < 10 ? "0" : ""}${m}`;
   function rpShift(y, m, d) { const t = new Date(y, m - 1 + d, 1); return { y: t.getFullYear(), m: t.getMonth() + 1 }; }
@@ -2242,23 +2241,6 @@
              <span class="mr-empty__sub">＋ 리뷰 열기 로 이번 달 스레드를 만들면 이슈·코멘트를 바로 남길 수 있어요.</span>
            </div>`;
       const meN = currentUser();
-      const tabs = `<div class="ptabs rp-tabs">
-          <button class="ptab ${_mrTab === "report" ? "is-on" : ""}" onclick="GARDEN.mrTab('report')">월간 리포트</button>
-          <button class="ptab ${_mrTab === "board" ? "is-on" : ""}" onclick="GARDEN.mrTab('board')">리뷰 보드</button></div>`;
-      if (_mrTab === "report") {
-        return `
-        <section class="view mr-view rp-view">
-          <div class="mr-top">
-            <div class="mr-top__l">
-              <p class="mr-eyebrow">AGIT GARDEN<span>·</span>MONTHLY REPORT</p>
-              <h2 class="mr-title">월간 리포트</h2>
-              <p class="mr-lead">식물 이슈 · 운영 정산 · 산업안전 기록을 월 단위로 자동 집계합니다. 각 메뉴에 입력한 내용이 그대로 반영돼요.</p>
-            </div>
-            <div class="mr-top__r">${tabs}</div>
-          </div>
-          ${monthlyReportHTML()}
-        </section>`;
-      }
       return `
         <section class="view mr-view">
           <div class="mr-top">
@@ -2271,7 +2253,6 @@
               <a class="mr-drive" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">
                 <span class="mr-drive__ic">↗</span><span class="mr-drive__t">리뷰 자료 드라이브</span></a>
               <button class="mr-new" onclick="GARDEN.monthlyAddOpen()"><span>＋</span> 리뷰 열기</button>
-              ${tabs}
             </div>
           </div>
           <div class="mr-who">
@@ -2279,6 +2260,20 @@
             ${meN ? `<b>${esc(meN)}</b> 계정으로 접속 중 · ${canComment() ? "코멘트 작성 가능" : "코멘트는 카카오 담당자(" + KAKAO_EDITORS.join(" · ") + ")만 가능"}` : "로그인 계정 정보 없음"}
           </div>
           <div class="mr-board">${posts}</div>
+        </section>`;
+    },
+
+    report() {
+      return `
+        <section class="view mr-view rp-view">
+          <div class="mr-top">
+            <div class="mr-top__l">
+              <p class="mr-eyebrow">AGIT GARDEN<span>·</span>MONTHLY REPORT</p>
+              <h2 class="mr-title">월간 리포트</h2>
+              <p class="mr-lead">식물 이슈 · 운영 정산 · 산업안전 기록을 월 단위로 자동 집계합니다. 각 메뉴에 입력한 내용이 그대로 반영돼요.</p>
+            </div>
+          </div>
+          ${monthlyReportHTML()}
         </section>`;
     },
 
@@ -2614,6 +2609,7 @@
     safety: "CREW / SAFETY & HEALTH",
     schedule: "OPERATION / SCHEDULE",
     monthly: "OPERATION / MONTHLY REVIEW",
+    report: "OPERATION / MONTHLY REPORT",
     sales: "OPERATION / SALES",
   };
 
@@ -3459,16 +3455,11 @@
     },
 
     /* ---------- 월간리포트 (게시판) ---------- */
-    /* --- 월간리포트: 탭 · 자동 리포트 --- */
-    mrTab(t) {
-      _mrTab = t === "board" ? "board" : "report";
-      try { localStorage.setItem(MR_TAB_KEY, _mrTab); } catch (e) {}
-      reMonthly();
-    },
+    /* --- 월간리포트 (자동 산출) --- */
     rpStep(d) {
       if (!d) { const n = new Date(); _rpY = n.getFullYear(); _rpM = n.getMonth() + 1; }
       else { const t = rpShift(_rpY, _rpM, d); _rpY = t.y; _rpM = t.m; }
-      reMonthly();
+      reReport();
     },
     rpCopy() {
       const txt = rpPlainText();

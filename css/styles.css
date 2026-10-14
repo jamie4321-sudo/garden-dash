@@ -1518,7 +1518,6 @@ button { font-family: inherit; }
 }
 
 /* ===== 월간 리포트 (자동 산출) ===== */
-.rp-tabs { margin-left: 0; }
 .rp-view .mr-top { margin-bottom: 22px; }
 .rp-period { margin-bottom: 16px; }
 .rp-thismonth { border-radius: 999px; }
@@ -1585,7 +1584,7 @@ button { font-family: inherit; }
 
 /* 인쇄 · PDF — 리포트 본문만 */
 @media print {
-  .side, .topbar, .rp-tabs, .rp-period .iss-nav, .rp-thismonth, .rp-actions, .gmodal { display: none !important; }
+  .side, .topbar, .rp-period .iss-nav, .rp-thismonth, .rp-actions, .gmodal { display: none !important; }
   .layout, .main { display: block !important; margin: 0 !important; }
   body { background: #fff; }
   .view { padding: 0 !important; }

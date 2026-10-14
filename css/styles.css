@@ -1592,3 +1592,100 @@ button { font-family: inherit; }
   .rp-block .table-wrap { overflow: visible; }
   .rp-table { min-width: 0; }
 }
+
+/* ===== 교체 현황 (교체 전 → 교체 후) ===== */
+.sw-stats { grid-template-columns: repeat(4, 1fr); }
+.sw-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.sw-chip { border: 1px solid var(--line); background: var(--card-bg); color: var(--ink-2); cursor: pointer; font-size: 12.5px; font-weight: 600; padding: 7px 14px; border-radius: 999px; transition: color .14s, border-color .14s, background .14s; }
+.sw-chip:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink-3) 60%, transparent); }
+.sw-chip.is-on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.sw-chip__yr { font-family: var(--mono); font-size: 11px; color: var(--ink-3); margin: 0 2px 0 8px; }
+.sw-month { margin-bottom: 26px; }
+.sw-month__h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+.sw-month__h h3 { margin: 0; font-size: 16px; font-weight: 800; letter-spacing: -.3px; }
+.sw-month__h span { font-size: 12px; color: var(--ink-3); }
+.sw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+
+.sw-card { display: flex; flex-direction: column; text-align: left; padding: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--card-bg); color: inherit; font: inherit; cursor: pointer; overflow: hidden; transition: border-color .16s, transform .16s cubic-bezier(.23,1,.32,1); }
+.sw-card:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); transform: translateY(-2px); }
+.sw-card:active { transform: translateY(0); }
+.sw-card__b { padding: 12px 14px 14px; display: grid; gap: 8px; }
+.sw-card__t { display: flex; align-items: center; gap: 8px; }
+.sw-card__t b { font-size: 14px; font-weight: 800; letter-spacing: -.2px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-card__f { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--ink-3); }
+.sw-card__f span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sw-kind { flex: none; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); }
+.sw-kind--swap { color: var(--accent-text); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.sw-wait { color: var(--amber); font-weight: 700; white-space: nowrap; }
+
+/* 교체 전·후 사진 한 쌍 */
+.sw-pair { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; aspect-ratio: 16 / 10; background: var(--line-soft); }
+.sw-pair--big { aspect-ratio: 4 / 3; border-radius: var(--r); overflow: hidden; margin-bottom: 10px; }
+.sw-half { position: relative; overflow: hidden; background: var(--panel-2); min-height: 0; }
+.sw-half > img, .sw-cg i img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sw-pair--big .sw-half > img { cursor: zoom-in; }
+.sw-lab { position: absolute; left: 8px; bottom: 8px; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(10,10,11,.72); color: #f4f4f5; backdrop-filter: blur(4px); }
+.sw-half--a .sw-lab { background: var(--accent); color: var(--accent-ink); }
+.sw-empty { height: 100%; display: grid; place-content: center; justify-items: center; gap: 6px; color: var(--ink-3); font-size: 11px; }
+.sw-empty svg, .sw-none svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.sw-seam { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--card-bg); border: 1px solid var(--line); z-index: 1; }
+.sw-seam svg { width: 15px; height: 15px; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sw-cg { display: grid; gap: 2px; }
+.sw-cg i { position: relative; overflow: hidden; min-height: 0; }
+.sw-cg2 { grid-template-rows: 1fr 1fr; }
+.sw-cg3 { grid-template-columns: 1fr 1fr; grid-template-rows: 1.4fr 1fr; }
+.sw-cg3 i:first-child { grid-column: 1 / -1; }
+.sw-cg4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.sw-cg5 { grid-template-columns: repeat(3, 1fr); grid-template-rows: 1.6fr 1fr; }
+.sw-cg5 i:first-child { grid-column: 1 / -1; }
+.sw-cg i b { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,.5); color: #fff; font-size: 13px; }
+
+.sw-none { display: grid; justify-items: center; gap: 8px; padding: 56px 20px; border: 1px dashed var(--line); border-radius: var(--r-lg); color: var(--ink-3); text-align: center; }
+.sw-none p { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.sw-none span { font-size: 12.5px; }
+
+/* 상세 */
+.sw-detail__sub { margin: 4px 0 0; font-size: 12.5px; color: var(--ink-3); }
+.sw-strips { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.sw-strip { display: flex; gap: 6px; flex-wrap: wrap; }
+.sw-strip button { width: 46px; height: 46px; padding: 0; border-radius: 8px; overflow: hidden; border: 2px solid transparent; background: var(--panel-2); cursor: pointer; opacity: .6; transition: opacity .14s, border-color .14s; }
+.sw-strip button.is-on { border-color: var(--accent); opacity: 1; }
+.sw-strip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sw-steps { list-style: none; margin: 0 0 14px; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sw-steps li { border: 1px solid var(--line-soft); border-radius: var(--r); padding: 10px 12px; display: grid; gap: 4px; }
+.sw-steps small { font-size: 10.5px; color: var(--ink-3); }
+.sw-steps b { font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.sw-steps li.is-now { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.sw-steps li.is-now b { color: var(--accent-text); }
+
+/* 등록 폼 */
+.sw-kindsel { display: flex; gap: 8px; }
+.sw-kindsel label { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: var(--r); font-size: 13px; font-weight: 600; cursor: pointer; }
+.sw-kindsel label:has(input:checked) { border-color: var(--accent); color: var(--accent-text); }
+.sw-kindsel input { accent-color: var(--accent); }
+.sw-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.sw-photos__h { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: .5px; color: var(--ink-3); margin-bottom: 6px; }
+.sw-photos__h small { margin-left: 4px; }
+.sw-slots { display: flex; flex-wrap: wrap; gap: 6px; }
+.sw-slot { position: relative; width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: var(--panel-2); border: 1px solid var(--line); }
+.sw-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sw-slot em { position: absolute; left: 0; right: 0; bottom: 0; font-style: normal; font-size: 9px; text-align: center; background: rgba(0,0,0,.6); color: #fff; padding: 2px 0; }
+.sw-slot button { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; border-radius: 50%; border: none; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; line-height: 1; cursor: pointer; padding: 0; }
+.sw-slot--add { display: grid; place-items: center; border-style: dashed; color: var(--ink-3); font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.sw-slot--add:hover { border-color: var(--accent); color: var(--ink); }
+.sw-slot--add input { display: none; }
+.sw-linkrow { display: flex; gap: 6px; }
+.sw-linkrow input { flex: 1; min-width: 0; }
+
+@media (max-width: 900px) {
+  .sw-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .sw-photos, .sw-strips { grid-template-columns: 1fr; }
+  .sw-linkrow { flex-wrap: wrap; }
+  .sw-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sw-card { transition: none; }
+}
+.fld[hidden] { display: none; }

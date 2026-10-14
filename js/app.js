@@ -2055,6 +2055,233 @@
     return out.join("\n");
   }
 
+  /* ===== 교체 현황 — 식물 교체 기록 (교체 전 → 교체 후 사진 · 월별 · 위치별) ===== */
+  const SW_KEY = "garden-plant-swaps";
+  const SW_WHY = ["고사", "수세 약화", "낙엽 과다", "관상가치 저하", "병해충", "광량 부족", "공간 변경", "기타"];
+  const SW_MAX = 5; // 교체 전·후 각 최대 사진 수
+  let _swaps = null, _swMonth = "all", _swDraft = null, _swOpen = -1;
+
+  function swUid() { return "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  const swList = (v) => (Array.isArray(v) ? v : String(v || "").split(/\s*\n\s*|\s*,\s*(?=https?:)/)).map((s) => String(s).trim()).filter(Boolean);
+  function normalizeSwaps(arr) {
+    return (arr || []).map((x) => ({
+      id: x.id || swUid(), status: x.status === "예정" ? "예정" : "완료",
+      date: x.date || "", planDate: x.planDate || "", location: x.location || "",
+      species: x.species || "", kind: x.kind === "swap" ? "swap" : "same", to: x.to || "",
+      why: x.why || "", note: x.note || "", by: x.by || "",
+      before: swList(x.before).slice(0, SW_MAX), after: swList(x.after).slice(0, SW_MAX),
+    }));
+  }
+  function getSwaps() {
+    if (_swaps) return _swaps;
+    try { const s = localStorage.getItem(SW_KEY); if (s) _swaps = normalizeSwaps(JSON.parse(s)); } catch (e) {}
+    if (!_swaps) _swaps = normalizeSwaps(D.plantSwaps || []);
+    return _swaps;
+  }
+  let _pushSW = null;
+  function saveSwaps() {
+    try { localStorage.setItem(SW_KEY, JSON.stringify(_swaps)); } catch (e) {}
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK)) return;
+    clearTimeout(_pushSW);
+    _pushSW = setTimeout(() => {
+      fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "plantSwaps", data: _swaps.map((x) => ({ ...x, before: x.before.join("\n"), after: x.after.join("\n") })) }) })
+        .catch((e) => console.warn("[GARDEN] 교체 현황 저장 실패:", e));
+    }, 700);
+  }
+  function reSwaps() { app.innerHTML = currentView() === "report" ? views.report() : views.swaps(); }
+
+  // 드라이브 공유 링크 → 이미지로 바로 뜨는 썸네일 주소
+  function swImg(u) {
+    const s = String(u || "");
+    const m = s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]{20,})/);
+    return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1200` : s;
+  }
+  const swTitle = (x) => x.kind === "swap" ? `${x.species || "미확인"} → ${x.to || "미정"}` : (x.species || x.to || "식물 미확인");
+  const swDay = (d) => { const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[2]}월 ${+m[3]}일` : ""; };
+  const swMonthOf = (x) => String(x.date || x.planDate || "").slice(0, 7);
+  const swMonthLong = (m) => m ? `${m.slice(0, 4)}년 ${+m.slice(5)}월` : "날짜 미정";
+  function swSince(x) {
+    const d = x.status === "완료" ? rpDays(x.date, issueTodayStr()) : null;
+    if (d == null) return "";
+    return d < 28 ? "활착 중" : d < 56 ? "안정화" : "정상 관리";
+  }
+
+  const SW_LEAF = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c0-8 5-14 14-14 0 9-6 14-14 14z"/><path d="M5 19 13 11"/></svg>`;
+  const SW_SEAM = `<span class="sw-seam"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>`;
+  // 1장 통째 · 2장 위아래 · 3장 큰1+작은2 · 4장 2×2 · 5장 큰1+작은3(+n)
+  function swHalf(list, side, label) {
+    const n = list.length;
+    if (!n) return `<div class="sw-half sw-half--${side}"><div class="sw-empty">${SW_LEAF}<span>사진 없음</span></div><span class="sw-lab">${label}</span></div>`;
+    if (n === 1) return `<div class="sw-half sw-half--${side}"><img src="${esc(swImg(list[0]))}" alt="${label}" loading="lazy" referrerpolicy="no-referrer"/><span class="sw-lab">${label}</span></div>`;
+    const show = list.slice(0, n >= 5 ? 4 : n);
+    return `<div class="sw-half sw-half--${side} sw-cg sw-cg${Math.min(n, 5)}">${show.map((s, j) =>
+      `<i><img src="${esc(swImg(s))}" alt="${label} ${j + 1}" loading="lazy" referrerpolicy="no-referrer"/>${n >= 5 && j === 3 ? `<b>+${n - 4}</b>` : ""}</i>`).join("")}<span class="sw-lab">${label} ${n}</span></div>`;
+  }
+  const swPair = (x) => `<div class="sw-pair">${swHalf(x.before, "b", "교체 전")}${swHalf(x.after, "a", x.kind === "swap" && x.to ? `교체 후 · ${esc(x.to)}` : "교체 후")}${SW_SEAM}</div>`;
+
+  function swCard(x, i) {
+    const wait = x.status === "예정";
+    return `<button type="button" class="sw-card" onclick="GARDEN.swapOpen(${i})">
+      ${swPair(x)}
+      <div class="sw-card__b">
+        <div class="sw-card__t"><b>${esc(swTitle(x))}</b><span class="sw-kind ${x.kind === "swap" ? "sw-kind--swap" : ""}">${x.kind === "swap" ? "수종 변경" : "같은 수종"}</span></div>
+        <div class="sw-card__f"><span>${esc(x.location) || "위치 미정"}</span>${wait
+          ? `<span class="sw-wait">교체 예정${x.planDate ? " · " + swDay(x.planDate) : ""}</span>`
+          : `<span class="mono">${swDay(x.date) || "—"}</span>`}</div>
+      </div>
+    </button>`;
+  }
+
+  function swapDetailModal(i) {
+    const x = getSwaps()[i];
+    if (!x) return "";
+    const stage = swSince(x);
+    const strip = (list, side) => list.length > 1 ? `<div class="sw-strip">${list.map((s, j) =>
+      `<button type="button" class="${j ? "" : "is-on"}" onclick="GARDEN.swapShot(this,'${side}',${j})"><img src="${esc(swImg(s))}" alt="" referrerpolicy="no-referrer"/></button>`).join("")}</div>` : "<div></div>";
+    const big = (list, side, label) => list.length
+      ? `<div class="sw-half sw-half--${side}" data-side="${side}"><img src="${esc(swImg(list[0]))}" alt="${label}" referrerpolicy="no-referrer" onclick="window.open(this.src,'_blank')"/><span class="sw-lab">${label}${list.length > 1 ? ` 1/${list.length}` : ""}</span></div>`
+      : `<div class="sw-half sw-half--${side}"><div class="sw-empty">${SW_LEAF}<span>사진 없음</span></div><span class="sw-lab">${label}</span></div>`;
+    const row = (l, v) => `<div class="issd-row"><span class="issd-lbl">${l}</span><span class="issd-val">${v}</span></div>`;
+    return `<div class="gmodal" id="swapDetailModal">
+      <div class="gmodal__bd" onclick="GARDEN.swapDetailClose()"></div>
+      <div class="gmodal__card gmodal__card--wide sw-detail">
+        <div class="gmodal__head"><div><h3>${esc(swTitle(x))}</h3>
+          <p class="sw-detail__sub">${esc(swMonthLong(swMonthOf(x)))} · ${esc(x.location) || "위치 미정"}</p></div>
+          <button class="gmodal__x" onclick="GARDEN.swapDetailClose()">×</button></div>
+        <div class="sw-pair sw-pair--big" id="swBig">${big(x.before, "b", "교체 전")}${big(x.after, "a", "교체 후")}${SW_SEAM}</div>
+        ${x.before.length > 1 || x.after.length > 1 ? `<div class="sw-strips">${strip(x.before, "b")}${strip(x.after, "a")}</div>` : ""}
+        <ol class="sw-steps">
+          <li><small>계획</small><b>${swDay(x.planDate) || "—"}</b></li>
+          <li class="${x.status === "완료" ? "is-done" : ""}"><small>교체 완료</small><b>${x.status === "완료" ? swDay(x.date) || "완료" : "예정"}</b></li>
+          <li class="is-now"><small>현재</small><b>${x.status === "완료" ? stage || "관리 중" : "교체 대기"}</b></li>
+        </ol>
+        <div class="issd-grid">
+          ${row("위치", esc(x.location) || "—")}
+          ${row("구분", x.kind === "swap" ? `수종 변경 (${esc(x.species) || "미확인"} → ${esc(x.to) || "미정"})` : "같은 수종으로 교체")}
+          ${row("사유", esc(x.why) || "—")}
+          ${row("기록자", esc(x.by) || "—")}
+        </div>
+        ${x.note ? `<div class="issd-block"><span class="issd-lbl">설명</span><p>${esc(x.note)}</p></div>` : ""}
+        <div class="gmodal__foot">
+          <button class="btn btn--sm btn--danger" onclick="GARDEN.swapDelete(${i})">삭제</button>
+          <span class="gmodal__spacer"></span>
+          ${x.status === "예정" ? `<button class="btn btn--sm" onclick="GARDEN.swapEdit(${i}, true)">교체 완료 기록</button>` : ""}
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.swapEdit(${i})">수정</button>
+        </div>
+      </div></div>`;
+  }
+
+  function swPhotoSlots(side) {
+    const list = _swDraft[side];
+    const items = list.map((s, j) => `<span class="sw-slot"><img src="${esc(swImg(s))}" alt="" referrerpolicy="no-referrer"/>
+      ${String(s).startsWith("data:") ? `<em>업로드 대기</em>` : ""}
+      <button type="button" title="빼기" onclick="GARDEN.swapPhotoDel('${side}',${j})">×</button></span>`).join("");
+    const add = list.length < SW_MAX ? `<label class="sw-slot sw-slot--add">＋ 사진<input type="file" accept="image/*" multiple onchange="GARDEN.swapPhotoAdd('${side}', this)"/></label>` : "";
+    return `${items}${add}`;
+  }
+  function swapFormModal(i, finish) {
+    const isNew = i == null;
+    const x = isNew
+      ? { status: "완료", date: issueTodayStr(), planDate: "", location: "", species: "", kind: "same", to: "", why: "", note: "", by: currentUser(), before: [], after: [] }
+      : getSwaps()[i];
+    if (!x) return "";
+    _swDraft = { before: x.before.slice(), after: x.after.slice() };
+    const status = finish ? "완료" : x.status;
+    const date = finish && !x.date ? issueTodayStr() : x.date;
+    const zones = activeZones().flatMap((g) => g.zones);
+    const plants = [...new Set(getSwaps().flatMap((s) => [s.species, s.to]).concat(getIssues().map((s) => s.species)).filter(Boolean))];
+    const whys = SW_WHY.indexOf(x.why) < 0 && x.why ? [x.why].concat(SW_WHY) : SW_WHY;
+    return `<div class="gmodal" id="swapFormModal">
+      <div class="gmodal__bd" onclick="GARDEN.swapClose()"></div>
+      <div class="gmodal__card gmodal__card--wide">
+        <div class="gmodal__head"><h3>${isNew ? "교체 등록" : finish ? "교체 완료 기록" : "교체 기록 수정"}</h3>
+          <button class="gmodal__x" onclick="GARDEN.swapClose()">×</button></div>
+        <datalist id="sw_zones">${zones.map((z) => `<option value="${esc(z)}">`).join("")}</datalist>
+        <datalist id="sw_plants">${plants.map((p) => `<option value="${esc(p)}">`).join("")}</datalist>
+        <div class="gform">
+          <div class="fld-row fld-row--3">
+            <label class="fld"><span>상태 *</span><select id="sw_status" onchange="GARDEN.swapStatusChange(this.value)">
+              <option value="완료" ${status === "완료" ? "selected" : ""}>교체 완료</option>
+              <option value="예정" ${status === "예정" ? "selected" : ""}>교체 예정</option></select></label>
+            <label class="fld"><span>계획일</span><input id="sw_plan" type="date" value="${esc(x.planDate)}"/></label>
+            <label class="fld" id="sw_date_f" ${status === "예정" ? "hidden" : ""}><span>교체 완료일 *</span><input id="sw_date" type="date" value="${esc(date)}"/></label>
+          </div>
+          <div class="fld-row">
+            <label class="fld"><span>위치 *</span><input id="sw_loc" list="sw_zones" value="${esc(x.location)}" placeholder="예: 일반오피스 7A · 창가 B4"/></label>
+            <label class="fld"><span>교체 사유</span><select id="sw_why"><option value="">선택</option>${whys.map((w) => `<option ${w === x.why ? "selected" : ""}>${esc(w)}</option>`).join("")}</select></label>
+          </div>
+          <div class="sw-kindsel" role="radiogroup" aria-label="구분">
+            <label><input type="radio" name="sw_kind" value="same" ${x.kind !== "swap" ? "checked" : ""} onchange="GARDEN.swapKind('same')"/> 같은 수종</label>
+            <label><input type="radio" name="sw_kind" value="swap" ${x.kind === "swap" ? "checked" : ""} onchange="GARDEN.swapKind('swap')"/> 수종 변경</label>
+          </div>
+          <div class="fld-row">
+            <label class="fld"><span>교체 전 식물 *</span><input id="sw_sp" list="sw_plants" value="${esc(x.species)}" placeholder="예: 녹보수"/></label>
+            <label class="fld" id="sw_to_f" ${x.kind !== "swap" ? "hidden" : ""}><span>교체 후 식물 *</span><input id="sw_to" list="sw_plants" value="${esc(x.to)}" placeholder="예: 홍콩야자"/></label>
+          </div>
+          <div class="sw-photos">
+            <div><span class="sw-photos__h">교체 전 사진 <small>최대 ${SW_MAX}장</small></span><div class="sw-slots" id="sw_ph_before">${swPhotoSlots("before")}</div></div>
+            <div><span class="sw-photos__h">교체 후 사진 <small>최대 ${SW_MAX}장</small></span><div class="sw-slots" id="sw_ph_after">${swPhotoSlots("after")}</div></div>
+          </div>
+          <label class="fld"><span>드라이브 사진 링크로 추가 (선택)</span>
+            <div class="sw-linkrow"><input id="sw_link" placeholder="drive.google.com/file/d/… 공유 링크"/>
+              <button type="button" class="btn btn--sm" onclick="GARDEN.swapLinkAdd('before')">교체 전에</button>
+              <button type="button" class="btn btn--sm" onclick="GARDEN.swapLinkAdd('after')">교체 후에</button></div></label>
+          <label class="fld"><span>설명</span><textarea id="sw_note" rows="2" placeholder="예: 저조도 구역이라 내음성 수종으로 교체했어요.">${esc(x.note)}</textarea></label>
+          <label class="fld"><span>기록자</span><input id="sw_by" value="${esc(x.by)}" placeholder="예: 데이지"/></label>
+        </div>
+        <div class="gmodal__foot">
+          <button class="btn btn--sm" onclick="GARDEN.swapClose()">취소</button>
+          <button class="btn btn--primary btn--sm" id="sw_save" onclick="GARDEN.swapSave(${isNew ? "null" : i})">저장</button>
+        </div>
+      </div></div>`;
+  }
+
+  // 사진 줄이기 (긴 변 1280px · JPEG) → dataURL
+  function swShrink(file) {
+    return new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onerror = rej;
+      fr.onload = () => {
+        const im = new Image();
+        im.onerror = rej;
+        im.onload = () => {
+          const k = Math.min(1, 1280 / Math.max(im.width, im.height));
+          const c = document.createElement("canvas");
+          c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+          c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+          res(c.toDataURL("image/jpeg", 0.82));
+        };
+        im.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+  // GAS → 구글 드라이브 '교체 현황 사진' 폴더에 저장 후 썸네일 주소 반환
+  async function swUpload(dataUrl, name) {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url) throw new Error("API_URL 없음");
+    const r = await fetch(url, { method: "POST", body: JSON.stringify({ type: "uploadSwapPhoto", name, data: dataUrl }) });
+    const j = await r.json();
+    if (!j || !j.ok || !j.url) throw new Error((j && j.error) || "업로드 실패");
+    return j.url;
+  }
+
+  function swapsBody() {
+    const all = getSwaps().map((x, i) => ({ x, i }));
+    const list = all.filter(({ x }) => _swMonth === "all" || swMonthOf(x) === _swMonth);
+    if (!list.length) return `<div class="sw-none">${SW_LEAF}<p>${all.length ? "이 달에는 교체 기록이 없어요." : "아직 교체 기록이 없어요."}</p>
+      <span>＋ 교체 등록으로 교체 전·후 사진과 함께 남겨 보세요.</span></div>`;
+    const by = {};
+    list.forEach((e) => { const m = swMonthOf(e.x); (by[m] = by[m] || []).push(e); });
+    return Object.keys(by).sort((a, b) => (a < b ? 1 : -1)).map((m) => {
+      const arr = by[m].sort((a, b) => ((a.x.date || a.x.planDate) < (b.x.date || b.x.planDate) ? 1 : -1));
+      return `<section class="sw-month"><div class="sw-month__h"><h3>${esc(swMonthLong(m))}</h3><span class="mono">${arr.length}건</span></div>
+        <div class="sw-grid">${arr.map(({ x, i }) => swCard(x, i)).join("")}</div></section>`;
+    }).join("");
+  }
+
   /* ---------- VIEWS ---------- */
   const views = {
     dashboard() {
@@ -2260,6 +2487,42 @@
             ${meN ? `<b>${esc(meN)}</b> 계정으로 접속 중 · ${canComment() ? "코멘트 작성 가능" : "코멘트는 카카오 담당자(" + KAKAO_EDITORS.join(" · ") + ")만 가능"}` : "로그인 계정 정보 없음"}
           </div>
           <div class="mr-board">${posts}</div>
+        </section>`;
+    },
+
+    swaps() {
+      const all = getSwaps();
+      const done = all.filter((x) => x.status === "완료");
+      const wait = all.length - done.length;
+      const swapN = done.filter((x) => x.kind === "swap").length;
+      const locN = new Set(done.map((x) => x.location).filter(Boolean)).size;
+      const last = done.slice().sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+      const months = [...new Set(all.map(swMonthOf).filter(Boolean))].sort();
+      if (_swMonth !== "all" && months.indexOf(_swMonth) < 0) _swMonth = "all";
+      let lastY = "";
+      const chips = [`<button class="sw-chip ${_swMonth === "all" ? "is-on" : ""}" onclick="GARDEN.swapMonth('all')">전체</button>`]
+        .concat(months.map((m) => {
+          const y = m.slice(0, 4), yl = y !== lastY ? `<span class="sw-chip__yr">${y}</span>` : "";
+          lastY = y;
+          return `${yl}<button class="sw-chip ${_swMonth === m ? "is-on" : ""}" onclick="GARDEN.swapMonth('${m}')">${+m.slice(5)}월</button>`;
+        })).join("");
+      const stat = (label, val, unit, sub) =>
+        `<div class="iss-stat"><div class="iss-stat__n">${val}<small>${unit}</small></div><div class="iss-stat__l">${label}</div>${sub ? `<span class="rp-delta">${sub}</span>` : ""}</div>`;
+      return `
+        <section class="view">
+          <div class="page-head">
+            <div><p class="eyebrow">Crew · 식물 관리</p><h2>교체 현황</h2>
+              <p class="sub">교체 전 → 교체 후 사진을 나란히 남기고, 월별·위치별로 교체 이력을 봅니다 · 카드를 누르면 상세가 열립니다</p></div>
+            <div class="seg"><button class="btn btn--primary btn--sm" onclick="GARDEN.swapAddOpen()">＋ 교체 등록</button></div>
+          </div>
+          <div class="iss-stats sw-stats">
+            ${stat("누적 교체", done.length, "건", wait ? `교체 예정 ${wait}건` : "")}
+            ${stat("수종 변경", swapN, "건", `같은 수종 ${done.length - swapN}건`)}
+            ${stat("교체한 자리", locN, "곳", "")}
+            ${stat("최근 교체", last ? swDay(last.date) : "—", "", last ? esc(swTitle(last)) : "")}
+          </div>
+          ${months.length ? `<div class="sw-chips">${chips}</div>` : ""}
+          <div id="swBody">${swapsBody()}</div>
         </section>`;
     },
 
@@ -2610,6 +2873,7 @@
     schedule: "OPERATION / SCHEDULE",
     monthly: "OPERATION / MONTHLY REVIEW",
     report: "OPERATION / MONTHLY REPORT",
+    swaps: "CREW / PLANT SWAPS",
     sales: "OPERATION / SALES",
   };
 
@@ -3455,6 +3719,96 @@
     },
 
     /* ---------- 월간리포트 (게시판) ---------- */
+    /* --- 교체 현황 --- */
+    swapMonth(m) { _swMonth = m; reSwaps(); },
+    swapAddOpen() {
+      if (document.getElementById("swapFormModal")) return;
+      document.body.insertAdjacentHTML("beforeend", swapFormModal(null));
+    },
+    swapOpen(i) {
+      if (document.getElementById("swapDetailModal")) return;
+      _swOpen = i;
+      document.body.insertAdjacentHTML("beforeend", swapDetailModal(i));
+    },
+    swapDetailClose() { const m = document.getElementById("swapDetailModal"); if (m) m.remove(); },
+    swapShot(btn, side, j) {
+      const x = getSwaps()[_swOpen];
+      if (!x) return;
+      const list = side === "b" ? x.before : x.after;
+      btn.parentNode.querySelectorAll("button").forEach((b) => b.classList.toggle("is-on", b === btn));
+      const half = document.querySelector(`#swBig [data-side="${side}"]`);
+      if (!half) return;
+      half.querySelector("img").src = swImg(list[j]);
+      half.querySelector(".sw-lab").textContent = `${side === "b" ? "교체 전" : "교체 후"} ${j + 1}/${list.length}`;
+    },
+    swapEdit(i, finish) {
+      if (!ensureAdmin()) return;
+      this.swapDetailClose();
+      document.body.insertAdjacentHTML("beforeend", swapFormModal(i, !!finish));
+    },
+    swapClose() { const m = document.getElementById("swapFormModal"); if (m) m.remove(); _swDraft = null; },
+    swapStatusChange(v) { const f = document.getElementById("sw_date_f"); if (f) f.hidden = v === "예정"; },
+    swapKind(k) { const f = document.getElementById("sw_to_f"); if (f) f.hidden = k !== "swap"; },
+    swapPhotoRedraw(side) { const el = document.getElementById("sw_ph_" + side); if (el) el.innerHTML = swPhotoSlots(side); },
+    async swapPhotoAdd(side, input) {
+      const files = Array.from(input.files || []).slice(0, SW_MAX - _swDraft[side].length);
+      for (const f of files) { try { _swDraft[side].push(await swShrink(f)); } catch (e) { toast("사진을 읽지 못했어요", true); } }
+      this.swapPhotoRedraw(side);
+    },
+    swapPhotoDel(side, j) { _swDraft[side].splice(j, 1); this.swapPhotoRedraw(side); },
+    swapLinkAdd(side) {
+      const el = document.getElementById("sw_link"); const v = el ? el.value.trim() : "";
+      if (!/^https?:\/\//.test(v)) { if (el) { el.focus(); el.style.borderColor = "var(--red)"; } return; }
+      if (_swDraft[side].length >= SW_MAX) { toast(`사진은 최대 ${SW_MAX}장이에요`, true); return; }
+      _swDraft[side].push(v); el.value = ""; el.style.borderColor = ""; this.swapPhotoRedraw(side);
+    },
+    async swapSave(i) {
+      if (i != null && !ensureAdmin()) return;
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const bad = (id) => { const n = document.getElementById(id); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } };
+      const kindEl = document.querySelector('input[name="sw_kind"]:checked');
+      const rec = {
+        id: i == null ? swUid() : getSwaps()[i].id,
+        status: v("sw_status") || "완료", planDate: v("sw_plan"), date: v("sw_date"),
+        location: v("sw_loc"), species: v("sw_sp"), kind: kindEl ? kindEl.value : "same", to: v("sw_to"),
+        why: v("sw_why"), note: v("sw_note"), by: v("sw_by"), before: [], after: [],
+      };
+      if (rec.status === "예정") rec.date = "";
+      if (rec.status === "완료" && !rec.date) return bad("sw_date");
+      if (rec.status === "예정" && !rec.planDate) return bad("sw_plan");
+      if (!rec.location) return bad("sw_loc");
+      if (!rec.species) return bad("sw_sp");
+      if (rec.kind === "swap" && !rec.to) return bad("sw_to");
+      if (rec.kind === "same") rec.to = rec.species;
+      // 새로 고른 사진(dataURL)만 드라이브로 올림
+      const btn = document.getElementById("sw_save");
+      const pending = ["before", "after"].reduce((n, sd) => n + _swDraft[sd].filter((u) => String(u).startsWith("data:")).length, 0);
+      let k = 0, failed = 0;
+      for (const side of ["before", "after"]) {
+        for (const u of _swDraft[side]) {
+          if (!String(u).startsWith("data:")) { rec[side].push(u); continue; }
+          k++; if (btn) { btn.disabled = true; btn.textContent = `사진 올리는 중… ${k}/${pending}`; }
+          try { rec[side].push(await swUpload(u, `${rec.id}_${side === "before" ? "b" : "a"}${rec[side].length + 1}.jpg`)); }
+          catch (e) { console.warn("[GARDEN] 교체 사진 업로드 실패:", e); failed++; }
+        }
+      }
+      if (btn) { btn.disabled = false; btn.textContent = "저장"; }
+      if (failed && !window.confirm(`사진 ${failed}장을 드라이브에 올리지 못했어요.\n사진 없이 저장할까요? (취소하면 입력 내용이 그대로 남아요)`)) {
+        // 올라간 사진은 초안에 반영해 두고 다시 시도할 수 있게
+        ["before", "after"].forEach((sd) => { _swDraft[sd] = rec[sd].concat(_swDraft[sd].filter((u) => String(u).startsWith("data:"))); this.swapPhotoRedraw(sd); });
+        return;
+      }
+      const list = getSwaps();
+      if (i == null) list.unshift(rec); else if (list[i]) list[i] = rec; else return;
+      saveSwaps(); this.swapClose(); reSwaps(); toast("교체 기록 저장됨 ✓");
+    },
+    swapDelete(i) {
+      if (!ensureAdmin()) return;
+      const list = getSwaps(); if (!list[i]) return;
+      if (!window.confirm("이 교체 기록을 삭제할까요? 되돌릴 수 없습니다.")) return;
+      list.splice(i, 1); saveSwaps(); this.swapDetailClose(); reSwaps(); toast("교체 기록 삭제됨 ✓");
+    },
+
     /* --- 월간리포트 (자동 산출) --- */
     rpStep(d) {
       if (!d) { const n = new Date(); _rpY = n.getFullYear(); _rpM = n.getMonth() + 1; }
@@ -3707,6 +4061,9 @@
           // 공지사항도 시트가 항상 최신 소스(여러 이력 누적)
           _notices = null;
           try { localStorage.removeItem(NOTICE_KEY); } catch (e) {}
+          // 교체 현황도 시트가 항상 최신 소스
+          _swaps = null;
+          try { localStorage.removeItem(SW_KEY); } catch (e) {}
           // 월간리포트도 시트가 항상 최신 소스(여러 이력 누적)
           _monthly = null;
           try { localStorage.removeItem(MR_KEY); } catch (e) {}

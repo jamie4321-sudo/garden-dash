@@ -193,6 +193,13 @@ function doGet(e) {
     };
   });
 
+  // 교체 현황 — 식물 교체 기록 (사진은 드라이브 썸네일 URL, 줄바꿈 구분)
+  out.plantSwaps = rows_(ss, 'plantSwaps').map(function (r) {
+    r.date = dateStr_(r.date);
+    r.planDate = dateStr_(r.planDate);
+    return r;
+  });
+
   return ContentService
     .createTextOutput(JSON.stringify(out))
     .setMimeType(ContentService.MimeType.JSON);
@@ -253,6 +260,13 @@ function doPost(e) {
     if (body.type === 'monthlyReports' && body.data) {
       saveMonthlyReports_(body.data);
       return json_({ ok: true, saved: 'monthlyReports' });
+    }
+    if (body.type === 'plantSwaps' && body.data) {
+      savePlantSwaps_(body.data);
+      return json_({ ok: true, saved: 'plantSwaps' });
+    }
+    if (body.type === 'uploadSwapPhoto' && body.data) {
+      return json_(uploadSwapPhoto_(body.name, body.data));
     }
     if (body.type === 'deletePhoto' && body.id) {
       DriveApp.getFileById(String(body.id)).setTrashed(true); // 휴지통으로 이동(복구 가능)
@@ -405,6 +419,56 @@ function savePlantIssues_(arr) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/** 교체 현황 쓰기 — 교체 기록 배열 → plantSwaps 탭 (전체 이력 누적) */
+function savePlantSwaps_(arr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('plantSwaps') || ss.insertSheet('plantSwaps');
+    sh.clear();
+    var head = ['id', 'status', 'date', 'planDate', 'location', 'species', 'kind', 'to',
+      'why', 'note', 'by', 'before', 'after'];
+    var rows = [head];
+    (arr || []).forEach(function (x) {
+      rows.push([x.id || '', x.status || '', x.date || '', x.planDate || '', x.location || '',
+        x.species || '', x.kind || '', x.to || '', x.why || '', x.note || '', x.by || '',
+        x.before || '', x.after || '']);
+    });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 교체 현황 사진 업로드 — dataURL(JPEG) → 드라이브 'GARDEN 교체 현황 사진' 폴더
+ * (폴더는 처음 한 번 자동 생성 · 링크 있는 사람 보기 → 화면에서 썸네일로 표시)
+ */
+function swapFolder_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('SWAP_FOLDER_ID');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  // 각층 현황 폴더와 같은 위치에 만든다 (못 찾으면 내 드라이브)
+  var ups = DriveApp.getFolderById(FLOOR_FOLDER_ID).getParents();
+  var folder = (ups.hasNext() ? ups.next() : DriveApp.getRootFolder()).createFolder('GARDEN 교체 현황 사진');
+  try { folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
+  props.setProperty('SWAP_FOLDER_ID', folder.getId());
+  return folder;
+}
+function uploadSwapPhoto_(name, dataUrl) {
+  var m = String(dataUrl || '').match(/^data:(image\/[\w+.-]+);base64,(.+)$/);
+  if (!m) return { ok: false, error: 'bad image' };
+  var blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], String(name || ('swap_' + Date.now() + '.jpg')));
+  var file = swapFolder_().createFile(blob);
+  try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
+  var id = file.getId();
+  return { ok: true, id: id, url: 'https://drive.google.com/thumbnail?id=' + id + '&sz=w1200' };
 }
 
 /** 담당자 읽기 — managers 탭(name, pin) → [{name, pin}] (pin 문자열 유지) */

@@ -999,7 +999,7 @@
         .catch((e) => console.warn("[GARDEN] 식물 이슈 저장 실패:", e));
     }, 700);
   }
-  function reIssues() { app.innerHTML = views.issues(); }
+  function reIssues() { app.innerHTML = currentView() === "monthly" ? views.monthly() : views.issues(); }
   function issueTodayStr() { return `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`; }
   function issueInPeriod(x) {
     const d = String(x.date || "");
@@ -1365,7 +1365,7 @@
         .catch((e) => console.warn("[GARDEN] 정산 저장 실패:", e));
     }, 700);
   }
-  function reSettle() { app.innerHTML = views.settlement(); }
+  function reSettle() { app.innerHTML = currentView() === "monthly" ? views.monthly() : views.settlement(); }
   const won = (n) => "₩" + (Number(n) || 0).toLocaleString("en-US");
   function settleMatch(x) {
     if (_settlePlace !== "all" && x.place !== _settlePlace) return false;
@@ -1803,6 +1803,259 @@
     </section>`;
   }
 
+  /* ===== 월간리포트 — 자동 산출 리포트 (식물 이슈 · 운영 비용 · 안전) ===== */
+  const MR_TAB_KEY = "garden-monthly-tab";
+  let _mrTab = (() => { try { return localStorage.getItem(MR_TAB_KEY) || "report"; } catch (e) { return "report"; } })();
+  let _rpY = new Date().getFullYear(), _rpM = new Date().getMonth() + 1;
+
+  const rpYm = (y, m) => `${y}-${m < 10 ? "0" : ""}${m}`;
+  function rpShift(y, m, d) { const t = new Date(y, m - 1 + d, 1); return { y: t.getFullYear(), m: t.getMonth() + 1 }; }
+  function rpDays(a, b) {
+    const pa = String(a || "").match(/^(\d{4})-(\d{2})-(\d{2})/), pb = String(b || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!pa || !pb) return null;
+    const d = (Date.UTC(+pb[1], +pb[2] - 1, +pb[3]) - Date.UTC(+pa[1], +pa[2] - 1, +pa[3])) / 864e5;
+    return d >= 0 ? d : null;
+  }
+  // 배열 → [{ k, n }] 내림차순 (fixed 순서가 있으면 그 순서 유지, 0건 제외)
+  function rpCount(list, key, val, fixed) {
+    const m = {};
+    list.forEach((x) => { const k = x[key] || "기타"; m[k] = (m[k] || 0) + (val ? val(x) : 1); });
+    const keys = fixed ? fixed.filter((k) => m[k]).concat(Object.keys(m).filter((k) => fixed.indexOf(k) < 0)) : Object.keys(m);
+    const out = keys.map((k) => ({ k, n: m[k] }));
+    return fixed ? out : out.sort((a, b) => b.n - a.n);
+  }
+  function rpDelta(cur, prev, fmt) {
+    if (!prev && !cur) return `<span class="rp-delta">전월 동일</span>`;
+    if (!prev) return `<span class="rp-delta">전월 0</span>`;
+    const d = cur - prev;
+    if (!d) return `<span class="rp-delta">전월 동일</span>`;
+    const pct = Math.round((d / prev) * 100);
+    return `<span class="rp-delta ${d > 0 ? "is-up" : "is-down"}">${d > 0 ? "▲" : "▼"} ${fmt ? fmt(Math.abs(d)) : Math.abs(d)} (${pct > 0 ? "+" : ""}${pct}%)</span>`;
+  }
+
+  function rpData(y, m) {
+    const ym = rpYm(y, m), pv = rpShift(y, m, -1), pym = rpYm(pv.y, pv.m);
+    const issAll = getIssues().map((x, i) => ({ x, i }));
+    const iss = issAll.filter(({ x }) => String(x.date).slice(0, 7) === ym);
+    const issPrev = issAll.filter(({ x }) => String(x.date).slice(0, 7) === pym);
+    const done = iss.filter(({ x }) => x.status === "완료");
+    const days = done.map(({ x }) => rpDays(x.date, x.doneAt)).filter((d) => d != null);
+    const carry = issAll.filter(({ x }) => x.date && x.date < ym + "-01" && x.status !== "완료");
+    const stlAll = getSettle().map((x, i) => ({ x, i }));
+    const stl = stlAll.filter(({ x }) => String(x.date).slice(0, 7) === ym);
+    const stlPrev = stlAll.filter(({ x }) => String(x.date).slice(0, 7) === pym);
+    const sum = (arr) => arr.reduce((s, { x }) => s + (Number(x.amount) || 0), 0);
+    const cost = sum(stl), costPrev = sum(stlPrev);
+    const unpaid = sum(stl.filter(({ x }) => x.status !== "정산완료"));
+    const trend = [];
+    for (let k = -5; k <= 0; k++) {
+      const t = rpShift(y, m, k), tym = rpYm(t.y, t.m);
+      trend.push({
+        label: `${t.m}월`, cur: k === 0,
+        iss: issAll.filter(({ x }) => String(x.date).slice(0, 7) === tym).length,
+        cost: stlAll.filter(({ x }) => String(x.date).slice(0, 7) === tym).reduce((s, { x }) => s + (Number(x.amount) || 0), 0),
+      });
+    }
+    const inc = getIncidents().filter((x) => String(x.date).slice(0, 7) === ym);
+    const meet = getSafetyMeetings().filter((x) => String(x.date).slice(0, 7) === ym);
+    const xs = iss.map(({ x }) => x);
+    return {
+      ym, y, m, iss, issPrev, done, carry, stl, cost, costPrev, unpaid, trend, inc, meet,
+      rate: iss.length ? Math.round((done.length / iss.length) * 100) : 0,
+      avgDays: days.length ? Math.round((days.reduce((a, b) => a + b, 0) / days.length) * 10) / 10 : null,
+      urgent: xs.filter((x) => x.urgency === "긴급").length,
+      vok: xs.filter((x) => x.source === "VOK").length,
+      recur: xs.filter((x) => x.recur).length,
+      byCat: rpCount(xs, "category", null, ISS_CATEGORIES),
+      byBld: rpCount(xs, "building", null, ISS_BUILDINGS),
+      bySt: rpCount(xs, "status", null, ISS_STATUS),
+      bySpecies: rpCount(xs.filter((x) => x.species), "species").slice(0, 5),
+      costCat: rpCount(stl.map(({ x }) => x), "category", (x) => Number(x.amount) || 0, STL_CATEGORIES),
+      costPlace: rpCount(stl.map(({ x }) => x), "place", (x) => Number(x.amount) || 0, STL_PLACES),
+      costSt: rpCount(stl.map(({ x }) => x), "status", (x) => Number(x.amount) || 0, STL_STATUS),
+    };
+  }
+
+  // 자동 요약 문장 (화면 + 복사용 공용)
+  function rpSummaryLines(r) {
+    const L = [];
+    const prevN = r.issPrev.length, dN = r.iss.length - prevN;
+    if (r.iss.length) {
+      const top = r.byCat.slice().sort((a, b) => b.n - a.n).slice(0, 2).map((c) => `${c.k} ${c.n}건`).join(" · ");
+      L.push(`식물 이슈 ${r.iss.length}건 발생 (전월 ${prevN}건 대비 ${dN === 0 ? "동일" : (dN > 0 ? "+" : "") + dN + "건"}) — 주요 분류: ${top}.`);
+      L.push(`이 중 ${r.done.length}건 완료(완료율 ${r.rate}%)${r.avgDays != null ? `, 평균 처리 ${r.avgDays}일` : ""}.${r.iss.length - r.done.length ? ` 미완료 ${r.iss.length - r.done.length}건은 계속 관리 중.` : ""}`);
+      const flags = [];
+      if (r.vok) flags.push(`카카오 민원(VOK) ${r.vok}건`);
+      if (r.urgent) flags.push(`긴급 ${r.urgent}건`);
+      if (r.recur) flags.push(`반복 이슈 ${r.recur}건`);
+      if (flags.length) L.push(flags.join(" · ") + " 포함.");
+    } else {
+      L.push(`이번 달 등록된 식물 이슈 없음 (전월 ${prevN}건).`);
+    }
+    if (r.carry.length) L.push(`이전 달부터 이월된 미해결 이슈 ${r.carry.length}건.`);
+    if (r.stl.length) {
+      const topC = r.costCat.slice().sort((a, b) => b.n - a.n)[0];
+      const dC = r.cost - r.costPrev;
+      L.push(`운영 비용 총 ${won(r.cost)} · ${r.stl.length}건 (전월 ${won(r.costPrev)} 대비 ${dC === 0 ? "동일" : (dC > 0 ? "+" : "-") + won(Math.abs(dC))}) — 최대 항목 ${topC.k} ${won(topC.n)}(${Math.round((topC.n / (r.cost || 1)) * 100)}%).`);
+      L.push(r.unpaid ? `미정산(예정·청구) ${won(r.unpaid)} 남아 있음.` : `이번 달 비용은 모두 정산 완료.`);
+    } else {
+      L.push(`이번 달 등록된 정산(비용) 내역 없음.`);
+    }
+    if (r.inc.length || r.meet.length) L.push(`안전: 사고·아차 ${r.inc.length}건 · 안전 회의 ${r.meet.length}회.`);
+    return L;
+  }
+
+  function rpBars(items, fmt, empty) {
+    if (!items.length) return `<p class="rp-none">${empty || "데이터 없음"}</p>`;
+    const max = Math.max.apply(null, items.map((i) => i.n)) || 1;
+    const total = items.reduce((s, i) => s + i.n, 0) || 1;
+    return `<div class="rp-bars">${items.map((i) => `
+      <div class="rp-bar">
+        <span class="rp-bar__k">${esc(i.k)}</span>
+        <span class="rp-bar__track"><span class="rp-bar__fill" style="width:${Math.max(3, Math.round((i.n / max) * 100))}%"></span></span>
+        <span class="rp-bar__v">${fmt ? fmt(i.n) : i.n + "건"}<small>${Math.round((i.n / total) * 100)}%</small></span>
+      </div>`).join("")}</div>`;
+  }
+  function rpTrend(trend, key, fmt) {
+    const max = Math.max.apply(null, trend.map((t) => t[key])) || 1;
+    return `<div class="rp-trend">${trend.map((t) => `
+      <div class="rp-trend__col ${t.cur ? "is-cur" : ""}" title="${t.label} · ${fmt(t[key])}">
+        <span class="rp-trend__v">${t[key] ? fmt(t[key]) : "—"}</span>
+        <span class="rp-trend__bar"><span style="height:${t[key] ? Math.max(4, Math.round((t[key] / max) * 100)) : 0}%"></span></span>
+        <span class="rp-trend__l">${t.label}</span>
+      </div>`).join("")}</div>`;
+  }
+  const wonShort = (n) => n >= 1e8 ? (Math.round(n / 1e7) / 10) + "억" : n >= 1e4 ? Math.round(n / 1e4).toLocaleString("en-US") + "만" : (n || 0).toLocaleString("en-US");
+
+  function monthlyReportHTML() {
+    const r = rpData(_rpY, _rpM);
+    const stat = (label, val, unit, sub, mod) =>
+      `<div class="iss-stat rp-stat"><div class="iss-stat__n ${mod || ""}">${val}<small>${unit}</small></div><div class="iss-stat__l">${label}</div>${sub || ""}</div>`;
+    const sumLines = rpSummaryLines(r).map((l) => `<li>${esc(l)}</li>`).join("");
+
+    const issRows = r.iss.slice().sort((a, b) => (a.x.date < b.x.date ? -1 : 1)).map(({ x, i }) => {
+      const d = rpDays(x.date, x.doneAt);
+      return `<tr class="${x.status === "완료" ? "is-done" : ""}" onclick="GARDEN.issueOpen(${i})">
+        <td class="mono">${esc(x.date).slice(5)}</td>
+        <td>${esc(x.building)}${x.location ? ` · ${esc(x.location)}` : ""}</td>
+        <td>${esc(x.category)}</td>
+        <td class="iss-td-title">${esc(x.detail) || "—"}${x.recur ? ` <span class="iss-recur-sm">반복</span>` : ""}</td>
+        <td>${issSrc(x.source)}</td>
+        <td><span class="iss-row__urg" data-u="${esc(x.urgency)}">${esc(x.urgency)}</span></td>
+        <td><span class="iss-tag ${x.status === "완료" ? "iss-tag--done" : ""}">${esc(x.status)}</span></td>
+        <td class="num">${d != null ? d + "일" : "—"}</td>
+      </tr>`;
+    }).join("");
+    const carryRows = r.carry.slice().sort((a, b) => (a.x.date < b.x.date ? -1 : 1)).map(({ x, i }) =>
+      `<div class="dri-row" onclick="GARDEN.issueOpen(${i})">
+        <span class="dri-date">${esc(x.date).slice(2).replace(/-/g, ".")}</span>
+        <span class="dri-loc"><span class="iss-chip-b">${esc(x.building)}</span>${x.location ? `<span class="dri-place">${esc(x.location)}</span>` : ""}</span>
+        <span class="dri-title">${esc(x.detail) || "제목 없음"}</span>
+        <span class="iss-row__urg" data-u="${esc(x.urgency)}">${esc(x.urgency)}</span>
+        <span class="iss-tag">${esc(x.status)}</span>
+      </div>`).join("");
+    const stlRows = r.stl.slice().sort((a, b) => (a.x.date < b.x.date ? -1 : 1)).map(({ x, i }) =>
+      `<tr onclick="GARDEN.settleOpen(${i})">
+        <td class="mono">${esc(x.date).slice(5)}</td>
+        <td>${esc(x.place) || "—"}</td>
+        <td>${esc(x.category)}</td>
+        <td class="stl-title">${esc(x.title) || "—"}</td>
+        <td>${esc(x.vendor) || "—"}</td>
+        <td class="stl-amt">${won(x.amount)}</td>
+        <td><span class="iss-tag ${x.status === "정산완료" ? "iss-tag--done" : ""}">${esc(x.status)}</span></td>
+      </tr>`).join("");
+
+    return `
+      <div class="iss-period rp-period">
+        <button class="iss-nav" onclick="GARDEN.rpStep(-1)" title="이전 달">←</button>
+        <span class="iss-period__title">${r.y}년 ${r.m}월</span>
+        <button class="iss-nav" onclick="GARDEN.rpStep(1)" title="다음 달">→</button>
+        <button class="btn btn--sm rp-thismonth" onclick="GARDEN.rpStep(0)">이번 달</button>
+        <div class="rp-actions">
+          <button class="btn btn--sm" onclick="GARDEN.rpCopy()">요약 복사</button>
+          <button class="btn btn--sm" onclick="window.print()">인쇄 · PDF</button>
+        </div>
+      </div>
+
+      <div class="iss-stats rp-stats">
+        ${stat("식물 이슈", r.iss.length, "건", rpDelta(r.iss.length, r.issPrev.length))}
+        ${stat("완료율", r.rate, "%", `<span class="rp-delta">${r.done.length} / ${r.iss.length}건 완료</span>`, "iss-stat__n--acid")}
+        ${stat("평균 처리", r.avgDays != null ? r.avgDays : "—", r.avgDays != null ? "일" : "", `<span class="rp-delta">발생일 → 완료일</span>`)}
+        ${stat("카카오 민원", r.vok, "건", `<span class="rp-delta">긴급 ${r.urgent} · 반복 ${r.recur}</span>`, r.vok ? "iss-stat__n--red" : "")}
+        ${stat("운영 비용", wonShort(r.cost), "원", rpDelta(r.cost, r.costPrev, (n) => wonShort(n)))}
+      </div>
+
+      <div class="dash-card rp-summary">
+        <div class="card-head"><h3>${r.m}월 운영 요약</h3><span class="asof">자동 산출 · 식물 이슈 / 운영 정산 / 산업안전 데이터 기준</span></div>
+        <ul class="rp-sumlist">${sumLines}</ul>
+      </div>
+
+      <h3 class="rp-h">식물 이슈</h3>
+      <div class="rp-grid3">
+        <div class="dash-card"><div class="card-head"><h3>이슈 분류</h3></div>${rpBars(r.byCat, null, "이슈 없음")}</div>
+        <div class="dash-card"><div class="card-head"><h3>구역별</h3></div>${rpBars(r.byBld, null, "이슈 없음")}</div>
+        <div class="dash-card"><div class="card-head"><h3>처리 상태</h3></div>${rpBars(r.bySt, null, "이슈 없음")}
+          ${r.bySpecies.length ? `<p class="rp-mini">자주 나온 식물 · ${r.bySpecies.map((s) => `${esc(s.k)} ${s.n}`).join(" · ")}</p>` : ""}</div>
+      </div>
+      <div class="dash-card rp-block">
+        <div class="card-head"><h3>${r.m}월 이슈 내역</h3><span class="chip-mono">${r.iss.length}</span><span class="asof">행을 누르면 상세가 열립니다</span></div>
+        ${r.iss.length ? `<div class="table-wrap"><table class="grid-table iss-table rp-table">
+          <thead><tr><th>발생일</th><th>구역</th><th>분류</th><th>이슈</th><th>구분</th><th>긴급도</th><th>상태</th><th class="num">처리</th></tr></thead>
+          <tbody>${issRows}</tbody></table></div>` : `<p class="rp-none">이번 달 등록된 이슈가 없습니다.</p>`}
+      </div>
+      ${r.carry.length ? `<div class="dash-card rp-block">
+        <div class="card-head"><h3>이월 미해결 이슈</h3><span class="chip-mono">${r.carry.length}</span><span class="asof">${r.m}월 이전 발생 · 현재 미완료</span></div>
+        <div class="dri-list">${carryRows}</div></div>` : ""}
+
+      <h3 class="rp-h">운영 비용</h3>
+      <div class="rp-grid3">
+        <div class="dash-card"><div class="card-head"><h3>구분별 비용</h3></div>${rpBars(r.costCat, won, "비용 없음")}</div>
+        <div class="dash-card"><div class="card-head"><h3>장소별 비용</h3></div>${rpBars(r.costPlace, won, "비용 없음")}</div>
+        <div class="dash-card"><div class="card-head"><h3>정산 상태</h3></div>${rpBars(r.costSt, won, "비용 없음")}
+          ${r.stl.length ? `<p class="rp-mini">미정산 잔액 · <b>${won(r.unpaid)}</b></p>` : ""}</div>
+      </div>
+      <div class="dash-card rp-block">
+        <div class="card-head"><h3>${r.m}월 정산 내역</h3><span class="chip-mono">${won(r.cost)}</span></div>
+        ${r.stl.length ? `<div class="table-wrap"><table class="grid-table stl-table rp-table">
+          <thead><tr><th>작업일</th><th>장소</th><th>구분</th><th>작업 내용</th><th>거래처</th><th class="num">비용</th><th>상태</th></tr></thead>
+          <tbody>${stlRows}</tbody>
+          <tfoot><tr><td colspan="5">합계</td><td class="stl-amt">${won(r.cost)}</td><td></td></tr></tfoot></table></div>` : `<p class="rp-none">이번 달 등록된 정산 내역이 없습니다.</p>`}
+      </div>
+
+      <h3 class="rp-h">최근 6개월 추이</h3>
+      <div class="rp-grid2">
+        <div class="dash-card"><div class="card-head"><h3>이슈 발생 건수</h3></div>${rpTrend(r.trend, "iss", (n) => n + "건")}</div>
+        <div class="dash-card"><div class="card-head"><h3>운영 비용</h3></div>${rpTrend(r.trend, "cost", wonShort)}</div>
+      </div>
+
+      <h3 class="rp-h">안전 · 보건</h3>
+      <div class="rp-grid2">
+        <div class="dash-card"><div class="card-head"><h3>사고 · 아차사고</h3><span class="chip-mono">${r.inc.length}</span></div>
+          ${r.inc.length ? `<div class="rp-lines">${r.inc.map((x) => `<p><span class="mono">${esc(x.date).slice(5)}</span> <b>${esc(x.type)}</b> ${esc(x.place)} — ${esc(x.content) || "내용 없음"} <span class="iss-tag ${x.status === "완료" ? "iss-tag--done" : ""}">${esc(x.status)}</span></p>`).join("")}</div>` : `<p class="rp-none">이번 달 사고 없음</p>`}</div>
+        <div class="dash-card"><div class="card-head"><h3>안전 회의</h3><span class="chip-mono">${r.meet.length}</span></div>
+          ${r.meet.length ? `<div class="rp-lines">${r.meet.map((x) => `<p><span class="mono">${esc(x.date).slice(5)}</span> <b>${esc(x.title) || "회의"}</b> ${x.org ? esc(x.org) : ""}</p>`).join("")}</div>` : `<p class="rp-none">이번 달 회의 기록 없음</p>`}</div>
+      </div>`;
+  }
+
+  // 복사용 텍스트 리포트 (메일·메신저 붙여넣기용)
+  function rpPlainText() {
+    const r = rpData(_rpY, _rpM);
+    const out = [`[AGIT GARDEN] ${r.y}년 ${r.m}월 운영 리포트`, ""];
+    out.push("■ 요약");
+    rpSummaryLines(r).forEach((l) => out.push("- " + l));
+    out.push("", `■ 식물 이슈 (${r.iss.length}건)`);
+    if (r.byCat.length) out.push("분류: " + r.byCat.map((c) => `${c.k} ${c.n}`).join(", "));
+    r.iss.slice().sort((a, b) => (a.x.date < b.x.date ? -1 : 1)).forEach(({ x }) =>
+      out.push(`- ${x.date.slice(5)} [${x.building}${x.location ? " " + x.location : ""}] ${x.detail || x.category} · ${x.urgency} · ${x.status}${x.source === "VOK" ? " · VOK" : ""}`));
+    if (r.carry.length) out.push(`이월 미해결 ${r.carry.length}건: ` + r.carry.map(({ x }) => x.detail || x.category).join(", "));
+    out.push("", `■ 운영 비용 (총 ${won(r.cost)})`);
+    if (r.costCat.length) out.push("구분: " + r.costCat.map((c) => `${c.k} ${won(c.n)}`).join(", "));
+    r.stl.slice().sort((a, b) => (a.x.date < b.x.date ? -1 : 1)).forEach(({ x }) =>
+      out.push(`- ${x.date.slice(5)} [${x.place}] ${x.title} · ${x.category} · ${won(x.amount)} · ${x.status}`));
+    if (r.stl.length) out.push(`미정산 잔액: ${won(r.unpaid)}`);
+    return out.join("\n");
+  }
+
   /* ---------- VIEWS ---------- */
   const views = {
     dashboard() {
@@ -1989,6 +2242,23 @@
              <span class="mr-empty__sub">＋ 리뷰 열기 로 이번 달 스레드를 만들면 이슈·코멘트를 바로 남길 수 있어요.</span>
            </div>`;
       const meN = currentUser();
+      const tabs = `<div class="ptabs rp-tabs">
+          <button class="ptab ${_mrTab === "report" ? "is-on" : ""}" onclick="GARDEN.mrTab('report')">월간 리포트</button>
+          <button class="ptab ${_mrTab === "board" ? "is-on" : ""}" onclick="GARDEN.mrTab('board')">리뷰 보드</button></div>`;
+      if (_mrTab === "report") {
+        return `
+        <section class="view mr-view rp-view">
+          <div class="mr-top">
+            <div class="mr-top__l">
+              <p class="mr-eyebrow">AGIT GARDEN<span>·</span>MONTHLY REPORT</p>
+              <h2 class="mr-title">월간 리포트</h2>
+              <p class="mr-lead">식물 이슈 · 운영 정산 · 산업안전 기록을 월 단위로 자동 집계합니다. 각 메뉴에 입력한 내용이 그대로 반영돼요.</p>
+            </div>
+            <div class="mr-top__r">${tabs}</div>
+          </div>
+          ${monthlyReportHTML()}
+        </section>`;
+      }
       return `
         <section class="view mr-view">
           <div class="mr-top">
@@ -2001,6 +2271,7 @@
               <a class="mr-drive" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">
                 <span class="mr-drive__ic">↗</span><span class="mr-drive__t">리뷰 자료 드라이브</span></a>
               <button class="mr-new" onclick="GARDEN.monthlyAddOpen()"><span>＋</span> 리뷰 열기</button>
+              ${tabs}
             </div>
           </div>
           <div class="mr-who">
@@ -3188,6 +3459,24 @@
     },
 
     /* ---------- 월간리포트 (게시판) ---------- */
+    /* --- 월간리포트: 탭 · 자동 리포트 --- */
+    mrTab(t) {
+      _mrTab = t === "board" ? "board" : "report";
+      try { localStorage.setItem(MR_TAB_KEY, _mrTab); } catch (e) {}
+      reMonthly();
+    },
+    rpStep(d) {
+      if (!d) { const n = new Date(); _rpY = n.getFullYear(); _rpM = n.getMonth() + 1; }
+      else { const t = rpShift(_rpY, _rpM, d); _rpY = t.y; _rpM = t.m; }
+      reMonthly();
+    },
+    rpCopy() {
+      const txt = rpPlainText();
+      const ok = () => toast("리포트 요약을 복사했어요 ✓");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(txt).then(ok).catch(() => window.prompt("아래 내용을 복사하세요", txt));
+      } else window.prompt("아래 내용을 복사하세요", txt);
+    },
     monthlyAddOpen() {
       if (document.getElementById("monthlyModal")) return;
       document.body.insertAdjacentHTML("beforeend", monthlyModal(null));

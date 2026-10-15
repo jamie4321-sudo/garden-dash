@@ -2258,7 +2258,7 @@
       fr.readAsDataURL(file);
     });
   }
-  // GAS → 구글 드라이브 '교체 현황 사진' 폴더에 저장 후 썸네일 주소 반환
+  // GAS → Supabase Storage(gd-photos, 게임즈 가든과 같은 방식)에 저장 후 공개 주소 반환 (토큰은 GAS에만)
   async function swUpload(dataUrl, name) {
     const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
     if (!url) throw new Error("API_URL 없음");
@@ -3780,7 +3780,7 @@
       if (!rec.species) return bad("sw_sp");
       if (rec.kind === "swap" && !rec.to) return bad("sw_to");
       if (rec.kind === "same") rec.to = rec.species;
-      // 새로 고른 사진(dataURL)만 드라이브로 올림
+      // 새로 고른 사진(dataURL)만 저장소로 올림
       const btn = document.getElementById("sw_save");
       const pending = ["before", "after"].reduce((n, sd) => n + _swDraft[sd].filter((u) => String(u).startsWith("data:")).length, 0);
       let k = 0, failed = 0;
@@ -3793,7 +3793,7 @@
         }
       }
       if (btn) { btn.disabled = false; btn.textContent = "저장"; }
-      if (failed && !window.confirm(`사진 ${failed}장을 드라이브에 올리지 못했어요.\n사진 없이 저장할까요? (취소하면 입력 내용이 그대로 남아요)`)) {
+      if (failed && !window.confirm(`사진 ${failed}장을 저장소에 올리지 못했어요.\n사진 없이 저장할까요? (취소하면 입력 내용이 그대로 남아요)`)) {
         // 올라간 사진은 초안에 반영해 두고 다시 시도할 수 있게
         ["before", "after"].forEach((sd) => { _swDraft[sd] = rec[sd].concat(_swDraft[sd].filter((u) => String(u).startsWith("data:"))); this.swapPhotoRedraw(sd); });
         return;

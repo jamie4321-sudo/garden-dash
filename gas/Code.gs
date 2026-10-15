@@ -447,7 +447,7 @@ function savePlantSwaps_(arr) {
 }
 
 /**
- * 교체 현황 사진 업로드 — dataURL(JPEG) → 드라이브 'GARDEN 교체 현황 사진' 폴더
+ * (예비) 드라이브 'GARDEN 교체 현황 사진' 폴더 — Supabase 설정이 없을 때만 사용
  * (폴더는 처음 한 번 자동 생성 · 링크 있는 사람 보기 → 화면에서 썸네일로 표시)
  */
 function swapFolder_() {
@@ -461,14 +461,43 @@ function swapFolder_() {
   props.setProperty('SWAP_FOLDER_ID', folder.getId());
   return folder;
 }
+/**
+ * 교체 현황 사진 업로드 — Supabase Storage 'gd-photos' 버킷 (게임즈 가든 gg-photos 와 같은 방식)
+ * 스크립트 속성 SB_URL · SB_KEY · SB_TOKEN 이 있으면 Supabase 로, 없으면 드라이브 폴더로 저장.
+ * (토큰은 공개 저장소에 두지 않도록 코드가 아니라 스크립트 속성에만 보관)
+ */
 function uploadSwapPhoto_(name, dataUrl) {
   var m = String(dataUrl || '').match(/^data:(image\/[\w+.-]+);base64,(.+)$/);
   if (!m) return { ok: false, error: 'bad image' };
-  var blob = Utilities.newBlob(Utilities.base64Decode(m[2]), m[1], String(name || ('swap_' + Date.now() + '.jpg')));
+  var bytes = Utilities.base64Decode(m[2]);
+  var props = PropertiesService.getScriptProperties();
+  var sbUrl = String(props.getProperty('SB_URL') || '').replace(/\/+$/, '');
+  var sbKey = props.getProperty('SB_KEY') || '', sbToken = props.getProperty('SB_TOKEN') || '';
+  if (sbUrl && sbKey && sbToken) {
+    // 추측할 수 없는 이름(UUID)으로 저장 — 버킷은 공개 읽기, 목록 보기 불가, 올리기는 토큰 필요
+    var ext = m[1] === 'image/png' ? 'png' : m[1] === 'image/webp' ? 'webp' : 'jpg';
+    var path = 'swaps/' + Utilities.getUuid() + '.' + ext;
+    var headers = { apikey: sbKey, 'x-gd-token': sbToken, 'x-upsert': 'false' };
+    if (sbKey.indexOf('eyJ') === 0) headers.Authorization = 'Bearer ' + sbKey;
+    var res = UrlFetchApp.fetch(sbUrl + '/storage/v1/object/gd-photos/' + path, {
+      method: 'post', contentType: m[1], payload: bytes, headers: headers, muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() >= 300) return { ok: false, error: 'supabase ' + res.getResponseCode() + ' ' + res.getContentText().slice(0, 200) };
+    return { ok: true, url: sbUrl + '/storage/v1/object/public/gd-photos/' + path };
+  }
+  var blob = Utilities.newBlob(bytes, m[1], String(name || ('swap_' + Date.now() + '.jpg')));
   var file = swapFolder_().createFile(blob);
   try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) {}
   var id = file.getId();
   return { ok: true, id: id, url: 'https://drive.google.com/thumbnail?id=' + id + '&sz=w1200' };
+}
+
+/** 교체 현황 사진 저장소 연결 확인용 (편집기에서 실행 → 실행 로그에 결과) */
+function testSwapStorage() {
+  var png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+  var r = uploadSwapPhoto_('test.png', png);
+  Logger.log(JSON.stringify(r));
+  return r;
 }
 
 /** 담당자 읽기 — managers 탭(name, pin) → [{name, pin}] (pin 문자열 유지) */

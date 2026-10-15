@@ -1822,9 +1822,10 @@ button { font-family: inherit; }
 .gg-recap ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .gg-recap li { display: flex; align-items: center; gap: 12px; font-size: 21px; font-weight: 800; }
 .gg-recap li > span { font-size: 16px; font-weight: 400; color: var(--ink-2); min-width: 64px; }
-.gg-datepick { position: relative; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; cursor: pointer; }
-.gg-datepick .date-chg { font-size: 14px; font-weight: 700; color: var(--accent-ink); background: var(--accent); padding: 6px 12px; border-radius: 999px; }
-.gg-datepick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+.gg-datepick { position: relative; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.gg-datepick .date-chg { font: inherit; font-size: 14px; font-weight: 700; color: var(--accent-ink); background: var(--accent); padding: 6px 12px; border: none; border-radius: 999px; cursor: pointer; }
+/* 달력은 버튼이 showPicker 로 연다 — 입력칸은 버튼 아래에 숨겨 둔다(달력 위치 기준) */
+.gg-datepick input { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; font-size: 16px; }
 .gg-donemark { width: 120px; height: 120px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; margin: 20px auto 0; animation: ggPop .45s var(--ease-out); }
 .gg-donemark svg { width: 64px; height: 64px; stroke: var(--accent-ink); fill: none; stroke-width: 3; }
 
@@ -1852,4 +1853,171 @@ button { font-family: inherit; }
 }
 @media (prefers-reduced-motion: reduce) {
   .gg-card, .gg-detail__in.swap-in, .gg-flow, .gg-fstep { animation: none; }
+}
+
+/* =========================================================
+   가드너 현장 기록 (사이드바 · 게임즈 가든과 같은 버튼)
+   ========================================================= */
+.nav__item--sub { padding-left: 26px; font-size: 13px; }
+.nav__item--sub::after { content: ""; position: absolute; left: 14px; top: 50%; width: 6px; height: 1px; background: var(--ink-3); }
+.field { margin: 0 12px 12px; padding: 12px; border-radius: var(--r-lg); background: var(--panel-2); display: flex; flex-direction: column; gap: 8px; }
+.field-h { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--ink-3); padding: 0 2px 2px; }
+.fbtn { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: 34px minmax(0, 1fr) 14px; align-items: center; gap: 9px; padding: 10px 10px 10px 9px; border-radius: 14px; transition: transform .2s cubic-bezier(.23,1,.32,1), box-shadow .2s cubic-bezier(.23,1,.32,1); }
+.fbtn:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(20,22,10,.16); }
+.fbtn:active { transform: scale(.98); }
+.fbtn:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.fbtn .fi { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; }
+.fbtn .fi svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.9; }
+.fbtn .ft { display: flex; flex-direction: column; min-width: 0; }
+.fbtn .ft b { font-size: 14px; font-weight: 800; letter-spacing: -.3px; white-space: nowrap; }
+.fbtn .ft small { font-size: 11px; opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fbtn .fa { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.2; transition: transform .2s cubic-bezier(.23,1,.32,1); }
+.fbtn:hover .fa { transform: translateX(3px); }
+.fbtn--swap { background: var(--accent); color: var(--accent-ink); }
+.fbtn--swap .fi { background: rgba(20,22,10,.1); }
+.fbtn--care { background: var(--ink); color: var(--bg); }
+.fbtn--care .fi { background: color-mix(in srgb, var(--bg) 14%, transparent); }
+.fbtn--big { grid-template-columns: 64px minmax(0, 1fr) 26px; gap: 16px; padding: 22px 20px; border-radius: 22px; min-height: 120px; }
+.fbtn--big .fi { width: 64px; height: 64px; border-radius: 18px; }
+.fbtn--big .fi svg { width: 34px; height: 34px; }
+.fbtn--big .ft b { font-size: 24px; }
+.fbtn--big .ft small { font-size: 15px; white-space: normal; }
+.fbtn--big .fa { width: 24px; height: 24px; }
+
+/* =========================================================
+   체감온도기록
+   ========================================================= */
+.ht-entry { display: grid; grid-template-columns: minmax(0, 520px); margin-bottom: 18px; }
+.ht-entry .fbtn--care { background: var(--accent); color: var(--accent-ink); }
+.ht-entry .fbtn--care .fi { background: rgba(20,22,10,.1); }
+.ht-sub { margin-top: 6px; font-size: 11.5px; color: var(--ink-3); line-height: 1.4; word-break: keep-all; }
+/* 단계 색 — 숫자·태그 글자색만 (색 바 없음) */
+.ht-lv--ok { --lv: var(--green); } .ht-lv--watch { --lv: var(--blue); } .ht-lv--caution { --lv: var(--amber); }
+.ht-lv--warn { --lv: #f07c1e; } .ht-lv--danger { --lv: var(--red); } .ht-lv--none { --lv: var(--ink-3); }
+.ht-tag { display: inline-block; font-size: 11.5px; font-weight: 800; color: var(--lv); border: 1px solid color-mix(in srgb, var(--lv) 45%, transparent); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.ht-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.ht-cal__w { font-size: 11px; font-weight: 700; color: var(--ink-3); text-align: center; padding: 4px 0; }
+.ht-cal__d { min-height: 86px; border: 1px solid var(--line-soft); border-radius: 10px; padding: 7px 8px; display: flex; flex-direction: column; gap: 4px; background: var(--card-bg); min-width: 0; }
+.ht-cal__d.is-blank { border: 0; background: transparent; }
+.ht-cal__d.is-off { background: var(--panel-2); }
+.ht-cal__d.is-today { border-color: var(--accent-text); }
+.ht-cal__top { display: flex; align-items: baseline; gap: 4px; min-width: 0; }
+.ht-cal__top b { font-size: 13px; }
+.ht-cal__h { font-size: 10px; font-weight: 700; color: var(--red); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ht-cal__w.is-red, .ht-cal__d.is-red .ht-cal__top b { color: var(--red); }
+.ht-cal__w.is-sat, .ht-cal__d.is-sat .ht-cal__top b { color: var(--blue); }
+.ht-cal__v { font-family: var(--mono); font-size: 20px; font-weight: 800; color: var(--lv); letter-spacing: -.5px; line-height: 1.05; }
+.ht-cal__v small { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0; }
+.ht-cal__n { font-size: 10.5px; color: var(--ink-3); }
+.ht-cal__miss { color: var(--red); font-weight: 700; }
+.ht-missline { margin: 12px 0 0; font-size: 12.5px; color: var(--red); font-weight: 600; }
+.ht-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ht-table th { text-align: left; font-size: 11px; font-weight: 700; color: var(--ink-3); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ht-table td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+.ht-table .num { text-align: right; font-family: var(--mono); }
+.ht-basis { margin: 14px 2px 0; font-size: 11.5px; color: var(--ink-3); line-height: 1.6; word-break: keep-all; }
+
+/* 크루 입력 화면 */
+.ht-step { display: grid; grid-template-columns: 88px minmax(0, 1fr) 88px; gap: 12px; align-items: stretch; }
+.ht-step__btn { min-height: 110px; border: 3px solid var(--line); border-radius: 22px; background: var(--panel); font-size: 48px; font-weight: 700; cursor: pointer; transition: transform .12s ease-out; }
+.ht-step__btn:active { transform: scale(.95); }
+.ht-step__val { display: flex; align-items: center; justify-content: center; gap: 6px; border: 3px solid var(--accent-text); border-radius: 22px; background: var(--panel); padding: 0 12px; }
+.ht-step__val input { width: 100%; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 56px; font-weight: 800; text-align: right; outline: none; letter-spacing: -1.5px; }
+.ht-step__val span { font-size: 26px; font-weight: 800; color: var(--ink-2); }
+.ht-result { border: 3px solid var(--lv); border-radius: 22px; background: var(--panel); padding: 18px 20px; display: grid; grid-template-columns: auto auto 1fr; align-items: baseline; gap: 4px 12px; }
+.ht-result span { grid-column: 1 / -1; font-size: 16px; color: var(--ink-2); }
+.ht-result b { font-size: 56px; font-weight: 800; letter-spacing: -2px; line-height: 1; color: var(--lv); }
+.ht-result em { font-style: normal; font-size: 26px; font-weight: 800; color: var(--lv); }
+.ht-result p { grid-column: 1 / -1; margin: 6px 0 0; font-size: 19px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
+.ht-flow .gg-recap li { flex-wrap: wrap; }
+
+/* PDF 원본 (화면 밖에서 그린 뒤 파일로 저장) — 항상 밝은 A4 */
+/* 화면에는 안 보이게 0×0 상자 안에 두고(잘림), PDF 변환기는 원본 그대로 그린다 */
+.ht-print-host { position: fixed; left: 0; top: 0; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+.ht-print-host > .ht-print { position: absolute; left: 0; top: 0; }
+.ht-print { width: 760px; background: #fff; color: #16160f; padding: 8px 4px;
+  --ink: #16160f; --ink-2: #4a4b44; --ink-3: #7a7b72; --line: #e2e3dd; --line-soft: #ecede7; --card-bg: #fff; --panel: #fff; --panel-2: #f4f5f1;
+  --green: #16a34a; --red: #dc2f28; --amber: #b7791f; --blue: #2563eb; --accent-text: #5c7a08; }
+.ht-print__head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; padding-bottom: 12px; border-bottom: 2px solid #16160f; margin-bottom: 14px; }
+.ht-print__head p { margin: 0 0 4px; font-size: 10px; letter-spacing: 1px; color: #7a7b72; font-weight: 700; }
+.ht-print__head h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: -.5px; }
+.ht-print__head span { font-size: 10.5px; color: #4a4b44; }
+.ht-print__head > div:first-child { min-width: 0; }
+.ht-print__org { flex: 0 0 auto; font-size: 10.5px; text-align: right; color: #4a4b44; line-height: 1.5; }
+.ht-print h2 { font-size: 13px; margin: 16px 0 8px; }
+.ht-print .iss-stats { grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 4px; }
+.ht-print .iss-stat { padding: 10px 11px; }
+.ht-print .iss-stat__n { font-size: 20px; }
+.ht-print .ht-cal__d { min-height: 64px; padding: 5px 6px; }
+.ht-print .ht-cal__v { font-size: 15px; }
+.ht-print .ht-table { font-size: 10.5px; }
+.ht-print .ht-table td, .ht-print .ht-table th { padding: 5px 6px; }
+.ht-print .table-wrap { overflow: visible; }
+/* PDF 변환기(html2canvas)는 color-mix 를 못 읽음 → 단색으로 */
+.ht-print .ht-tag { border-color: currentColor; }
+
+@media (max-width: 860px) {
+  .ht-cal { gap: 3px; }
+  .ht-cal__d { min-height: 64px; padding: 5px 4px; border-radius: 8px; }
+  .ht-cal__h, .ht-cal__n { display: none; }
+  .ht-cal__v { font-size: 14px; }
+  .ht-cal__v small { font-size: 9px; }
+  .ht-cal__d.is-miss { border-color: color-mix(in srgb, var(--red) 50%, transparent); }
+  .ht-step { grid-template-columns: 72px minmax(0, 1fr) 72px; gap: 8px; }
+  .ht-step__btn { min-height: 96px; font-size: 40px; }
+  .ht-step__val input { font-size: 44px; }
+  .ht-result b { font-size: 46px; }
+  .fbtn--big { min-height: 100px; padding: 18px 16px; }
+  .fbtn--big .ft b { font-size: 21px; }
+  /* 휴대폰에서 PDF를 만들어도 A4 배치 그대로 */
+  .ht-print .ht-cal { gap: 6px; }
+  .ht-print .ht-cal__d { min-height: 64px; padding: 5px 6px; border-radius: 10px; }
+  .ht-print .ht-cal__d.is-miss { border-color: var(--line-soft); }
+  .ht-print .ht-cal__h, .ht-print .ht-cal__n { display: block; }
+  .ht-print .ht-cal__v { font-size: 15px; }
+  .ht-print .ht-cal__v small { font-size: 10.5px; }
+  .ht-print .iss-stats { grid-template-columns: repeat(5, 1fr); }
+}
+@media print {
+  .field { display: none !important; }
+}
+
+/* =========================================================
+   설정 — 계정 · 권한 (게임즈 가든 관리자 설정과 같은 구성)
+   ========================================================= */
+.st-lock { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.st-lock h3 { margin: 0; }
+.st-roles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line-soft); border-radius: 18px; background: var(--card-bg); overflow: hidden; margin-bottom: 18px; }
+.st-roles > div { padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; }
+.st-roles > div + div { border-left: 1px solid var(--line-soft); }
+.st-roles b { font-size: 14px; }
+.st-roles span { font-size: 12.5px; color: var(--ink-2); line-height: 1.45; word-break: keep-all; }
+.st-list { border: 1px solid var(--line-soft); border-radius: 18px; background: var(--card-bg); overflow: hidden; margin-bottom: 18px; }
+.st-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px 110px auto; align-items: center; gap: 12px; padding: 14px 18px; border-top: 1px solid var(--line-soft); }
+.st-row:first-child { border-top: 0; }
+.st-row--h { background: var(--panel-2); font-size: 11.5px; color: var(--ink-3); padding: 10px 18px; }
+.st-who { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.st-who b { font-size: 14.5px; }
+.st-who span { font-size: 12px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-role { justify-self: start; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: var(--panel-2); color: var(--ink-2); white-space: nowrap; }
+.st-role--admin { background: var(--accent); color: var(--accent-ink); }
+.st-date { font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+.st-acts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.st-rolesel { height: 32px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--ink); font: inherit; font-size: 12.5px; padding: 0 10px; }
+.st-add { max-width: 760px; }
+.st-radios { display: flex; gap: 8px; flex-wrap: wrap; }
+.st-radios label { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 999px; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+.st-radios label:has(input:checked) { border-color: var(--accent-text); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.st-radios input { accent-color: var(--accent-text); }
+.st-foot { display: flex; gap: 8px; margin-top: 14px; }
+.gate__input + .gate__input { margin-top: 8px; }
+@media (max-width: 860px) {
+  .st-roles { grid-template-columns: 1fr; }
+  .st-roles > div + div { border-left: 0; border-top: 1px solid var(--line-soft); }
+  .st-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .st-row--h { display: none; }
+  .st-date { display: none; }
+  .st-acts { grid-column: 1 / -1; justify-content: flex-start; }
+  .st-add .fld-row { grid-template-columns: minmax(0, 1fr); }
+  .st-add .fld input { min-width: 0; width: 100%; }
 }

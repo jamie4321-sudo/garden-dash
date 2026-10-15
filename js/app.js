@@ -2084,7 +2084,7 @@
   function normalizeSwaps(arr) {
     return (arr || []).map((x) => ({
       id: x.id || swUid(), status: x.status === "예정" ? "예정" : "완료",
-      date: x.date || "", planDate: x.planDate || "", location: x.location || "",
+      date: x.date || "", planDate: x.planDate || "", beforeDate: x.beforeDate || "", location: x.location || "",
       species: x.species || "", kind: x.kind === "swap" ? "swap" : "same", to: x.to || "",
       why: x.why || "", note: x.note || "", by: x.by || "",
       before: swList(x.before).slice(0, SW_MAX), after: swList(x.after).slice(0, SW_MAX),
@@ -2233,8 +2233,8 @@
         <button class="gg-dclose" type="button" aria-label="닫기" onclick="GARDEN.swapDetailClose()">×</button></div>
       ${media}
       <ol class="gg-steps">
-        <li><small>계획 공유</small><b>${swDay(x.planDate) || "—"}</b></li>
-        <li><small>교체 완료</small><b>${x.status === "완료" ? swDay(x.date) || "완료" : "예정"}</b></li>
+        <li><small>${x.beforeDate ? "교체 전" : "계획 공유"}</small><b>${swDay(x.beforeDate || x.planDate) || "—"}</b></li>
+        <li><small>교체 후</small><b>${x.status === "완료" ? swDay(x.date) || "완료" : "예정"}</b></li>
         <li class="now"><small>현재</small><b>${x.status === "완료" ? stage || "관리 중" : "교체 대기"}</b></li>
       </ol>
       <dl class="gg-kv">
@@ -2246,7 +2246,7 @@
       ${x.note ? `<div class="gg-note">${esc(x.note)}</div>` : ""}
       <div class="gg-acts">
         ${x.status === "예정" ? `<button type="button" class="gg-approve" onclick="GARDEN.swapEdit(${i}, true)">교체 완료 기록하기</button>` : ""}
-        <button type="button" class="gg-edit" onclick="GARDEN.swapEdit(${i})">관리자 수정하기</button>
+        <button type="button" class="gg-edit" onclick="GARDEN.swapEdit(${i})">수정하기</button>
         <button type="button" class="gg-del" onclick="GARDEN.swapDelete(${i})">기록 삭제</button>
       </div>
     </div>`;
@@ -2301,10 +2301,15 @@
     <label class="gg-pickbtn">${SW_IC.cam}<span>카메라로 찍기</span><input type="file" accept="image/*" capture="environment" ${multi ? "multiple" : ""} class="${cls}" aria-label="${label} 카메라로 찍기"/></label>
     <label class="gg-pickbtn">${SW_IC.album}<span>앨범에서 고르기</span><input type="file" accept="image/*" ${multi ? "multiple" : ""} class="${cls}" aria-label="${label} 앨범에서 고르기"/></label>
   </div>`;
+  // 확인 화면 날짜 줄 — 버튼을 누르면 달력이 바로 열린다(showPicker)
+  const swDateRow = (label, id, val, max) => `<li><span>${label}</span><div class="gg-datepick">
+    <span class="date-show">${swDateLabel(val)}</span>
+    <button type="button" class="date-chg" data-pick="${id}">날짜 바꾸기</button>
+    <input type="date" id="${id}" value="${val}" max="${max}" aria-label="${label} 날짜"/></div></li>`;
   const swDateLabel = (s) => { const [y, m, d] = s.split("-").map(Number); return s === issueTodayStr() ? `오늘 ${m}월 ${d}일` : `${y !== new Date().getFullYear() ? y + "년 " : ""}${m}월 ${d}일`; };
 
   function swFlowOpen() {
-    _swF = { step: 0, sub: null, area: null, zone: null, sp: null, same: null, to: null, why: null, whyText: "", bs: [], as: [], date: issueTodayStr(), done: false, draft: "", newPhoto: null, sent: "" };
+    _swF = { step: 0, sub: null, area: null, zone: null, sp: null, same: null, to: null, why: null, whyText: "", bs: [], as: [], date: issueTodayStr(), bdate: issueTodayStr(), done: false, draft: "", newPhoto: null, sent: "" };
     let el = document.getElementById("ggFlow");
     if (!el) { el = document.createElement("div"); el.id = "ggFlow"; el.className = "gg-flow"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", "교체 기록하기"); document.body.appendChild(el); }
     el.hidden = false; document.body.style.overflow = "hidden";
@@ -2330,8 +2335,8 @@
     if (C.done) {
       const miss = !C.bs.length || !C.as.length;
       body = `<div class="gg-donemark">${SW_IC.ok}</div><h2 class="center">기록했어요</h2>
-        <p class="hint center" style="margin:0">${C.sent === "fail" ? "사진 일부를 올리지 못했어요. 카드의 ‘관리자 수정하기’에서 다시 넣을 수 있어요." : "교체 현황에 바로 올라갔어요."}</p>
-        ${miss ? `<p class="hint center" style="margin:0">빠진 사진은 카드의 ‘관리자 수정하기’에서 나중에 넣을 수 있어요.</p>` : ""}
+        <p class="hint center" style="margin:0">${C.sent === "fail" ? "사진 일부를 올리지 못했어요. 카드의 ‘수정하기’에서 다시 넣을 수 있어요." : "교체 현황에 바로 올라갔어요."}</p>
+        ${miss ? `<p class="hint center" style="margin:0">빠진 사진은 카드의 ‘수정하기’에서 나중에 넣을 수 있어요.</p>` : ""}
         <button class="gg-primary" type="button" id="f-again">하나 더 기록하기</button><button class="gg-ghost" type="button" id="f-close">닫기</button>`;
     } else if (C.sub === "addZone") {
       body = `<h2>새 자리를 만들어요</h2><p class="hint">${esc(C.area)}에 추가할 자리 이름을 써요.</p>
@@ -2381,7 +2386,8 @@
       body = `<h2>이대로 보낼까요?</h2>
         <div class="gg-recap"><div class="gg-pair">${swCollage(C.bs, "before", "교체 전")}${swCollage(C.as, "after", "교체 후")}${SW_SEAM}</div>
           <ul><li><span>자리</span>${esc(C.zone)}</li><li><span>식물</span>${esc(C.same ? C.sp : `${C.sp} → ${C.to}`)}</li><li><span>사유</span>${esc(wl)}</li>
-          <li><span>날짜</span><label class="gg-datepick"><span class="date-show">${swDateLabel(C.date)}</span><span class="date-chg">날짜 바꾸기</span><input type="date" id="f-date" value="${C.date}" max="${issueTodayStr()}" aria-label="교체 날짜"/></label></li></ul></div>
+          ${swDateRow("교체 전", "f-bdate", C.bdate, C.date)}
+          ${swDateRow("교체 후", "f-date", C.date, issueTodayStr())}</ul></div>
         <button class="gg-primary" type="button" id="f-send">${SW_IC.ok}보내기</button>`;
     }
     el.innerHTML = top + `<div class="gg-fbody"><div class="gg-fstep" aria-live="polite">${body}</div></div>`;
@@ -2436,10 +2442,21 @@
     on("[data-rm]", (b) => b.onclick = () => { C[k === "before" ? "bs" : "as"].splice(+b.dataset.rm, 1); swFlowRender(); });
     const nx = $f("#f-next"); if (nx) nx.onclick = () => swFlowGo(1);
     const sk = $f("#f-skip"); if (sk) sk.onclick = () => swFlowGo(1);
-    const cd = $f("#f-date"); if (cd) cd.onchange = () => { if (!cd.value || cd.value > issueTodayStr()) { toast("오늘이나 지난 날짜만 고를 수 있어요", true); cd.value = C.date; return; } C.date = cd.value; swFlowRender(); };
+    on("[data-pick]", (b) => b.onclick = () => {
+      const inp = $f("#" + b.dataset.pick); if (!inp) return;
+      try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); }
+    });
+    const cd = $f("#f-date"); if (cd) cd.onchange = () => {
+      if (!cd.value || cd.value > issueTodayStr()) { toast("오늘이나 지난 날짜만 고를 수 있어요", true); cd.value = C.date; return; }
+      C.date = cd.value; if (C.bdate > C.date) C.bdate = C.date; swFlowRender();
+    };
+    const bd = $f("#f-bdate"); if (bd) bd.onchange = () => {
+      if (!bd.value || bd.value > C.date) { toast("교체 후 날짜와 같거나 이전 날짜만 고를 수 있어요", true); bd.value = C.bdate; return; }
+      C.bdate = bd.value; swFlowRender();
+    };
     const sd = $f("#f-send"); if (sd) sd.onclick = async () => {
       sd.disabled = true;
-      const rec = { id: swUid(), status: "완료", date: C.date, planDate: "", location: C.zone, species: C.sp, kind: C.same ? "same" : "swap", to: C.to,
+      const rec = { id: swUid(), status: "완료", date: C.date, planDate: "", beforeDate: C.bdate, location: C.zone, species: C.sp, kind: C.same ? "same" : "swap", to: C.to,
         why: swWhyText(C), note: "", by: currentUser(), before: [], after: [] };
       let failed = 0;
       for (const [side, key, label] of [["before", "bs", "교체 전"], ["after", "as", "교체 후"]]) {
@@ -2499,7 +2516,11 @@
               <option value="완료" ${status === "완료" ? "selected" : ""}>교체 완료</option>
               <option value="예정" ${status === "예정" ? "selected" : ""}>교체 예정</option></select></label>
             <label class="fld"><span>계획일</span><input id="sw_plan" type="date" value="${esc(x.planDate)}"/></label>
-            <label class="fld" id="sw_date_f" ${status === "예정" ? "hidden" : ""}><span>교체 완료일 *</span><input id="sw_date" type="date" value="${esc(date)}"/></label>
+            <label class="fld" id="sw_date_f" ${status === "예정" ? "hidden" : ""}><span>교체 후 날짜 *</span><input id="sw_date" type="date" value="${esc(date)}"/></label>
+          </div>
+          <div class="fld-row">
+            <label class="fld"><span>교체 전 날짜</span><input id="sw_bdate" type="date" value="${esc(x.beforeDate || "")}"/></label>
+            <div></div>
           </div>
           <div class="fld-row">
             <label class="fld"><span>위치 *</span><input id="sw_loc" list="sw_zones" value="${esc(x.location)}" placeholder="예: 일반오피스 7A · 창가 B4"/></label>
@@ -2563,6 +2584,524 @@
   }
 
   /* ---------- VIEWS ---------- */
+  /* ===== 체감온도기록 (산업안전보건 · 크루 직접 입력 · 월간 리뷰 PDF) =====
+     여름(5~9월): 기상청 여름철 체감온도 — 기온 + 상대습도 (Stull 습구온도 사용)
+     겨울(10~4월): 기상청 겨울철 체감온도 — 기온 + 풍속 (기온 10℃ 이하 · 풍속 4.8km/h 이상일 때)
+     단계: 여름 31 관심 · 33 주의 · 35 경고 · 38 위험 (고용노동부 폭염 대응 기준)
+           겨울 -10 주의 · -25 경고 · -45 위험 (기상청 체감온도 단계) */
+  const HT_KEY = "garden-heat-logs";
+  const HT_ME_KEY = "garden-heat-me";
+  let _heat = null, _heatDeleted = [], _htY = new Date().getFullYear(), _htM = new Date().getMonth() + 1, _htF = null;
+
+  const htSummer = (m) => m >= 5 && m <= 9;
+  function htFeel(dateStr, t, rh, wind) {
+    const T = Number(t);
+    if (!isFinite(T)) return null;
+    const m = Number(String(dateStr || "").slice(5, 7)) || (_now.getMonth() + 1);
+    if (htSummer(m)) {
+      const RH = Number(rh);
+      if (!isFinite(RH)) return Math.round(T * 10) / 10;
+      const tw = T * Math.atan(0.151977 * Math.sqrt(RH + 8.313659)) + Math.atan(T + RH) - Math.atan(RH - 1.67633)
+        + 0.00391838 * Math.pow(RH, 1.5) * Math.atan(0.023101 * RH) - 4.686035;
+      const f = -0.2442 + 0.55399 * tw + 0.45535 * T - 0.0022 * tw * tw + 0.00278 * tw * T + 3.0;
+      return Math.round(f * 10) / 10;
+    }
+    const V = (Number(wind) || 0) * 3.6; // m/s → km/h
+    if (T <= 10 && V >= 4.8) {
+      const f = 13.12 + 0.6215 * T - 11.37 * Math.pow(V, 0.16) + 0.3965 * Math.pow(V, 0.16) * T;
+      return Math.round(f * 10) / 10;
+    }
+    return Math.round(T * 10) / 10;
+  }
+  // [단계, 크루에게 보여줄 말, css 키]
+  function htLevel(feel, dateStr) {
+    if (feel == null) return ["—", "", "none"];
+    const m = Number(String(dateStr || "").slice(5, 7)) || (_now.getMonth() + 1);
+    if (htSummer(m) || feel >= 25) {
+      if (feel >= 38) return ["위험", "옥외 작업을 멈춰요. 시원한 곳에서 쉬어요.", "danger"];
+      if (feel >= 35) return ["경고", "1시간마다 15분 쉬어요. 오후 2~5시 옥외 작업은 줄여요.", "warn"];
+      if (feel >= 33) return ["주의", "2시간마다 20분 이상 쉬어요. 물을 자주 마셔요.", "caution"];
+      if (feel >= 31) return ["관심", "물과 그늘을 준비해요. 몸이 이상하면 바로 말해요.", "watch"];
+      return ["보통", "평소처럼 일해요. 물은 자주 마셔요.", "ok"];
+    }
+    if (feel <= -45) return ["위험", "옥외 작업을 멈춰요. 따뜻한 곳에 있어요.", "danger"];
+    if (feel <= -25) return ["경고", "옥외 작업을 짧게 해요. 자주 따뜻한 곳에서 쉬어요.", "warn"];
+    if (feel <= -10) return ["주의", "장갑·모자를 쓰고 따뜻한 곳에서 자주 쉬어요.", "caution"];
+    return ["보통", "평소처럼 일해요. 옷을 따뜻하게 입어요.", "ok"];
+  }
+  const HT_RANK = { none: 0, ok: 1, watch: 2, caution: 3, warn: 4, danger: 5 };
+
+  function htUid() { return "h" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function normalizeHeat(arr) {
+    return (arr || []).map((x) => {
+      const r = {
+        id: x.id || htUid(), date: String(x.date || "").slice(0, 10), time: String(x.time || "").slice(0, 5),
+        place: x.place || "실내", zone: x.zone || "",
+        temp: x.temp === "" || x.temp == null ? "" : Number(x.temp),
+        hum: x.hum === "" || x.hum == null ? "" : Number(x.hum),
+        wind: x.wind === "" || x.wind == null ? "" : Number(x.wind),
+        by: x.by || "", action: x.action || "", memo: x.memo || "", created: Number(x.created) || 0,
+      };
+      r.feel = htFeel(r.date, r.temp, r.hum, r.wind);
+      return r;
+    }).filter((x) => x.date);
+  }
+  // 시트가 최신 소스 — 단, 이 기기에서 방금(10분 이내) 기록해 아직 시트에 안 보이는 것은 남겨 둔다
+  function getHeat() {
+    if (_heat) return _heat;
+    const remote = normalizeHeat(D.heatLogs || []);
+    let local = [];
+    try { local = normalizeHeat(JSON.parse(localStorage.getItem(HT_KEY) || "[]")); } catch (e) {}
+    const ids = new Set(remote.map((x) => x.id));
+    const fresh = local.filter((x) => !ids.has(x.id) && Date.now() - x.created < 10 * 60 * 1000);
+    _heat = remote.length ? remote.concat(fresh) : local;
+    return _heat;
+  }
+  let _pushHT = null;
+  function saveHeat() {
+    try { localStorage.setItem(HT_KEY, JSON.stringify(_heat)); } catch (e) {}
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || !(window.CONFIG && window.CONFIG.WRITE_BACK)) return;
+    clearTimeout(_pushHT);
+    _pushHT = setTimeout(() => {
+      const deleted = _heatDeleted.slice(); _heatDeleted = [];
+      fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "heatLogs", data: _heat, deleted }) })
+        .catch((e) => console.warn("[GARDEN] 체감온도 기록 저장 실패:", e));
+    }, 600);
+  }
+  function reHeat() { if (currentView() === "heat") app.innerHTML = views.heat(); }
+
+  /* ── 공휴일 — 관공서 공휴일(대체공휴일·임시공휴일 포함) ──
+     온라인: Nager.Date 공개 API(대한민국 공휴일) → 이 기기에 저장
+     예비: 아래 표(2026~2027, 같은 API 기준으로 확인) */
+  const HT_HOLI_KO = {
+    "New Year's Day": "신정", "Lunar New Year": "설날", "Independence Movement Day": "삼일절",
+    "Labour Day": "노동절", "Children's Day": "어린이날", "Buddha's Birthday": "부처님오신날",
+    "Local Election Day": "지방선거일", "Presidential Election Day": "대통령선거일", "National Assembly Election Day": "국회의원선거일",
+    "Memorial Day": "현충일", "Constitution Day": "제헌절", "Liberation Day": "광복절", "Chuseok": "추석",
+    "National Foundation Day": "개천절", "Hangul Day": "한글날", "Christmas Day": "성탄절",
+  };
+  // 날짜가 고정된 공휴일 — 실제 날짜와 다르면 대체공휴일로 표시
+  const HT_HOLI_FIXED = { "신정": "01-01", "삼일절": "03-01", "노동절": "05-01", "어린이날": "05-05", "현충일": "06-06",
+    "제헌절": "07-17", "광복절": "08-15", "개천절": "10-03", "한글날": "10-09", "성탄절": "12-25" };
+  const HT_HOLI_BASE = {
+    2026: [["01-01", "신정"], ["02-16", "설날"], ["02-17", "설날"], ["02-18", "설날"], ["03-02", "대체공휴일(삼일절)"],
+      ["05-01", "노동절"], ["05-05", "어린이날"], ["05-25", "대체공휴일(부처님오신날)"], ["06-03", "지방선거일"],
+      ["06-06", "현충일"], ["07-17", "제헌절"], ["08-17", "대체공휴일(광복절)"], ["09-24", "추석"], ["09-25", "추석"],
+      ["09-26", "추석"], ["10-05", "대체공휴일(개천절)"], ["10-09", "한글날"], ["12-25", "성탄절"]],
+    2027: [["01-01", "신정"], ["02-06", "설날"], ["02-08", "설날"], ["02-09", "대체공휴일(설날)"], ["03-01", "삼일절"],
+      ["05-03", "대체공휴일(노동절)"], ["05-05", "어린이날"], ["05-13", "부처님오신날"], ["06-06", "현충일"],
+      ["07-19", "대체공휴일(제헌절)"], ["08-16", "대체공휴일(광복절)"], ["09-14", "추석"], ["09-15", "추석"], ["09-16", "추석"],
+      ["10-04", "대체공휴일(개천절)"], ["10-11", "대체공휴일(한글날)"], ["12-25", "성탄절"]],
+  };
+  const _htHoliFetched = {};
+  function htHolidays(y) {
+    let list = null;
+    try { const s = localStorage.getItem("garden-holidays-" + y); if (s) list = JSON.parse(s); } catch (e) {}
+    if (!list && HT_HOLI_BASE[y]) list = HT_HOLI_BASE[y].map(([md, n]) => [`${y}-${md}`, n]);
+    if (!_htHoliFetched[y]) { _htHoliFetched[y] = true; htHoliFetch(y); }
+    const map = {};
+    (list || []).forEach(([d, n]) => { map[d] = map[d] ? map[d] : n; });
+    return { map, online: !!list && !HT_HOLI_BASE[y] ? true : !!list };
+  }
+  async function htHoliFetch(y) {
+    try {
+      const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${y}/KR`);
+      if (!res.ok) return;
+      const arr = await res.json();
+      if (!Array.isArray(arr) || !arr.length) return;
+      const list = arr.map((h) => {
+        const ko = HT_HOLI_KO[h.name] || h.localName || h.name;
+        const fixed = HT_HOLI_FIXED[ko];
+        return [h.date, fixed && h.date.slice(5) !== fixed ? `대체공휴일(${ko})` : ko];
+      });
+      const before = localStorage.getItem("garden-holidays-" + y);
+      const next = JSON.stringify(list);
+      try { localStorage.setItem("garden-holidays-" + y, next); } catch (e) {}
+      if (before !== next && currentView() === "heat" && y === _htY) reHeat();
+    } catch (e) { /* 오프라인이면 예비 표 사용 */ }
+  }
+
+  /* ── 월 데이터 ── */
+  const HT_DOW = ["일", "월", "화", "수", "목", "금", "토"];
+  function htMonth(y, m) {
+    const pad = (n) => (n < 10 ? "0" : "") + n;
+    const ym = `${y}-${pad(m)}`;
+    const holi = htHolidays(y).map;
+    const last = new Date(y, m, 0).getDate();
+    const today = issueTodayStr();
+    const logs = getHeat().filter((x) => x.date.slice(0, 7) === ym).sort((a, b) => (a.date + a.time < b.date + b.time ? -1 : 1));
+    const days = [];
+    for (let d = 1; d <= last; d++) {
+      const ds = `${ym}-${pad(d)}`, dow = new Date(y, m - 1, d).getDay();
+      const recs = logs.filter((x) => x.date === ds);
+      const max = recs.reduce((a, x) => (x.feel != null && (a == null || x.feel > a.feel) ? x : a), null);
+      const off = dow === 0 || dow === 6 || !!holi[ds];
+      days.push({ ds, d, dow, holi: holi[ds] || "", off, recs, max, past: ds <= today });
+    }
+    const work = days.filter((x) => !x.off);
+    const measured = work.filter((x) => x.recs.length);
+    const missing = work.filter((x) => x.past && !x.recs.length);
+    const feels = logs.filter((x) => x.feel != null);
+    const top = feels.reduce((a, x) => (!a || x.feel > a.feel ? x : a), null);
+    const low = feels.reduce((a, x) => (!a || x.feel < a.feel ? x : a), null);
+    const avg = feels.length ? Math.round(feels.reduce((s, x) => s + x.feel, 0) / feels.length * 10) / 10 : null;
+    const lv = {};
+    days.forEach((x) => { if (x.max) { const k = htLevel(x.max.feel, x.ds)[0]; lv[k] = (lv[k] || 0) + 1; } });
+    const alertDays = days.filter((x) => x.max && HT_RANK[htLevel(x.max.feel, x.ds)[2]] >= 3).length;
+    const offDays = days.filter((x) => x.off);
+    return { y, m, ym, days, work, measured, missing, logs, top, low, avg, lv, alertDays, offDays, summer: htSummer(m) };
+  }
+  const htDayLabel = (ds) => { const d = new Date(ds + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}(${HT_DOW[d.getDay()]})`; };
+  const htNum = (v, u) => (v === "" || v == null ? "—" : `${v}${u}`);
+
+  function htCalendarHTML(r) {
+    const first = new Date(r.y, r.m - 1, 1).getDay();
+    const cells = [];
+    for (let i = 0; i < first; i++) cells.push(`<div class="ht-cal__d is-blank"></div>`);
+    r.days.forEach((x) => {
+      const lvl = x.max ? htLevel(x.max.feel, x.ds) : null;
+      const cls = ["ht-cal__d", x.off ? "is-off" : "", x.dow === 0 || x.holi ? "is-red" : x.dow === 6 ? "is-sat" : "",
+        x.ds === issueTodayStr() ? "is-today" : "", !x.off && x.past && !x.recs.length ? "is-miss" : ""].join(" ");
+      cells.push(`<div class="${cls}">
+        <div class="ht-cal__top"><b>${x.d}</b>${x.holi ? `<span class="ht-cal__h">${esc(x.holi)}</span>` : ""}</div>
+        ${x.max ? `<div class="ht-cal__v ht-lv--${lvl[2]}">${x.max.feel}°<small>${lvl[0]}</small></div><div class="ht-cal__n">${x.recs.length}회 측정</div>`
+          : x.off ? `<div class="ht-cal__n">${x.holi ? "공휴일" : "주말"}</div>`
+          : x.past ? `<div class="ht-cal__n ht-cal__miss">미측정</div>` : ""}
+      </div>`);
+    });
+    return `<div class="ht-cal">${HT_DOW.map((d, i) => `<div class="ht-cal__w ${i === 0 ? "is-red" : i === 6 ? "is-sat" : ""}">${d}</div>`).join("")}${cells.join("")}</div>`;
+  }
+  function htTableHTML(r, forPrint) {
+    if (!r.logs.length) return `<p class="muted" style="margin:6px 0">이 달에 기록된 체감온도가 없습니다.</p>`;
+    return `<div class="table-wrap"><table class="ht-table">
+      <thead><tr><th>날짜</th><th>시간</th><th>장소</th><th class="num">기온</th><th class="num">습도</th>${r.summer ? "" : `<th class="num">풍속</th>`}<th class="num">체감</th><th>단계</th><th>기록자</th><th>조치 · 메모</th>${forPrint ? "" : "<th></th>"}</tr></thead>
+      <tbody>${r.logs.map((x) => {
+        const lv = htLevel(x.feel, x.date), i = getHeat().indexOf(x);
+        return `<tr><td>${htDayLabel(x.date)}</td><td>${esc(x.time) || "—"}</td><td>${esc(x.place)}${x.zone ? ` · ${esc(x.zone)}` : ""}</td>
+          <td class="num">${htNum(x.temp, "℃")}</td><td class="num">${htNum(x.hum, "%")}</td>${r.summer ? "" : `<td class="num">${htNum(x.wind, "m/s")}</td>`}
+          <td class="num"><b>${x.feel == null ? "—" : x.feel + "℃"}</b></td><td><span class="ht-tag ht-lv--${lv[2]}">${lv[0]}</span></td>
+          <td>${esc(x.by) || "—"}</td><td>${esc([x.action, x.memo].filter(Boolean).join(" · ")) || "—"}</td>
+          ${forPrint ? "" : `<td><button class="btn btn--sm" onclick="GARDEN.heatEdit(${i})">수정</button></td>`}</tr>`;
+      }).join("")}</tbody></table></div>`;
+  }
+  function htHoliLine(r) {
+    const h = r.days.filter((x) => x.holi);
+    const wk = r.days.filter((x) => (x.dow === 0 || x.dow === 6) && !x.holi).length;
+    return `주말 ${wk}일${h.length ? ` · 공휴일 ${h.length}일 (${h.map((x) => `${htDayLabel(x.ds)} ${esc(x.holi)}`).join(", ")})` : " · 공휴일 없음"}`;
+  }
+  function htStatsHTML(r) {
+    const stat = (label, val, unit, sub, mod) =>
+      `<div class="iss-stat"><div class="iss-stat__n ${mod || ""}">${val}<small>${unit}</small></div><div class="iss-stat__l">${label}</div>${sub ? `<div class="ht-sub">${sub}</div>` : ""}</div>`;
+    const hot = r.summer ? r.top : r.low;
+    return `<div class="iss-stats ht-stats">
+      ${stat("근무일", r.work.length, "일", `주말·공휴일 ${r.offDays.length}일 제외`)}
+      ${stat("측정한 날", r.measured.length, "일", r.missing.length ? `지난 근무일 중 미측정 ${r.missing.length}일` : "빠진 날 없음", r.missing.length ? "iss-stat__n--red" : "iss-stat__n--acid")}
+      ${stat(r.summer ? "최고 체감" : "최저 체감", hot ? hot.feel : "—", hot ? "℃" : "", hot ? `${htDayLabel(hot.date)} ${esc(hot.time)} · ${esc(hot.place)}` : "기록 없음")}
+      ${stat("평균 체감", r.avg != null ? r.avg : "—", r.avg != null ? "℃" : "", `총 ${r.logs.length}회 측정`)}
+      ${stat("주의 이상", r.alertDays, "일", Object.keys(r.lv).map((k) => `${k} ${r.lv[k]}`).join(" · ") || "—", r.alertDays ? "iss-stat__n--red" : "")}
+    </div>`;
+  }
+  const HT_BASIS = "체감온도: 5~9월 기상청 여름철 체감온도(기온·습도), 10~4월 기상청 겨울철 체감온도(기온·풍속). 단계: 여름 31℃ 관심 · 33℃ 주의 · 35℃ 경고 · 38℃ 위험(고용노동부 폭염 대응 기준), 겨울 -10℃ 주의 · -25℃ 경고 · -45℃ 위험. 공휴일: 관공서 공휴일(대체·임시공휴일 포함) 자동 반영.";
+
+  // PDF용 — 밝은 A4 리포트
+  function htPrintHTML(r) {
+    return `<div class="ht-print">
+      <div class="ht-print__head"><div><p>AGIT GARDEN · 산업안전보건</p><h1>${r.y}년 ${r.m}월 체감온도 기록</h1>
+        <span>${htHoliLine(r)}</span></div><div class="ht-print__org">링키지랩 스낵앤가든사업팀<br/>카카오 판교아지트 조경</div></div>
+      ${htStatsHTML(r)}
+      <h2>월간 달력</h2>${htCalendarHTML(r)}
+      <h2>측정 기록</h2>${htTableHTML(r, true)}
+      <p class="ht-basis">${esc(HT_BASIS)}</p>
+      <p class="ht-basis">출력일 ${issueTodayStr()}</p>
+    </div>`;
+  }
+  // PDF 변환기(html2canvas)는 color(srgb …) · color-mix 를 못 읽음 → 계산된 색을 rgba 로 바꿔 둔다
+  function htPdfColors(root) {
+    const props = ["color", "backgroundColor", "borderTopColor", "borderRightColor", "borderBottomColor", "borderLeftColor", "outlineColor", "textDecorationColor"];
+    const toRgb = (v) => {
+      const m = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/.exec(v);
+      if (!m) return null;
+      const c = (n) => Math.round(Math.min(1, Math.max(0, Number(n))) * 255);
+      return `rgba(${c(m[1])}, ${c(m[2])}, ${c(m[3])}, ${m[4] == null ? 1 : m[4]})`;
+    };
+    [root, ...root.querySelectorAll("*")].forEach((el) => {
+      const cs = getComputedStyle(el);
+      props.forEach((p) => { const v = cs[p]; if (v && v.indexOf("color(") >= 0) { const r = toRgb(v); el.style[p] = r || "rgba(0,0,0,0)"; } });
+    });
+  }
+  let _htPdfLib = null;
+  function htLoadPdfLib() {
+    if (window.html2pdf) return Promise.resolve();
+    if (_htPdfLib) return _htPdfLib;
+    _htPdfLib = new Promise((ok, no) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+      s.onload = ok; s.onerror = () => { _htPdfLib = null; no(new Error("pdf lib")); };
+      document.head.appendChild(s);
+    });
+    return _htPdfLib;
+  }
+
+  /* ── 크루 입력: 전체화면 단계형 (교체 기록하기와 같은 큰 버튼) ── */
+  function htSteps() {
+    const s = ["who", "place", "temp", "hum"];
+    if (!htSummer(Number(_htF.date.slice(5, 7))) && _htF.place === "옥외") s.push("wind");
+    s.push("check");
+    return s;
+  }
+  function htFlowOpen() {
+    const now = new Date();
+    let me = ""; try { me = localStorage.getItem(HT_ME_KEY) || ""; } catch (e) {}
+    const last = getHeat().slice().sort((a, b) => (a.date + a.time < b.date + b.time ? 1 : -1))[0];
+    _htF = { step: 0, by: me || currentUser(), place: "", zone: "", temp: last && last.temp !== "" ? last.temp : 24, hum: last && last.hum !== "" ? last.hum : 50,
+      wind: 0, date: issueTodayStr(), time: `${_pad(now.getHours())}:${_pad(now.getMinutes())}`, done: false, wx: null };
+    let el = document.getElementById("htFlow");
+    if (!el) { el = document.createElement("div"); el.id = "htFlow"; el.className = "gg-flow ht-flow"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", "체감온도 기록하기"); document.body.appendChild(el); }
+    el.hidden = false; document.body.style.overflow = "hidden";
+    htFlowRender();
+  }
+  function htFlowClose() { const el = document.getElementById("htFlow"); if (el) el.hidden = true; document.body.style.overflow = ""; }
+  function htStepper(id, val, unit, step, min, max) {
+    return `<div class="ht-step">
+      <button type="button" class="ht-step__btn" data-dn="${id}" aria-label="${step} 내리기">−</button>
+      <label class="ht-step__val"><input id="${id}" type="text" inputmode="decimal" value="${val}" aria-label="숫자 입력" data-min="${min}" data-max="${max}"/><span>${unit}</span></label>
+      <button type="button" class="ht-step__btn" data-up="${id}" aria-label="${step} 올리기">+</button>
+    </div>`;
+  }
+  function htFlowRender() {
+    const C = _htF, el = document.getElementById("htFlow"), steps = htSteps(), k = steps[C.step];
+    const top = `<div class="gg-ftop">
+        <button class="back" type="button" id="h-back" ${C.step === 0 || C.done ? "hidden" : ""}>${SW_IC.back}뒤로</button>
+        <div class="dots" aria-hidden="true">${C.done ? "" : steps.map((_, j) => `<i class="${j === C.step ? "on" : j < C.step ? "done" : ""}"></i>`).join("")}</div>
+        <button class="x" type="button" id="h-x" aria-label="닫기">${SW_IC.x}</button></div>`;
+    let body = "";
+    const feel = htFeel(C.date, C.temp, C.hum, C.wind), lv = htLevel(feel, C.date);
+    if (C.done) {
+      body = `<div class="gg-donemark">${SW_IC.ok}</div><h2 class="center">기록했어요</h2>
+        <div class="ht-result ht-lv--${lv[2]}"><span>체감온도</span><b>${feel}℃</b><em>${lv[0]}</em><p>${esc(lv[1])}</p></div>
+        <button class="gg-primary" type="button" id="h-again">하나 더 기록하기</button><button class="gg-ghost" type="button" id="h-close">닫기</button>`;
+    } else if (k === "who") {
+      const names = [...new Set(getCrew().filter((c) => c.status !== "left" && !c.left).map((c) => c.name).filter(Boolean).concat(C.by ? [C.by] : []))];
+      body = `<h2>누가 재요?</h2><p class="hint">내 이름을 눌러요.</p>
+        <div class="gg-bgrid three">${names.map((n) => `<button class="gg-bigbtn zone ${n === C.by ? "yes" : ""}" type="button" data-who="${esc(n)}">${esc(n)}</button>`).join("")}</div>
+        <input class="gg-bigin" id="h-name" type="text" maxlength="12" placeholder="이름이 없으면 여기에 써요" aria-label="이름"/>
+        <button class="gg-primary" type="button" id="h-name-ok" disabled>이 이름으로 할게요</button>`;
+    } else if (k === "place") {
+      body = `<h2>어디서 재요?</h2><div class="gg-bgrid">
+        <button class="gg-bigbtn ${C.place === "실내" ? "yes" : ""}" type="button" data-place="실내"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 10v10h14V10"/></svg>실내<small>사무실 · 로비 · 정원</small></button>
+        <button class="gg-bigbtn ${C.place === "옥외" ? "yes" : ""}" type="button" data-place="옥외"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/></svg>옥외<small>테라스 · 외부 화단</small></button></div>
+        <input class="gg-bigin" id="h-zone" type="text" maxlength="20" placeholder="자리 (선택) · 예: 5층 테라스" value="${esc(C.zone)}" aria-label="자리"/>`;
+    } else if (k === "temp") {
+      body = `<h2>온도는 몇 도예요?</h2><p class="hint">온도계에 보이는 숫자를 넣어요. − + 로 바꿀 수 있어요.</p>
+        ${htStepper("h-temp", C.temp, "℃", 0.5, -30, 50)}
+        ${C.place === "옥외" ? `<button class="gg-ghost" type="button" id="h-wx">${C.wx ? "날씨에서 다시 가져오기" : "지금 날씨에서 가져오기"}</button>` : ""}
+        <button class="gg-primary" type="button" id="h-next">다음</button>`;
+    } else if (k === "hum") {
+      body = `<h2>습도는 몇 % 예요?</h2><p class="hint">온도계의 % 숫자를 넣어요.</p>
+        ${htStepper("h-hum", C.hum, "%", 5, 0, 100)}
+        <button class="gg-primary" type="button" id="h-next">다음</button>`;
+    } else if (k === "wind") {
+      const winds = [[0, "바람 없음", "나뭇잎이 안 흔들려요"], [2, "약한 바람", "나뭇잎이 살랑"], [5, "보통 바람", "작은 가지가 흔들려요"], [9, "강한 바람", "큰 가지가 흔들려요"]];
+      body = `<h2>바람은 어때요?</h2><div class="gg-bgrid">${winds.map(([v, t, s]) =>
+        `<button class="gg-bigbtn why ${Number(C.wind) === v ? "yes" : ""}" type="button" data-wind="${v}"><span class="wt">${t}</span><small>${s}</small></button>`).join("")}</div>`;
+    } else if (k === "check") {
+      body = `<h2>체감온도예요</h2>
+        <div class="ht-result ht-lv--${lv[2]}"><span>체감온도</span><b>${feel == null ? "—" : feel + "℃"}</b><em>${lv[0]}</em><p>${esc(lv[1])}</p></div>
+        <div class="gg-recap"><ul>
+          <li><span>누가</span>${esc(C.by) || "—"}</li>
+          <li><span>어디</span>${esc(C.place)}${C.zone ? " · " + esc(C.zone) : ""}</li>
+          <li><span>온도</span>${C.temp}℃ · 습도 ${C.hum}%${htSteps().indexOf("wind") >= 0 ? ` · 바람 ${C.wind}m/s` : ""}</li>
+          <li><span>날짜</span><div class="gg-datepick"><span class="date-show">${swDateLabel(C.date)} ${esc(C.time)}</span>
+            <button type="button" class="date-chg" data-pick="h-date">날짜</button><input type="date" id="h-date" value="${C.date}" max="${issueTodayStr()}" aria-label="측정 날짜"/>
+            <button type="button" class="date-chg" data-pick="h-time">시간</button><input type="time" id="h-time" value="${C.time}" aria-label="측정 시간"/></div></li></ul></div>
+        <button class="gg-primary" type="button" id="h-send">${SW_IC.ok}기록하기</button>`;
+    }
+    el.innerHTML = top + `<div class="gg-fbody"><div class="gg-fstep" aria-live="polite">${body}</div></div>`;
+    const $f = (s) => el.querySelector(s), on = (sel, fn) => el.querySelectorAll(sel).forEach(fn);
+    const go = (d) => { C.step = Math.max(0, Math.min(htSteps().length - 1, C.step + d)); htFlowRender(); };
+    $f("#h-x").onclick = htFlowClose;
+    const bk = $f("#h-back"); if (bk) bk.onclick = () => go(-1);
+    on("[data-who]", (b) => b.onclick = () => { C.by = b.dataset.who; try { localStorage.setItem(HT_ME_KEY, C.by); } catch (e) {} go(1); });
+    const nm = $f("#h-name"); if (nm) nm.oninput = () => { $f("#h-name-ok").disabled = !nm.value.trim(); };
+    const nok = $f("#h-name-ok"); if (nok) nok.onclick = () => { C.by = nm.value.trim(); try { localStorage.setItem(HT_ME_KEY, C.by); } catch (e) {} go(1); };
+    const zn = $f("#h-zone"); if (zn) zn.oninput = () => { C.zone = zn.value; };
+    on("[data-place]", (b) => b.onclick = () => { C.place = b.dataset.place; if (zn) C.zone = zn.value.trim(); go(1); });
+    // − / + 와 직접 입력
+    const clamp = (inp, v) => Math.min(Number(inp.dataset.max), Math.max(Number(inp.dataset.min), v));
+    const bind = (id, key, step) => {
+      const inp = $f("#" + id); if (!inp) return;
+      const set = (v) => { const n = Math.round(clamp(inp, v) * 10) / 10; C[key] = n; inp.value = n; };
+      inp.oninput = () => { const n = parseFloat(inp.value.replace(",", ".")); if (isFinite(n)) C[key] = clamp(inp, n); };
+      inp.onblur = () => set(Number(C[key]) || 0);
+      on(`[data-up="${id}"]`, (b) => b.onclick = () => set((Number(C[key]) || 0) + step));
+      on(`[data-dn="${id}"]`, (b) => b.onclick = () => set((Number(C[key]) || 0) - step));
+    };
+    bind("h-temp", "temp", 0.5); bind("h-hum", "hum", 5);
+    const nx = $f("#h-next"); if (nx) nx.onclick = () => go(1);
+    on("[data-wind]", (b) => b.onclick = () => { C.wind = Number(b.dataset.wind); go(1); });
+    const wx = $f("#h-wx"); if (wx) wx.onclick = async () => {
+      wx.disabled = true; wx.textContent = "날씨 불러오는 중…";
+      try {
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${WX_COORD.lat}&longitude=${WX_COORD.lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m&wind_speed_unit=ms&timezone=Asia%2FSeoul`, { cache: "no-store" });
+        const j = await res.json(), c = j.current;
+        C.temp = Math.round(c.temperature_2m * 10) / 10; C.hum = Math.round(c.relative_humidity_2m); C.wind = Math.round(c.wind_speed_10m * 10) / 10; C.wx = true;
+        toast(`${WX_COORD.name} 날씨를 넣었어요`);
+      } catch (e) { toast("날씨를 불러오지 못했어요. 온도계 숫자를 넣어요", true); }
+      htFlowRender();
+    };
+    on("[data-pick]", (b) => b.onclick = () => { const inp = $f("#" + b.dataset.pick); if (!inp) return; try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); } });
+    const hd = $f("#h-date"); if (hd) hd.onchange = () => { if (hd.value && hd.value <= issueTodayStr()) C.date = hd.value; else toast("오늘이나 지난 날짜만 고를 수 있어요", true); htFlowRender(); };
+    const ht = $f("#h-time"); if (ht) ht.onchange = () => { if (ht.value) C.time = ht.value; htFlowRender(); };
+    const sd = $f("#h-send"); if (sd) sd.onclick = () => {
+      const rec = normalizeHeat([{ id: htUid(), date: C.date, time: C.time, place: C.place || "실내", zone: C.zone, temp: C.temp, hum: C.hum,
+        wind: htSteps().indexOf("wind") >= 0 ? C.wind : "", by: C.by, action: "", memo: "", created: Date.now() }])[0];
+      getHeat().push(rec); saveHeat();
+      _htY = Number(rec.date.slice(0, 4)); _htM = Number(rec.date.slice(5, 7));
+      C.done = true; htFlowRender(); reHeat();
+    };
+    const ag = $f("#h-again"); if (ag) ag.onclick = htFlowOpen;
+    const cl = $f("#h-close"); if (cl) cl.onclick = () => { htFlowClose(); reHeat(); };
+    const hh = el.querySelector(".gg-fstep h2"); if (hh) { hh.setAttribute("tabindex", "-1"); hh.focus({ preventScroll: true }); }
+  }
+
+  /* ── 관리자 수정 폼 ── */
+  function heatFormModal(i) {
+    const x = getHeat()[i]; if (!x) return "";
+    return `<div class="gmodal" id="heatModal">
+      <div class="gmodal__bd" onclick="GARDEN.heatClose()"></div>
+      <div class="gmodal__card">
+        <div class="gmodal__head"><h3>체감온도 기록 수정</h3><button class="gmodal__x" onclick="GARDEN.heatClose()">×</button></div>
+        <div class="gform">
+          <div class="fld-row"><label class="fld"><span>날짜 *</span><input id="ht_date" type="date" value="${esc(x.date)}"/></label>
+            <label class="fld"><span>시간</span><input id="ht_time" type="time" value="${esc(x.time)}"/></label></div>
+          <div class="fld-row"><label class="fld"><span>장소</span><select id="ht_place">${["실내", "옥외"].map((p) => `<option ${p === x.place ? "selected" : ""}>${p}</option>`).join("")}</select></label>
+            <label class="fld"><span>자리</span><input id="ht_zone" value="${esc(x.zone)}" placeholder="예: 5층 테라스"/></label></div>
+          <div class="fld-row fld-row--3"><label class="fld"><span>기온(℃) *</span><input id="ht_temp" type="number" step="0.1" value="${esc(x.temp)}"/></label>
+            <label class="fld"><span>습도(%)</span><input id="ht_hum" type="number" step="1" value="${esc(x.hum)}"/></label>
+            <label class="fld"><span>풍속(m/s)</span><input id="ht_wind" type="number" step="0.1" value="${esc(x.wind)}"/></label></div>
+          <div class="fld-row"><label class="fld"><span>기록자</span><input id="ht_by" value="${esc(x.by)}"/></label>
+            <label class="fld"><span>조치</span><input id="ht_action" value="${esc(x.action)}" placeholder="예: 14시 20분 휴식 부여"/></label></div>
+          <label class="fld"><span>메모</span><input id="ht_memo" value="${esc(x.memo)}"/></label>
+          <p class="fld-note">체감온도는 저장할 때 자동으로 다시 계산돼요.</p>
+        </div>
+        <div class="gmodal__foot">
+          <button class="btn btn--sm btn--danger" onclick="GARDEN.heatDelete(${i})">삭제</button><span class="gmodal__spacer"></span>
+          <button class="btn btn--sm" onclick="GARDEN.heatClose()">취소</button>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.heatSave(${i})">저장</button>
+        </div>
+      </div></div>`;
+  }
+
+  // 가드너 현장 기록 버튼 (게임즈 가든과 같은 모양)
+  const FB_ARROW = `<svg class="fa" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+  const FB_SWAP = `<span class="fi"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>`;
+  const FB_HEAT = `<span class="fi"><svg viewBox="0 0 24 24"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"/><path d="M12 9v6"/></svg></span>`;
+  function heatViewHTML() {
+    const r = htMonth(_htY, _htM);
+    return `
+      <section class="view">
+        <div class="page-head">
+          <div><p class="eyebrow">Crew · 안전</p><h2>체감온도기록</h2>
+            <p class="sub">온도·습도를 넣으면 체감온도가 자동 계산돼요 · 주말·공휴일은 자동으로 빠져요</p></div>
+        </div>
+        <div class="ht-entry">
+          <button type="button" class="fbtn fbtn--care fbtn--big" onclick="GARDEN.heatFlowOpen()">${FB_HEAT}<span class="ft"><b>체감온도 기록하기</b><small>온도계 숫자만 넣으면 끝 · 체감온도 자동 계산</small></span>${FB_ARROW}</button>
+        </div>
+        <div class="iss-period rp-period">
+          <button class="iss-nav" onclick="GARDEN.heatStep(-1)" title="이전 달">←</button>
+          <span class="iss-period__title">${r.y}년 ${r.m}월</span>
+          <button class="iss-nav" onclick="GARDEN.heatStep(1)" title="다음 달">→</button>
+          <button class="btn btn--sm rp-thismonth" onclick="GARDEN.heatStep(0)">이번 달</button>
+          <div class="rp-actions"><button class="btn btn--primary btn--sm" id="htPdfBtn" onclick="GARDEN.heatPdf()">PDF 다운로드</button></div>
+        </div>
+        ${htStatsHTML(r)}
+        <div class="dash-card">
+          <div class="card-head"><h3>${r.m}월 달력</h3><span class="asof">${htHoliLine(r)}</span></div>
+          ${htCalendarHTML(r)}
+          ${r.missing.length ? `<p class="ht-missline">미측정 근무일 · ${r.missing.map((x) => htDayLabel(x.ds)).join(", ")}</p>` : ""}
+        </div>
+        <div class="dash-card" style="margin-top:16px">
+          <div class="card-head"><h3>측정 기록</h3><span class="chip-mono">${r.logs.length}</span></div>
+          ${htTableHTML(r, false)}
+        </div>
+        <p class="ht-basis">${esc(HT_BASIS)}</p>
+      </section>`;
+  }
+
+  /* ===== 설정 — 계정 · 권한 (관리자만) =====
+     managers 탭: name · id(로그인 아이디) · pin(비밀번호) · role · updated
+     역할: 관리자(모든 수정·삭제 + 설정) / 담당자(기록 보기·등록, 수정·삭제는 관리자 확인) / 가드너(로그인하면 현장 기록 화면) */
+  const ROLE_KEY = "garden-entry-role";
+  const ROLES = [
+    ["관리자", "모든 기록을 수정·삭제하고 이 설정 화면을 열 수 있어요"],
+    ["담당자", "기록을 보고 등록해요. 수정·삭제는 관리자 확인이 필요해요"],
+    ["가드너", "로그인하면 현장 기록 화면이 바로 열려요"],
+  ];
+  let _mgrs = null, _mgrsLoading = false;
+  function currentRole() { try { return localStorage.getItem(ROLE_KEY) || ""; } catch (e) { return ""; } }
+  const isAdminRole = () => currentRole() === "관리자";
+  function normalizeMgrs(arr) {
+    return (arr || []).map((m) => ({
+      name: String(m.name || "").trim(), id: String(m.id || "").trim(), pin: String(m.pin == null ? "" : m.pin).trim(),
+      role: ROLES.some((r) => r[0] === m.role) ? m.role : "담당자", updated: String(m.updated || "").slice(0, 10),
+    })).filter((m) => m.name || m.pin);
+  }
+  function stLoad(force) {
+    if ((_mgrs && !force) || _mgrsLoading) return;
+    _mgrsLoading = true;
+    loadManagers().then((list) => { _mgrs = normalizeMgrs(list); }).finally(() => { _mgrsLoading = false; if (currentView() === "settings") app.innerHTML = views.settings(); });
+  }
+  function stSave() {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url) { toast("시트 연결이 없어 저장할 수 없어요", true); return; }
+    fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ type: "managers", data: _mgrs }) })
+      .catch((e) => { console.warn("[GARDEN] 계정 저장 실패:", e); toast("저장 실패 — 다시 시도해 주세요", true); });
+  }
+  const stDay = (s) => { if (!s) return "—"; const [y, m, d] = s.split("-"); return `${y}. ${+m}. ${+d}.`; };
+  function settingsViewHTML() {
+    const head = `<div class="page-head"><div><p class="eyebrow">System · 설정</p><h2>관리자 설정</h2>
+      <p class="sub">아이디와 비밀번호를 정해 계정을 만들고 권한을 줘요. 관리자만 이 화면을 볼 수 있어요.</p></div></div>`;
+    if (!isAdminRole() && !_adminOK) {
+      return `<section class="view">${head}
+        <div class="dash-card st-lock"><h3>관리자만 볼 수 있어요</h3>
+          <p class="muted">관리자 계정으로 들어오거나, 관리자 비밀번호를 한 번 확인하면 열려요.</p>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.settingsUnlock()">관리자 확인</button></div></section>`;
+    }
+    if (!_mgrs) { stLoad(); return `<section class="view">${head}<div class="dash-card"><p class="muted">계정 목록을 불러오는 중…</p></div></section>`; }
+    const me = (() => { try { return localStorage.getItem(WHO_KEY) || ""; } catch (e) { return ""; } })();
+    const rows = _mgrs.map((m, i) => `<div class="st-row">
+        <div class="st-who"><b>${esc(m.name) || "(이름 없음)"}</b><span>${m.id ? esc(m.id) : "아이디 없음 · 비밀번호로만 로그인"}${m.name === me ? " · 나" : ""}</span></div>
+        <span class="st-role st-role--${m.role === "관리자" ? "admin" : m.role === "가드너" ? "crew" : "mgr"}">${esc(m.role)}</span>
+        <span class="st-date">${stDay(m.updated)}</span>
+        <div class="st-acts"><select class="st-rolesel" aria-label="${esc(m.name)} 역할" onchange="GARDEN.settingsRole(${i}, this.value)">${ROLES.map(([r]) => `<option ${r === m.role ? "selected" : ""}>${r}</option>`).join("")}</select>
+          <button class="btn btn--sm" onclick="GARDEN.settingsPw(${i})">비밀번호 변경</button>
+          <button class="btn btn--sm btn--danger" onclick="GARDEN.settingsDelete(${i})">삭제</button></div>
+      </div>`).join("");
+    return `<section class="view">${head}
+      <div class="st-roles">${ROLES.map(([r, d]) => `<div><b>${r}</b><span>${d}</span></div>`).join("")}</div>
+      <div class="st-list">
+        <div class="st-row st-row--h"><span>이름 · 아이디</span><span>역할</span><span>마지막 변경</span><span></span></div>
+        ${rows || `<div class="st-row"><span class="muted">등록된 계정이 없어요. 아래에서 추가해 주세요.</span></div>`}
+      </div>
+      <div class="dash-card st-add">
+        <div class="card-head"><h3>계정 추가</h3></div>
+        <div class="gform">
+          <div class="fld-row"><label class="fld"><span>이름 *</span><input id="st_name" placeholder="예: 김가든" autocomplete="off"/></label>
+            <label class="fld"><span>아이디 (로그인 아이디) *</span><input id="st_id" placeholder="예: garden01 또는 이메일" autocomplete="off"/></label></div>
+          <div class="fld-row"><label class="fld"><span>비밀번호 * (4자 이상)</span><input id="st_pw" type="password" autocomplete="new-password"/></label>
+            <label class="fld"><span>비밀번호 확인 *</span><input id="st_pw2" type="password" autocomplete="new-password"/></label></div>
+          <div class="st-radios" role="radiogroup" aria-label="역할">${ROLES.map(([r], j) => `<label><input type="radio" name="st_role" value="${r}" ${j === 1 ? "checked" : ""}/> ${r}</label>`).join("")}</div>
+        </div>
+        <div class="st-foot"><button class="btn btn--primary btn--sm" onclick="GARDEN.settingsAdd()">계정 만들기</button>
+          <button class="btn btn--sm" onclick="GARDEN.settingsReload()">↻ 다시 불러오기</button></div>
+        <p class="fld-note">저장하면 바로 로그인에 쓸 수 있어요. 비밀번호는 시트(managers 탭)에 저장돼요.</p>
+      </div>
+    </section>`;
+  }
+
   const views = {
     dashboard() {
       if (_booting && !getCrew().length) return dashSkeleton();
@@ -2874,6 +3413,8 @@
         </section>`;
     },
 
+    heat() { return heatViewHTML(); },
+    settings() { return settingsViewHTML(); },
     safety() {
       const manual = _safetyCache && _safetyCache.manual;
       const cfgFolder = (window.CONFIG && window.CONFIG.SAFETY_FOLDER_URL) || "";
@@ -3142,6 +3683,8 @@
     monthly: "OPERATION / MONTHLY REVIEW",
     report: "OPERATION / MONTHLY REPORT",
     swaps: "CREW / PLANT SWAPS",
+    heat: "CREW / SAFETY / FEELS-LIKE TEMP",
+    settings: "SYSTEM / SETTINGS",
     sales: "OPERATION / SALES",
   };
 
@@ -3312,7 +3855,7 @@
   // 세션 통합 관리자 인증 — 한 번 확인하면 새로고침 전까지 유지
   let _adminOK = false;
   function ensureAdmin() {
-    if (_adminOK) return true;
+    if (_adminOK || isAdminRole()) return true;
     const pw = String((window.CONFIG && (window.CONFIG.ADMIN_PASSWORD || window.CONFIG.RESET_PASSWORD)) || "").trim();
     if (!pw) { _adminOK = true; return true; }
     const input = window.prompt("관리자 확인 — 비밀번호를 입력하세요 (4자리)");
@@ -3362,7 +3905,7 @@
   /* ---------- crew filter + board editing ---------- */
   const GARDEN = {
     lock() {
-      try { localStorage.removeItem("garden-entry-ok"); localStorage.removeItem("garden-entry-who"); } catch (e) {}
+      try { localStorage.removeItem("garden-entry-ok"); localStorage.removeItem("garden-entry-who"); localStorage.removeItem(ROLE_KEY); } catch (e) {}
       location.reload();
     },
     filterCrew(q) {
@@ -3991,6 +4534,90 @@
     /* --- 교체 현황 --- */
     swapMonth(m) { _swMonth = m; reSwaps(); },
     swapFlowOpen() { swFlowOpen(); },
+    heatFlowOpen() { htFlowOpen(); },
+    settingsUnlock() { if (ensureAdmin()) { stLoad(true); app.innerHTML = views.settings(); } },
+    settingsReload() { _mgrs = null; stLoad(true); app.innerHTML = views.settings(); },
+    settingsAdd() {
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      const bad = (id, msg) => { const n = document.getElementById(id); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } toast(msg, true); };
+      const name = v("st_name"), id = v("st_id"), pw = v("st_pw"), pw2 = v("st_pw2");
+      const roleEl = document.querySelector('input[name="st_role"]:checked'), role = roleEl ? roleEl.value : "담당자";
+      if (!name) return bad("st_name", "이름을 넣어 주세요");
+      if (!id) return bad("st_id", "아이디를 넣어 주세요");
+      if (_mgrs.some((m) => m.id && m.id.toLowerCase() === id.toLowerCase())) return bad("st_id", "이미 있는 아이디예요");
+      if (pw.length < 4) return bad("st_pw", "비밀번호는 4자 이상이에요");
+      if (pw !== pw2) return bad("st_pw2", "비밀번호 확인이 달라요");
+      _mgrs.push({ name, id, pin: pw, role, updated: issueTodayStr() });
+      stSave(); app.innerHTML = views.settings(); toast(`${name} 계정을 만들었어요 ✓`);
+    },
+    settingsRole(i, role) {
+      const m = _mgrs && _mgrs[i]; if (!m) return;
+      if (m.role === "관리자" && role !== "관리자" && _mgrs.filter((x) => x.role === "관리자").length === 1 && !entryPw()) {
+        toast("관리자가 한 명은 있어야 해요", true); app.innerHTML = views.settings(); return;
+      }
+      m.role = role; m.updated = issueTodayStr(); stSave(); app.innerHTML = views.settings(); toast(`${m.name} → ${role}`);
+    },
+    settingsPw(i) {
+      const m = _mgrs && _mgrs[i]; if (!m) return;
+      const pw = window.prompt(`${m.name}의 새 비밀번호 (4자 이상)`);
+      if (pw === null) return;
+      if (pw.trim().length < 4) { toast("비밀번호는 4자 이상이에요", true); return; }
+      const pw2 = window.prompt("한 번 더 입력해 주세요");
+      if (pw2 === null) return;
+      if (pw2.trim() !== pw.trim()) { toast("두 비밀번호가 달라요", true); return; }
+      m.pin = pw.trim(); m.updated = issueTodayStr(); stSave(); app.innerHTML = views.settings(); toast("비밀번호를 바꿨어요 ✓");
+    },
+    settingsDelete(i) {
+      const m = _mgrs && _mgrs[i]; if (!m) return;
+      if (!window.confirm(`${m.name} 계정을 삭제할까요? 이 계정으로는 더 이상 들어올 수 없어요.`)) return;
+      _mgrs.splice(i, 1); stSave(); app.innerHTML = views.settings(); toast("삭제됨 ✓");
+    },
+    heatStep(d) {
+      if (d === 0) { _htY = _now.getFullYear(); _htM = _now.getMonth() + 1; }
+      else { _htM += d; if (_htM < 1) { _htM = 12; _htY--; } if (_htM > 12) { _htM = 1; _htY++; } }
+      reHeat();
+    },
+    heatEdit(i) { const old = document.getElementById("heatModal"); if (old) old.remove(); document.body.insertAdjacentHTML("beforeend", heatFormModal(i)); },
+    heatClose() { const m = document.getElementById("heatModal"); if (m) m.remove(); },
+    heatSave(i) {
+      const list = getHeat(), x = list[i]; if (!x) return;
+      const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+      if (!v("ht_date")) { toast("날짜를 넣어 주세요", true); return; }
+      if (v("ht_temp") === "") { toast("기온을 넣어 주세요", true); return; }
+      list[i] = normalizeHeat([{ ...x, date: v("ht_date"), time: v("ht_time"), place: v("ht_place"), zone: v("ht_zone"),
+        temp: v("ht_temp"), hum: v("ht_hum"), wind: v("ht_wind"), by: v("ht_by"), action: v("ht_action"), memo: v("ht_memo") }])[0];
+      saveHeat(); this.heatClose(); reHeat(); toast("체감온도 기록 저장됨 ✓");
+    },
+    heatDelete(i) {
+      const list = getHeat(); if (!list[i]) return;
+      if (!window.confirm("이 체감온도 기록을 삭제할까요?")) return;
+      _heatDeleted.push(list[i].id); list.splice(i, 1);
+      saveHeat(); this.heatClose(); reHeat(); toast("삭제됨 ✓");
+    },
+    async heatPdf() {
+      const r = htMonth(_htY, _htM), btn = document.getElementById("htPdfBtn");
+      const wrap = document.createElement("div");
+      wrap.className = "ht-print-host"; wrap.innerHTML = htPrintHTML(r);
+      document.body.appendChild(wrap);
+      if (btn) { btn.disabled = true; btn.textContent = "PDF 만드는 중…"; }
+      try {
+        await htLoadPdfLib();
+        htPdfColors(wrap.firstElementChild);
+        await window.html2pdf().set({
+          margin: [10, 10, 12, 10], filename: `체감온도기록_${r.y}-${_pad(r.m)}.pdf`,
+          image: { type: "jpeg", quality: 0.96 }, html2canvas: { scale: 2, backgroundColor: "#ffffff", useCORS: true, width: 760 },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }, pagebreak: { mode: ["css", "legacy"], avoid: ["tr", ".iss-stat", ".ht-cal__d"] },
+        }).from(wrap.firstElementChild).save();
+        toast("PDF를 내려받았어요 ✓");
+      } catch (e) {
+        console.warn("[GARDEN] PDF 생성 실패 — 인쇄로 대신:", e);
+        toast("PDF 파일을 만들지 못해 인쇄 화면을 열어요 (PDF로 저장 선택)", true);
+        document.body.classList.add("ht-printing"); window.print(); document.body.classList.remove("ht-printing");
+      } finally {
+        wrap.remove();
+        if (btn) { btn.disabled = false; btn.textContent = "PDF 다운로드"; }
+      }
+    },
     swapSelect(id) {
       _swSel = id; _swMode = "pair";
       document.querySelectorAll(".gg-card").forEach((c) => c.setAttribute("aria-selected", c.dataset.id === id ? "true" : "false"));
@@ -4022,8 +4649,7 @@
     swapZoom(src) {
       document.body.insertAdjacentHTML("beforeend", `<div class="gg-zoom" onclick="this.remove()"><img src="${esc(src)}" alt="" referrerpolicy="no-referrer"/></div>`);
     },
-    swapEdit(i, finish) {
-      if (!ensureAdmin()) return;
+    swapEdit(i, finish) { // 교체 현황은 누구나 수정 (삭제만 관리자 확인)
       this.swapDetailClose();
       document.body.insertAdjacentHTML("beforeend", swapFormModal(i, !!finish));
     },
@@ -4044,19 +4670,19 @@
       _swDraft[side].push(v); el.value = ""; el.style.borderColor = ""; this.swapPhotoRedraw(side);
     },
     async swapSave(i) {
-      if (i != null && !ensureAdmin()) return;
       const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
       const bad = (id) => { const n = document.getElementById(id); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } };
       const kindEl = document.querySelector('input[name="sw_kind"]:checked');
       const rec = {
         id: i == null ? swUid() : getSwaps()[i].id,
-        status: v("sw_status") || "완료", planDate: v("sw_plan"), date: v("sw_date"),
+        status: v("sw_status") || "완료", planDate: v("sw_plan"), date: v("sw_date"), beforeDate: v("sw_bdate"),
         location: v("sw_loc"), species: v("sw_sp"), kind: kindEl ? kindEl.value : "same", to: v("sw_to"),
         why: v("sw_why"), note: v("sw_note"), by: v("sw_by"), before: [], after: [],
       };
       if (rec.status === "예정") rec.date = "";
       if (rec.status === "완료" && !rec.date) return bad("sw_date");
       if (rec.status === "예정" && !rec.planDate) return bad("sw_plan");
+      if (rec.beforeDate && rec.date && rec.beforeDate > rec.date) { toast("교체 전 날짜가 교체 후 날짜보다 늦어요", true); return bad("sw_bdate"); }
       if (!rec.location) return bad("sw_loc");
       if (!rec.species) return bad("sw_sp");
       if (rec.kind === "swap" && !rec.to) return bad("sw_to");
@@ -4345,6 +4971,7 @@
           try { localStorage.removeItem(NOTICE_KEY); } catch (e) {}
           // 교체 현황도 시트가 항상 최신 소스
           _swaps = null;
+          _heat = null; // 체감온도: 시트 + 이 기기에서 방금 기록한 것(getHeat에서 합침)
           try { localStorage.removeItem(SW_KEY); } catch (e) {}
           // 월간리포트도 시트가 항상 최신 소스(여러 이력 누적)
           _monthly = null;
@@ -4432,7 +5059,7 @@
     render(currentView());
     loadRemote();
     loadSupaGroup1();
-    try { const who = localStorage.getItem(WHO_KEY); const el = document.getElementById("whoami"); if (who && el) el.textContent = who + "님"; } catch (e) {}
+    try { const who = localStorage.getItem(WHO_KEY); const el = document.getElementById("whoami"); if (who && el) el.textContent = who + "님" + (currentRole() ? ` · ${currentRole()}` : ""); } catch (e) {}
   }
   function showEntryGate() {
     const g = document.createElement("div");
@@ -4441,19 +5068,22 @@
     g.innerHTML = `
       <div class="gate__card" id="gate_card">
         <div class="gate__brand"><img class="gate__icon" src="favicon.svg" alt=""/><span>AGIT GARDEN</span></div>
-        <p class="gate__sub">담당자 비밀번호를 입력하세요</p>
-        <input class="gate__input" id="gate_pw" type="password" inputmode="numeric" placeholder="비밀번호" autocomplete="off"/>
+        <p class="gate__sub">아이디와 비밀번호를 입력하세요</p>
+        <input class="gate__input" id="gate_id" type="text" placeholder="아이디 (없으면 비워 두세요)" autocomplete="username" autocapitalize="off"/>
+        <input class="gate__input" id="gate_pw" type="password" placeholder="비밀번호" autocomplete="current-password"/>
         <button class="btn btn--primary gate__btn" id="gate_btn">입장</button>
         <p class="gate__err" id="gate_err"></p>
       </div>`;
     document.body.appendChild(g);
     const input = document.getElementById("gate_pw");
+    const idInput = document.getElementById("gate_id");
     const err = document.getElementById("gate_err");
     const card = document.getElementById("gate_card");
     const mgrP = loadManagers();
-    const enter = (who) => {
-      try { localStorage.setItem(ENTRY_KEY, "1"); if (who) localStorage.setItem(WHO_KEY, who); } catch (e) {}
+    const enter = (who, role) => {
+      try { localStorage.setItem(ENTRY_KEY, "1"); if (who) localStorage.setItem(WHO_KEY, who); localStorage.setItem(ROLE_KEY, role || "담당자"); } catch (e) {}
       g.remove();
+      if (role === "가드너" && (!location.hash || location.hash === "#dashboard")) location.hash = "#heat"; // 가드너는 현장 기록 화면부터
       bootApp();
     };
     const fail = () => {
@@ -4462,19 +5092,22 @@
       card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake");
     };
     const submit = () => {
-      const pin = (input.value || "").trim();
+      const pin = (input.value || "").trim(), id = (idInput.value || "").trim().toLowerCase();
       if (!pin) return;
       const master = entryPw();
-      if (master && pin === master) { enter("관리자"); return; }
+      if (master && pin === master && !id) { enter("관리자", "관리자"); return; }
       err.textContent = "확인 중…";
       mgrP.then((mgrs) => {
-        const mgr = (mgrs || []).find((m) => String(m.pin).trim() === pin);
-        if (mgr) enter(mgr.name); else fail();
+        const list = normalizeMgrs(mgrs);
+        // 아이디를 넣으면 아이디+비밀번호, 비우면 비밀번호만(아이디 없는 예전 계정)
+        const mgr = id ? list.find((m) => m.id.toLowerCase() === id && m.pin === pin) : list.find((m) => m.pin === pin);
+        if (mgr) enter(mgr.name, mgr.role); else fail();
       });
     };
     document.getElementById("gate_btn").addEventListener("click", submit);
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
-    input.focus();
+    idInput.addEventListener("keydown", (e) => { if (e.key === "Enter") input.focus(); });
+    idInput.focus();
   }
 
   /* ---------- boot ---------- */

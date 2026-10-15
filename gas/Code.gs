@@ -197,6 +197,14 @@ function doGet(e) {
   out.plantSwaps = rows_(ss, 'plantSwaps').map(function (r) {
     r.date = dateStr_(r.date);
     r.planDate = dateStr_(r.planDate);
+    r.beforeDate = dateStr_(r.beforeDate);
+    return r;
+  });
+
+  // 체감온도기록 — 크루가 직접 넣는 온도·습도 측정
+  out.heatLogs = rows_(ss, 'heatLogs').map(function (r) {
+    r.date = dateStr_(r.date);
+    if (r.time instanceof Date) r.time = Utilities.formatDate(r.time, Session.getScriptTimeZone(), 'HH:mm');
     return r;
   });
 
@@ -264,6 +272,10 @@ function doPost(e) {
     if (body.type === 'plantSwaps' && body.data) {
       savePlantSwaps_(body.data);
       return json_({ ok: true, saved: 'plantSwaps' });
+    }
+    if (body.type === 'heatLogs' && body.data) {
+      saveHeatLogs_(body.data, body.deleted || []);
+      return json_({ ok: true, saved: 'heatLogs' });
     }
     if (body.type === 'uploadSwapPhoto' && body.data) {
       return json_(uploadSwapPhoto_(body.name, body.data));
@@ -430,13 +442,53 @@ function savePlantSwaps_(arr) {
     var sh = ss.getSheetByName('plantSwaps') || ss.insertSheet('plantSwaps');
     sh.clear();
     var head = ['id', 'status', 'date', 'planDate', 'location', 'species', 'kind', 'to',
-      'why', 'note', 'by', 'before', 'after'];
+      'why', 'note', 'by', 'before', 'after', 'beforeDate'];
     var rows = [head];
     (arr || []).forEach(function (x) {
       rows.push([x.id || '', x.status || '', x.date || '', x.planDate || '', x.location || '',
         x.species || '', x.kind || '', x.to || '', x.why || '', x.note || '', x.by || '',
-        x.before || '', x.after || '']);
+        x.before || '', x.after || '', x.beforeDate || '']);
     });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 체감온도기록 쓰기 — 여러 크루가 동시에 넣어도 사라지지 않게 id 기준으로 합친다
+ * (보낸 기록은 추가·수정, deleted 에 든 id 만 지움)
+ */
+function saveHeatLogs_(arr, deleted) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sh = ss.getSheetByName('heatLogs') || ss.insertSheet('heatLogs');
+    var head = ['id', 'date', 'time', 'place', 'zone', 'temp', 'hum', 'wind', 'feel', 'by', 'action', 'memo', 'created'];
+    var byId = {}, order = [];
+    rows_(ss, 'heatLogs').forEach(function (r) {
+      var id = String(r.id || ''); if (!id) return;
+      r.date = dateStr_(r.date);
+      if (r.time instanceof Date) r.time = Utilities.formatDate(r.time, Session.getScriptTimeZone(), 'HH:mm');
+      byId[id] = r; order.push(id);
+    });
+    (arr || []).forEach(function (x) {
+      var id = String(x.id || ''); if (!id) return;
+      if (!byId[id]) order.push(id);
+      byId[id] = x;
+    });
+    var gone = {}; (deleted || []).forEach(function (id) { gone[String(id)] = true; });
+    var rows = [head];
+    order.forEach(function (id) {
+      if (gone[id]) return;
+      var x = byId[id];
+      rows.push(head.map(function (h) { return x[h] == null ? '' : String(x[h]); }));
+    });
+    sh.clear();
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, head.length).setValues(rows);
     sh.setFrozenRows(1);
@@ -500,10 +552,11 @@ function testSwapStorage() {
   return r;
 }
 
-/** 담당자 읽기 — managers 탭(name, pin) → [{name, pin}] (pin 문자열 유지) */
+/** 계정 읽기 — managers 탭(name, id, pin, role, updated) (pin 문자열 유지 · 예전 name/pin 만 있는 행도 그대로) */
 function readManagers_(ss) {
   return rows_(ss, 'managers').map(function (r) {
-    return { name: String(r.name == null ? '' : r.name), pin: String(r.pin == null ? '' : r.pin) };
+    return { name: String(r.name == null ? '' : r.name), id: String(r.id == null ? '' : r.id),
+      pin: String(r.pin == null ? '' : r.pin), role: String(r.role == null ? '' : r.role), updated: dateStr_(r.updated) };
   }).filter(function (m) { return m.name || m.pin; });
 }
 
@@ -515,13 +568,15 @@ function saveManagers_(arr) {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sh = ss.getSheetByName('managers') || ss.insertSheet('managers');
     sh.clear();
-    var head = ['name', 'pin'];
+    var head = ['name', 'id', 'pin', 'role', 'updated'];
     var rows = [head];
-    (arr || []).forEach(function (m) { rows.push([m.name || '', m.pin == null ? '' : String(m.pin)]); });
-    sh.getRange(1, 1, sh.getMaxRows(), 2).setNumberFormat('@');
-    sh.getRange(1, 1, rows.length, 2).setValues(rows);
+    (arr || []).forEach(function (m) {
+      rows.push([m.name || '', m.id || '', m.pin == null ? '' : String(m.pin), m.role || '', m.updated || '']);
+    });
+    sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
+    sh.getRange(1, 1, rows.length, head.length).setValues(rows);
     sh.setFrozenRows(1);
-    sh.getRange(1, 1, 1, 2).setFontWeight('bold');
+    sh.getRange(1, 1, 1, head.length).setFontWeight('bold');
   } finally {
     lock.releaseLock();
   }

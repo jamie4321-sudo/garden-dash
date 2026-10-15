@@ -1819,7 +1819,7 @@
   function rpCount(list, key, val, fixed) {
     const m = {};
     list.forEach((x) => { const k = x[key] || "기타"; m[k] = (m[k] || 0) + (val ? val(x) : 1); });
-    const keys = fixed ? fixed.filter((k) => m[k]).concat(Object.keys(m).filter((k) => fixed.indexOf(k) < 0)) : Object.keys(m);
+    const keys = fixed ? fixed.filter((k) => k in m).concat(Object.keys(m).filter((k) => fixed.indexOf(k) < 0)) : Object.keys(m);
     const out = keys.map((k) => ({ k, n: m[k] }));
     return fixed ? out : out.sort((a, b) => b.n - a.n);
   }
@@ -1895,7 +1895,7 @@
     if (r.stl.length) {
       const topC = r.costCat.slice().sort((a, b) => b.n - a.n)[0];
       const dC = r.cost - r.costPrev;
-      L.push(`운영 비용 총 ${won(r.cost)} · ${r.stl.length}건 (전월 ${won(r.costPrev)} 대비 ${dC === 0 ? "동일" : (dC > 0 ? "+" : "-") + won(Math.abs(dC))}) — 최대 항목 ${topC.k} ${won(topC.n)}(${Math.round((topC.n / (r.cost || 1)) * 100)}%).`);
+      L.push(`운영 비용 총 ${won(r.cost)} · ${r.stl.length}건 (전월 ${won(r.costPrev)} 대비 ${dC === 0 ? "동일" : (dC > 0 ? "+" : "-") + won(Math.abs(dC))})${topC && topC.n > 0 ? ` — 최대 항목 ${topC.k} ${won(topC.n)}(${Math.round((topC.n / (r.cost || 1)) * 100)}%)` : ""}.`);
       L.push(r.unpaid ? `미정산(예정·청구) ${won(r.unpaid)} 남아 있음.` : `이번 달 비용은 모두 정산 완료.`);
     } else {
       L.push(`이번 달 등록된 정산(비용) 내역 없음.`);
@@ -2055,11 +2055,26 @@
     return out.join("\n");
   }
 
-  /* ===== 교체 현황 — 식물 교체 기록 (교체 전 → 교체 후 사진 · 월별 · 위치별) ===== */
+  /* ===== 교체 현황 — 게임즈 가든 '교체 현황'과 같은 구성 (월별 카드 + 우측 상세 패널 · 단계형 교체 기록) ===== */
   const SW_KEY = "garden-plant-swaps";
-  const SW_WHY = ["고사", "수세 약화", "낙엽 과다", "관상가치 저하", "병해충", "광량 부족", "공간 변경", "기타"];
+  const SW_PLANT_KEY = "garden-swap-plants"; // 기록하기에서 새로 추가한 식물 [[이름, 사진]] (이 기기)
+  const SW_ZONE_KEY = "garden-swap-zones";   // 기록하기에서 새로 추가한 자리 {구역: [자리]} (이 기기)
   const SW_MAX = 5; // 교체 전·후 각 최대 사진 수
-  let _swaps = null, _swMonth = "all", _swDraft = null, _swOpen = -1;
+  // 가드너는 쉬운 말로 고르고, 화면에는 정리된 사유로 보인다 — [키, 사유(저장·표시), 판단 기준, 아이콘]
+  const SW_WHY = [
+    ["dead", "고사", "회복 불가 · 줄기 마름", "M12 3c3 4 5 7 5 10a5 5 0 0 1-10 0c0-3 2-6 5-10zM9 14l6-2"],
+    ["vigor", "수세 약화", "생장 둔화 · 신초 없음", "M4 20h16M7 20V10M12 20V6M17 20v-7"],
+    ["defol", "낙엽 과다", "잎떨굼 · 수관 성김", "M7 4c4 0 7 3 7 7-4 0-7-3-7-7zM14 14c3 0 5 2 5 5-3 0-5-2-5-5zM6 20l2-2"],
+    ["chlor", "황화 · 엽소", "잎 변색 · 잎끝 마름", "M5 19c0-8 5-14 14-14 0 9-6 14-14 14zM5 19 13 11"],
+    ["root", "과습 · 근부", "뿌리 썩음 · 토양 과습", "M12 3v8M12 11c-3 2-5 5-5 9M12 11c3 2 5 5 5 9M12 11v9"],
+    ["pest", "병충해", "깍지벌레 · 응애 · 반점병", "M8 9h8v7a4 4 0 0 1-8 0zM12 9V6M9 4l2 2M15 4l-2 2M4 12h4M16 12h4M4 17h4M16 17h4"],
+    ["light", "광량 부족", "저조도 · 도장(웃자람)", "M12 3a7 7 0 1 0 9 9 6 6 0 0 1-9-9z"],
+    ["form", "관상가치 저하", "수형 불량 · 미관 훼손", "M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"],
+    ["etc", "기타", "현장 확인 필요", ""],
+  ];
+  const SW_WHY_L = SW_WHY.map((w) => w[1]);
+  const SW_PLANT_IDEAS = ["고무나무", "여인초", "스투키", "스킨답서스", "극락조", "올리브나무", "아글라오네마", "행운목", "필로덴드론", "드라세나", "몬스테라", "홍콩야자"];
+  let _swaps = null, _swMonth = "all", _swDraft = null, _swSel = null, _swMode = "pair", _swF = null;
 
   function swUid() { return "s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   const swList = (v) => (Array.isArray(v) ? v : String(v || "").split(/\s*\n\s*|\s*,\s*(?=https?:)/)).map((s) => String(s).trim()).filter(Boolean);
@@ -2090,89 +2105,341 @@
         .catch((e) => console.warn("[GARDEN] 교체 현황 저장 실패:", e));
     }, 700);
   }
-  function reSwaps() { app.innerHTML = currentView() === "report" ? views.report() : views.swaps(); }
+  function reSwaps() {
+    if (currentView() !== "swaps") return;
+    app.innerHTML = views.swaps();
+    swAfter();
+  }
+  const swNarrow = () => window.matchMedia("(max-width: 1440px)").matches;
+  function swAfter() { requestAnimationFrame(swMovePill); }
+  function swMovePill() {
+    const el = document.getElementById("ggSeg"); if (!el) return;
+    const b = el.querySelector('button[aria-pressed="true"]'), p = el.querySelector(".gg-pill");
+    if (!b || !p || !b.offsetWidth) return;
+    p.style.width = b.offsetWidth + "px"; p.style.transform = `translateX(${b.offsetLeft}px)`;
+  }
+  window.addEventListener("resize", swMovePill);
 
-  // 드라이브 공유 링크 → 이미지로 바로 뜨는 썸네일 주소
+  // 드라이브 공유 링크 → 이미지로 바로 뜨는 썸네일 주소 (Supabase 주소는 그대로)
   function swImg(u) {
     const s = String(u || "");
     const m = s.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]{20,})/);
     return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1200` : s;
   }
-  const swTitle = (x) => x.kind === "swap" ? `${x.species || "미확인"} → ${x.to || "미정"}` : (x.species || x.to || "식물 미확인");
+  const swUnk = (s) => !s || s === "모르겠어요";
+  const swTitle = (x) => x.kind === "swap" ? `${swUnk(x.species) ? "미확인" : x.species} → ${x.to || "미정"}` : (swUnk(x.species) ? (x.to || "식물 미확인") : x.species);
   const swDay = (d) => { const m = String(d || "").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${+m[2]}월 ${+m[3]}일` : ""; };
   const swMonthOf = (x) => String(x.date || x.planDate || "").slice(0, 7);
   const swMonthLong = (m) => m ? `${m.slice(0, 4)}년 ${+m.slice(5)}월` : "날짜 미정";
-  function swSince(x) {
+  const swMShort = (m) => m ? `${m.slice(2, 4)}년 ${+m.slice(5)}월` : "";
+  function swStage(x) {
     const d = x.status === "완료" ? rpDays(x.date, issueTodayStr()) : null;
     if (d == null) return "";
     return d < 28 ? "활착 중" : d < 56 ? "안정화" : "정상 관리";
   }
+  function swAreaOf(loc) {
+    const g = activeZones().find((a) => a.zones.indexOf(loc) >= 0);
+    if (g) return g.area;
+    const add = swZoneAdds();
+    return Object.keys(add).find((a) => add[a].indexOf(loc) >= 0) || "";
+  }
+  const swStore = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
+  const swStoreSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  const swZoneAdds = () => swStore(SW_ZONE_KEY, {});
+  // 기록하기 화면의 구역 → 자리 (식물 상태 점검 구역 + 이 기기에서 추가한 자리)
+  function swAreas() {
+    const map = new Map();
+    activeZones().forEach((g) => map.set(g.area, g.zones.slice()));
+    const add = swZoneAdds();
+    Object.keys(add).forEach((a) => { if (!map.has(a)) map.set(a, []); add[a].forEach((z) => { if (map.get(a).indexOf(z) < 0) map.get(a).push(z); }); });
+    return map;
+  }
+  // 고를 수 있는 식물: 교체 기록(교체 후 사진 우선) · 식물 이슈 · 이 기기에서 추가한 식물
+  function swPlants() {
+    const m = new Map();
+    getSwaps().forEach((x) => { if (x.to && !swUnk(x.to) && !m.get(x.to)) m.set(x.to, x.after[0] ? swImg(x.after[0]) : null); });
+    getSwaps().forEach((x) => { if (x.species && !swUnk(x.species) && !m.get(x.species)) m.set(x.species, x.before[0] ? swImg(x.before[0]) : (m.get(x.species) || null)); });
+    getIssues().forEach((x) => { if (x.species && !m.has(x.species)) m.set(x.species, null); });
+    swStore(SW_PLANT_KEY, []).forEach(([n, src]) => { if (n && !m.get(n)) m.set(n, src || null); });
+    return m;
+  }
 
   const SW_LEAF = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c0-8 5-14 14-14 0 9-6 14-14 14z"/><path d="M5 19 13 11"/></svg>`;
-  const SW_SEAM = `<span class="sw-seam"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>`;
-  // 1장 통째 · 2장 위아래 · 3장 큰1+작은2 · 4장 2×2 · 5장 큰1+작은3(+n)
-  function swHalf(list, side, label) {
-    const n = list.length;
-    if (!n) return `<div class="sw-half sw-half--${side}"><div class="sw-empty">${SW_LEAF}<span>사진 없음</span></div><span class="sw-lab">${label}</span></div>`;
-    if (n === 1) return `<div class="sw-half sw-half--${side}"><img src="${esc(swImg(list[0]))}" alt="${label}" loading="lazy" referrerpolicy="no-referrer"/><span class="sw-lab">${label}</span></div>`;
-    const show = list.slice(0, n >= 5 ? 4 : n);
-    return `<div class="sw-half sw-half--${side} sw-cg sw-cg${Math.min(n, 5)}">${show.map((s, j) =>
-      `<i><img src="${esc(swImg(s))}" alt="${label} ${j + 1}" loading="lazy" referrerpolicy="no-referrer"/>${n >= 5 && j === 3 ? `<b>+${n - 4}</b>` : ""}</i>`).join("")}<span class="sw-lab">${label} ${n}</span></div>`;
+  const SW_SEAM = `<span class="gg-seam"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>`;
+  const swEsc = (u) => esc(swImg(u));
+  function swHalfOne(src, side, label) {
+    return `<div class="gg-half ${side}">${src ? `<img src="${swEsc(src)}" alt="${label}" loading="lazy" referrerpolicy="no-referrer"/>` : `<div class="gg-empty">${SW_LEAF}<span>사진 준비 중</span></div>`}<span class="gg-lab">${label}</span></div>`;
   }
-  const swPair = (x) => `<div class="sw-pair">${swHalf(x.before, "b", "교체 전")}${swHalf(x.after, "a", x.kind === "swap" && x.to ? `교체 후 · ${esc(x.to)}` : "교체 후")}${SW_SEAM}</div>`;
+  // 1장 통째 · 2장 위아래 · 3장 큰1+작은2 · 4장 2×2 · 5장 큰1+작은3(마지막 칸에 +1)
+  function swCollage(list, side, label) {
+    const n = list.length;
+    if (n <= 1) return swHalfOne(list[0], side, label);
+    const show = list.slice(0, n >= 5 ? 4 : n);
+    return `<div class="gg-half ${side} gg-cg gg-cg${Math.min(n, 5)}">${show.map((s, j) =>
+      `<i><img src="${swEsc(s)}" alt="${label} ${j + 1}" loading="lazy" referrerpolicy="no-referrer"/>${n >= 5 && j === 3 ? `<b class="gg-more">+${n - 4}</b>` : ""}</i>`).join("")}<span class="gg-lab">${label} ${n}</span></div>`;
+  }
+  const swPair = (x) => swCollage(x.before, "before", "교체 전") + swCollage(x.after, "after", `교체 후${x.kind === "swap" && x.to ? " · " + esc(x.to) : ""}`) + SW_SEAM;
 
-  function swCard(x, i) {
-    const wait = x.status === "예정";
-    return `<button type="button" class="sw-card" onclick="GARDEN.swapOpen(${i})">
-      ${swPair(x)}
-      <div class="sw-card__b">
-        <div class="sw-card__t"><b>${esc(swTitle(x))}</b><span class="sw-kind ${x.kind === "swap" ? "sw-kind--swap" : ""}">${x.kind === "swap" ? "수종 변경" : "같은 수종"}</span></div>
-        <div class="sw-card__f"><span>${esc(x.location) || "위치 미정"}</span>${wait
-          ? `<span class="sw-wait">교체 예정${x.planDate ? " · " + swDay(x.planDate) : ""}</span>`
-          : `<span class="mono">${swDay(x.date) || "—"}</span>`}</div>
+  function swCard(x, n) {
+    return `<button type="button" class="gg-card" data-id="${esc(x.id)}" aria-selected="${_swSel === x.id}" style="--i:${n}" onclick="GARDEN.swapSelect('${esc(x.id)}')">
+      <div class="gg-ph">${swPair(x)}</div>
+      <div class="gg-card__b">
+        <div class="gg-card__t"><b>${esc(swTitle(x))}</b><span class="gg-kind ${x.kind === "swap" ? "gg-kind--swap" : ""}">${x.kind === "swap" ? "수종 변경" : "같은 수종"}</span></div>
+        <div class="gg-card__f"><span>${esc(x.location) || "위치 미정"}</span>${x.status === "예정"
+          ? `<span class="gg-badge">교체 예정${x.planDate ? " · " + swDay(x.planDate) : ""}</span>`
+          : `<span class="gg-when">${swDay(x.date) || "—"}</span>`}</div>
       </div>
     </button>`;
   }
 
-  function swapDetailModal(i) {
-    const x = getSwaps()[i];
-    if (!x) return "";
-    const stage = swSince(x);
-    const strip = (list, side) => list.length > 1 ? `<div class="sw-strip">${list.map((s, j) =>
-      `<button type="button" class="${j ? "" : "is-on"}" onclick="GARDEN.swapShot(this,'${side}',${j})"><img src="${esc(swImg(s))}" alt="" referrerpolicy="no-referrer"/></button>`).join("")}</div>` : "<div></div>";
+  function swSelected() {
+    const all = getSwaps();
+    return all.find((x) => x.id === _swSel) || null;
+  }
+  function swDetailHTML() {
+    const x = swSelected();
+    if (!x) return `<div class="gg-detail__in gg-detail__none">${SW_LEAF}<p>카드를 누르면<br/>교체 전·후를 크게 볼 수 있어요.</p></div>`;
+    const i = getSwaps().indexOf(x);
+    const bL = x.before, aL = x.after, hasCmp = bL.length && aL.length;
     const big = (list, side, label) => list.length
-      ? `<div class="sw-half sw-half--${side}" data-side="${side}"><img src="${esc(swImg(list[0]))}" alt="${label}" referrerpolicy="no-referrer" onclick="window.open(this.src,'_blank')"/><span class="sw-lab">${label}${list.length > 1 ? ` 1/${list.length}` : ""}</span></div>`
-      : `<div class="sw-half sw-half--${side}"><div class="sw-empty">${SW_LEAF}<span>사진 없음</span></div><span class="sw-lab">${label}</span></div>`;
-    const row = (l, v) => `<div class="issd-row"><span class="issd-lbl">${l}</span><span class="issd-val">${v}</span></div>`;
-    return `<div class="gmodal" id="swapDetailModal">
-      <div class="gmodal__bd" onclick="GARDEN.swapDetailClose()"></div>
-      <div class="gmodal__card gmodal__card--wide sw-detail">
-        <div class="gmodal__head"><div><h3>${esc(swTitle(x))}</h3>
-          <p class="sw-detail__sub">${esc(swMonthLong(swMonthOf(x)))} · ${esc(x.location) || "위치 미정"}</p></div>
-          <button class="gmodal__x" onclick="GARDEN.swapDetailClose()">×</button></div>
-        <div class="sw-pair sw-pair--big" id="swBig">${big(x.before, "b", "교체 전")}${big(x.after, "a", "교체 후")}${SW_SEAM}</div>
-        ${x.before.length > 1 || x.after.length > 1 ? `<div class="sw-strips">${strip(x.before, "b")}${strip(x.after, "a")}</div>` : ""}
-        <ol class="sw-steps">
-          <li><small>계획</small><b>${swDay(x.planDate) || "—"}</b></li>
-          <li class="${x.status === "완료" ? "is-done" : ""}"><small>교체 완료</small><b>${x.status === "완료" ? swDay(x.date) || "완료" : "예정"}</b></li>
-          <li class="is-now"><small>현재</small><b>${x.status === "완료" ? stage || "관리 중" : "교체 대기"}</b></li>
-        </ol>
-        <div class="issd-grid">
-          ${row("위치", esc(x.location) || "—")}
-          ${row("구분", x.kind === "swap" ? `수종 변경 (${esc(x.species) || "미확인"} → ${esc(x.to) || "미정"})` : "같은 수종으로 교체")}
-          ${row("사유", esc(x.why) || "—")}
-          ${row("기록자", esc(x.by) || "—")}
-        </div>
-        ${x.note ? `<div class="issd-block"><span class="issd-lbl">설명</span><p>${esc(x.note)}</p></div>` : ""}
-        <div class="gmodal__foot">
-          <button class="btn btn--sm btn--danger" onclick="GARDEN.swapDelete(${i})">삭제</button>
-          <span class="gmodal__spacer"></span>
-          ${x.status === "예정" ? `<button class="btn btn--sm" onclick="GARDEN.swapEdit(${i}, true)">교체 완료 기록</button>` : ""}
-          <button class="btn btn--primary btn--sm" onclick="GARDEN.swapEdit(${i})">수정</button>
-        </div>
-      </div></div>`;
+      ? `<div class="gg-half ${side}" data-side="${side}"><img src="${swEsc(list[0])}" alt="${label}" referrerpolicy="no-referrer" onclick="GARDEN.swapZoom(this.src)"/><span class="gg-lab">${label}${list.length > 1 ? ` 1/${list.length}` : ""}</span></div>`
+      : swHalfOne(null, side, label);
+    const strip = (list, side) => list.length > 1 ? `<div class="gg-strip">${list.map((s, j) =>
+      `<button type="button" class="${j ? "" : "on"}" onclick="GARDEN.swapShot('${side}',${j},this)" aria-label="${side === "before" ? "교체 전" : "교체 후"} ${j + 1}번째 사진"><img src="${swEsc(s)}" alt="" referrerpolicy="no-referrer"/></button>`).join("")}</div>` : "<div></div>";
+    const pair = `<div class="gg-pair gg-bigpair" id="ggBig">${big(bL, "before", "교체 전")}${big(aL, "after", "교체 후")}${SW_SEAM}</div>
+      ${bL.length > 1 || aL.length > 1 ? `<div class="gg-strips">${strip(bL, "before")}${strip(aL, "after")}</div>` : ""}`;
+    const media = !hasCmp ? pair : `
+      <div class="gg-mode" role="group" aria-label="보기 방식">
+        <button type="button" aria-pressed="${_swMode === "pair"}" onclick="GARDEN.swapMode('pair')">나란히 보기</button>
+        <button type="button" aria-pressed="${_swMode === "slide"}" onclick="GARDEN.swapMode('slide')">밀어서 비교</button></div>
+      <div id="ggPairWrap" ${_swMode === "pair" ? "" : "hidden"}>${pair}</div>
+      <div id="ggSlideWrap" ${_swMode === "slide" ? "" : "hidden"}>
+        <div class="gg-compare" id="ggCmp">
+          <img src="${swEsc(aL[0])}" alt="교체 후" referrerpolicy="no-referrer"/><img class="b-img" src="${swEsc(bL[0])}" alt="교체 전" referrerpolicy="no-referrer"/>
+          <span class="gg-clab l">교체 전</span><span class="gg-clab r">교체 후</span>
+          <input type="range" min="0" max="100" value="50" aria-label="교체 전후 비교" oninput="document.getElementById('ggCmp').style.setProperty('--pos', this.value + '%')"/>
+          <span class="gg-handle"><span class="gg-knob"><svg viewBox="0 0 24 24"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg></span></span>
+        </div></div>`;
+    const stage = swStage(x);
+    return `<div class="gg-detail__in">
+      <div class="gg-dtop"><div><h3>${esc(swTitle(x))}</h3><p>${esc(swMonthLong(swMonthOf(x)))} · ${esc(x.location) || "위치 미정"}</p></div>
+        <button class="gg-dclose" type="button" aria-label="닫기" onclick="GARDEN.swapDetailClose()">×</button></div>
+      ${media}
+      <ol class="gg-steps">
+        <li><small>계획 공유</small><b>${swDay(x.planDate) || "—"}</b></li>
+        <li><small>교체 완료</small><b>${x.status === "완료" ? swDay(x.date) || "완료" : "예정"}</b></li>
+        <li class="now"><small>현재</small><b>${x.status === "완료" ? stage || "관리 중" : "교체 대기"}</b></li>
+      </ol>
+      <dl class="gg-kv">
+        <dt>위치</dt><dd>${esc(x.location) || "—"}</dd>
+        <dt>구분</dt><dd>${x.kind === "swap" ? `수종 변경 (${esc(swUnk(x.species) ? "미확인" : x.species)} → ${esc(x.to)})` : "같은 수종으로 교체"}</dd>
+        ${x.why ? `<dt>사유</dt><dd>${esc(x.why)}</dd>` : ""}
+        ${x.by ? `<dt>기록자</dt><dd>${esc(x.by)}</dd>` : ""}
+      </dl>
+      ${x.note ? `<div class="gg-note">${esc(x.note)}</div>` : ""}
+      <div class="gg-acts">
+        ${x.status === "예정" ? `<button type="button" class="gg-approve" onclick="GARDEN.swapEdit(${i}, true)">교체 완료 기록하기</button>` : ""}
+        <button type="button" class="gg-edit" onclick="GARDEN.swapEdit(${i})">관리자 수정하기</button>
+        <button type="button" class="gg-del" onclick="GARDEN.swapDelete(${i})">기록 삭제</button>
+      </div>
+    </div>`;
   }
 
+  function swSummary(all) {
+    const done = all.filter((x) => x.status === "완료").sort((a, b) => (a.date < b.date ? -1 : 1));
+    const swapN = done.filter((x) => x.kind === "swap").length;
+    const locs = [...new Set(done.map((x) => x.location).filter(Boolean))];
+    const areas = [...new Set(locs.map(swAreaOf).filter(Boolean))];
+    const first = done[0], last = done[done.length - 1];
+    return `<dl class="gg-summary">
+      <div><dt>누적 교체</dt><dd>${done.length}<small>건</small></dd><span class="sub">${first ? `${swMShort(swMonthOf(first))} – ${swMShort(swMonthOf(last))}` : "아직 기록 없음"}</span></div>
+      <div><dt>수종 변경</dt><dd>${swapN}<small>건</small></dd><span class="sub">같은 수종 ${done.length - swapN}건</span></div>
+      <div><dt>교체한 자리</dt><dd>${locs.length}<small>곳</small></dd><span class="sub">${areas.length ? esc(areas.join(" · ")) : "아지트"}</span></div>
+      <div><dt>최근 교체</dt><dd>${last ? swDay(last.date) : "—"}</dd><span class="sub">${last ? esc(last.kind === "swap" ? last.to : (swUnk(last.species) ? last.to : last.species)) : ""}</span></div>
+    </dl>`;
+  }
+  function swBoardHTML(all) {
+    const months = [...new Set(all.map(swMonthOf).filter(Boolean))].sort();
+    if (_swMonth !== "all" && months.indexOf(_swMonth) < 0) _swMonth = "all";
+    let lastY = "";
+    const seg = `<div class="gg-seg" id="ggSeg" role="group" aria-label="월 선택"><span class="gg-pill"></span>
+      <button type="button" aria-pressed="${_swMonth === "all"}" onclick="GARDEN.swapMonth('all')">전체</button>
+      ${months.map((m) => {
+        const y = m.slice(0, 4), yl = y !== lastY ? `<span class="yr">${y}</span>` : "";
+        lastY = y;
+        return `${yl}<button type="button" aria-pressed="${_swMonth === m}" onclick="GARDEN.swapMonth('${m}')">${+m.slice(5)}월</button>`;
+      }).join("")}</div>`;
+    const list = all.filter((x) => _swMonth === "all" || swMonthOf(x) === _swMonth);
+    if (!list.length) return seg + `<div class="gg-none">${SW_LEAF}<p>아직 교체 기록이 없어요.</p><span>‘교체 기록하기’로 교체 전·후 사진을 남겨 보세요.</span></div>`;
+    const by = {};
+    list.forEach((x) => { const m = swMonthOf(x); (by[m] = by[m] || []).push(x); });
+    let n = 0;
+    return seg + `<div class="gg-months">${Object.keys(by).sort((a, b) => (a < b ? 1 : -1)).map((m) => {
+      const arr = by[m].sort((a, b) => ((a.date || a.planDate) < (b.date || b.planDate) ? 1 : -1));
+      return `<section class="gg-month"><div class="gg-month__h"><h2>${esc(swMonthLong(m))}</h2><span>${arr.length}건</span></div>
+        <div class="gg-grid">${arr.map((x) => swCard(x, n++)).join("")}</div></section>`;
+    }).join("")}</div>`;
+  }
+
+  /* ── 교체 기록하기: 전체화면 단계형 (한 화면 한 질문 · 큰 버튼 · 사진 중심) ── */
+  const SW_STEPS = ["area", "zone", "plant", "same", "why", "before", "after", "check"];
+  const SW_IC = {
+    back: '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>', x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    cam: '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>', ok: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
+    diff: '<svg viewBox="0 0 24 24"><path d="M4 7h13l-3-3M20 17H7l3 3"/></svg>', plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+    album: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>',
+  };
+  // 카메라로 찍기 / 앨범에서 고르기 (capture 가 붙은 쪽만 카메라를 바로 연다)
+  const swPickBtns = (cls, label, multi = true) => `<div class="gg-pick2">
+    <label class="gg-pickbtn">${SW_IC.cam}<span>카메라로 찍기</span><input type="file" accept="image/*" capture="environment" ${multi ? "multiple" : ""} class="${cls}" aria-label="${label} 카메라로 찍기"/></label>
+    <label class="gg-pickbtn">${SW_IC.album}<span>앨범에서 고르기</span><input type="file" accept="image/*" ${multi ? "multiple" : ""} class="${cls}" aria-label="${label} 앨범에서 고르기"/></label>
+  </div>`;
+  const swDateLabel = (s) => { const [y, m, d] = s.split("-").map(Number); return s === issueTodayStr() ? `오늘 ${m}월 ${d}일` : `${y !== new Date().getFullYear() ? y + "년 " : ""}${m}월 ${d}일`; };
+
+  function swFlowOpen() {
+    _swF = { step: 0, sub: null, area: null, zone: null, sp: null, same: null, to: null, why: null, bs: [], as: [], date: issueTodayStr(), done: false, draft: "", newPhoto: null, sent: "" };
+    let el = document.getElementById("ggFlow");
+    if (!el) { el = document.createElement("div"); el.id = "ggFlow"; el.className = "gg-flow"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", "교체 기록하기"); document.body.appendChild(el); }
+    el.hidden = false; document.body.style.overflow = "hidden";
+    swFlowRender();
+  }
+  function swFlowClose() { const el = document.getElementById("ggFlow"); if (el) el.hidden = true; document.body.style.overflow = ""; }
+  function swFlowGo(d) { _swF.sub = null; _swF.step = Math.max(0, Math.min(SW_STEPS.length - 1, _swF.step + d)); swFlowRender(); }
+
+  function swFlowRender() {
+    const C = _swF, el = document.getElementById("ggFlow"), k = SW_STEPS[C.step], areas = swAreas(), plants = swPlants();
+    const top = `<div class="gg-ftop">
+        <button class="back" type="button" id="f-back" ${(C.step === 0 && !C.sub) || C.done ? "hidden" : ""}>${SW_IC.back}뒤로</button>
+        <div class="dots" aria-hidden="true">${C.done ? "" : SW_STEPS.map((_, j) => `<i class="${j === C.step ? "on" : j < C.step ? "done" : ""}"></i>`).join("")}</div>
+        <button class="x" type="button" id="f-x" aria-label="닫기">${SW_IC.x}</button></div>`;
+    const plantGrid = () => `<div class="gg-bgrid three">${[...plants].map(([n, src]) => `
+        <div class="gg-plant">
+          <button type="button" class="gg-plantpick" data-p="${esc(n)}">${src ? `<img src="${esc(src)}" alt="" referrerpolicy="no-referrer"/>` : `<span class="noimg">${esc(n[0])}</span>`}<span class="pn">${esc(n)}</span></button>
+        </div>`).join("")}
+        <button type="button" class="gg-addtile" data-add="plant">${SW_IC.plus}<span>새 식물 추가</span></button>
+        <button type="button" class="gg-addtile quiet" data-p="모르겠어요"><b>?</b><span>모르겠어요</span></button>
+      </div>`;
+    let body = "";
+    if (C.done) {
+      const miss = !C.bs.length || !C.as.length;
+      body = `<div class="gg-donemark">${SW_IC.ok}</div><h2 class="center">기록했어요</h2>
+        <p class="hint center" style="margin:0">${C.sent === "fail" ? "사진 일부를 올리지 못했어요. 카드의 ‘관리자 수정하기’에서 다시 넣을 수 있어요." : "교체 현황에 바로 올라갔어요."}</p>
+        ${miss ? `<p class="hint center" style="margin:0">빠진 사진은 카드의 ‘관리자 수정하기’에서 나중에 넣을 수 있어요.</p>` : ""}
+        <button class="gg-primary" type="button" id="f-again">하나 더 기록하기</button><button class="gg-ghost" type="button" id="f-close">닫기</button>`;
+    } else if (C.sub === "addZone") {
+      body = `<h2>새 자리를 만들어요</h2><p class="hint">${esc(C.area)}에 추가할 자리 이름을 써요.</p>
+        <input class="gg-bigin" id="f-zone" type="text" maxlength="20" placeholder="예: 일반오피스 8B 창가" value="${esc(C.draft)}" aria-label="자리 이름"/>
+        <button class="gg-primary" type="button" id="f-add-zone" ${C.draft.trim() ? "" : "disabled"}>${SW_IC.plus}자리 추가하기</button>`;
+    } else if (C.sub === "addPlant") {
+      body = `<h2>새 식물을 추가해요</h2><p class="hint">이름을 누르거나 직접 써요.</p>
+        <div class="gg-keys">${SW_PLANT_IDEAS.filter((n) => !plants.has(n)).map((n) => `<button type="button" class="key ${C.draft === n ? "on" : ""}" data-name="${esc(n)}">${esc(n)}</button>`).join("")}</div>
+        <input class="gg-bigin" id="f-name" type="text" maxlength="14" placeholder="식물 이름" value="${esc(C.draft)}" aria-label="식물 이름"/>
+        ${C.newPhoto ? `<div class="gg-shot"><img src="${C.newPhoto}" alt="새 식물 사진"/></div>` : ""}
+        ${swPickBtns("f-newphoto", "새 식물 사진", false)}
+        <button class="gg-primary" type="button" id="f-add-plant" ${C.draft.trim() ? "" : "disabled"}>${SW_IC.plus}${C.newPhoto ? "식물 추가하기" : "사진은 나중에 등록하고 추가"}</button>`;
+    } else if (k === "area") {
+      body = `<h2>어느 구역이에요?</h2><div class="gg-bgrid">${[...areas.keys()].map((a) => `<button class="gg-bigbtn" type="button" data-a="${esc(a)}">${esc(a)}<small>${areas.get(a).length}곳</small></button>`).join("")}</div>`;
+    } else if (k === "zone") {
+      body = `<h2>${esc(C.area)} 어디예요?</h2><p class="hint">화분이 있는 자리를 골라요.</p>
+        <div class="gg-bgrid three">${(areas.get(C.area) || []).map((z) => `<button class="gg-bigbtn zone" type="button" data-z="${esc(z)}">${esc(z)}</button>`).join("")}
+        <button class="gg-bigbtn add" type="button" data-add="zone">${SW_IC.plus}<small>자리 추가</small></button></div>`;
+    } else if (k === "plant" || (k === "same" && C.sub === "pickTo")) {
+      body = `<h2>${k === "plant" ? "어떤 식물을 바꿨어요?" : "새로 심은 식물을 골라요"}</h2><p class="hint">사진을 보고 골라요. 없으면 새 식물을 추가해요.</p>${plantGrid()}`;
+    } else if (k === "same") {
+      body = `<h2>같은 식물로 바꿨어요?</h2><div class="gg-bgrid">
+        <button class="gg-bigbtn yes" type="button" data-s="1">${SW_IC.ok}네<small>${esc(C.sp)}</small></button>
+        <button class="gg-bigbtn" type="button" data-s="0">${SW_IC.diff}아니요<small>다른 식물</small></button></div>`;
+    } else if (k === "why") {
+      body = `<h2>교체 사유를 골라요</h2><p class="hint">가장 가까운 것 하나를 골라요.</p>
+        <div class="gg-bgrid">${SW_WHY.map(([id, t, hint, d]) => `<button class="gg-bigbtn why ${C.why === id ? "yes" : ""}" type="button" data-w="${id}">${d ? `<svg viewBox="0 0 24 24"><path d="${d}"/></svg>` : '<b class="q">…</b>'}<span class="wt">${t}</span><small>${hint}</small></button>`).join("")}</div>`;
+    } else if (k === "before" || k === "after") {
+      const list = C[k === "before" ? "bs" : "as"], what = k === "before" ? "바꾸기 전" : "바꾼 후";
+      body = `<h2>${what} 사진을 넣어요</h2><p class="hint">${list.length ? `${list.length}장 넣었어요 · 최대 ${SW_MAX}장` : `카메라로 찍거나 앨범에서 골라요 · 최대 ${SW_MAX}장`}</p>
+        ${list.length ? `<div class="gg-shots">${list.map((u, j) => `<div class="gg-shotth"><img src="${u}" alt="${what} ${j + 1}"/>${j === 0 ? '<span class="cover">대표</span>' : ""}<button type="button" class="rm" data-rm="${j}" aria-label="${j + 1}번째 사진 지우기">×</button></div>`).join("")}
+          </div>${list.length < SW_MAX ? `<p class="hint" style="margin:0">사진 더 넣기</p>${swPickBtns("f-file", what)}` : ""}`
+          : swPickBtns("f-file", what)}
+        <button class="gg-primary" type="button" id="f-next" ${list.length ? "" : "disabled"}>다음</button>
+        ${list.length ? "" : '<button class="gg-ghost" type="button" id="f-skip">사진은 나중에 등록할게요</button>'}`;
+    } else if (k === "check") {
+      const wl = (SW_WHY.find((w) => w[0] === C.why) || [0, "—"])[1];
+      body = `<h2>이대로 보낼까요?</h2>
+        <div class="gg-recap"><div class="gg-pair">${swCollage(C.bs, "before", "교체 전")}${swCollage(C.as, "after", "교체 후")}${SW_SEAM}</div>
+          <ul><li><span>자리</span>${esc(C.zone)}</li><li><span>식물</span>${esc(C.same ? C.sp : `${C.sp} → ${C.to}`)}</li><li><span>사유</span>${esc(wl)}</li>
+          <li><span>날짜</span><label class="gg-datepick"><span class="date-show">${swDateLabel(C.date)}</span><span class="date-chg">날짜 바꾸기</span><input type="date" id="f-date" value="${C.date}" max="${issueTodayStr()}" aria-label="교체 날짜"/></label></li></ul></div>
+        <button class="gg-primary" type="button" id="f-send">${SW_IC.ok}보내기</button>`;
+    }
+    el.innerHTML = top + `<div class="gg-fbody"><div class="gg-fstep" aria-live="polite">${body}</div></div>`;
+    const $f = (s) => el.querySelector(s);
+    const on = (sel, fn) => el.querySelectorAll(sel).forEach(fn);
+    $f("#f-x").onclick = swFlowClose;
+    const bk = $f("#f-back");
+    if (bk) bk.onclick = () => { if (C.sub === "addPlant" && SW_STEPS[C.step] === "same") { C.sub = "pickTo"; swFlowRender(); } else if (C.sub) { C.sub = null; swFlowRender(); } else swFlowGo(-1); };
+    on("[data-a]", (b) => b.onclick = () => { C.area = b.dataset.a; swFlowGo(1); });
+    on("[data-z]", (b) => b.onclick = () => { C.zone = b.dataset.z; swFlowGo(1); });
+    on("[data-add]", (b) => b.onclick = () => { C.draft = ""; C.newPhoto = null; C.sub = b.dataset.add === "zone" ? "addZone" : "addPlant"; swFlowRender(); });
+    const pickPlant = (n) => { if (SW_STEPS[C.step] === "plant") { C.sp = n; swFlowGo(1); } else { C.to = n; swFlowGo(1); } };
+    on("[data-p]", (b) => b.onclick = () => pickPlant(b.dataset.p));
+    on("[data-s]", (b) => b.onclick = () => { C.same = b.dataset.s === "1"; if (C.same) { C.to = C.sp; swFlowGo(1); } else { C.sub = "pickTo"; swFlowRender(); } });
+    on("[data-w]", (b) => b.onclick = () => { C.why = b.dataset.w; swFlowGo(1); });
+    // 자리 추가
+    const zi = $f("#f-zone"); if (zi) { zi.oninput = () => { C.draft = zi.value; $f("#f-add-zone").disabled = !zi.value.trim(); }; zi.focus(); }
+    const az = $f("#f-add-zone"); if (az) az.onclick = () => {
+      const z = C.draft.trim(); if (!z) return;
+      const add = swZoneAdds(); add[C.area] = add[C.area] || [];
+      if ((areas.get(C.area) || []).indexOf(z) < 0) { add[C.area].push(z); swStoreSet(SW_ZONE_KEY, add); }
+      toast(`${z} 자리를 추가했어요`); C.zone = z; swFlowGo(1);
+    };
+    // 식물 추가
+    on("[data-name]", (b) => b.onclick = () => { C.draft = b.dataset.name; swFlowRender(); });
+    const nm = $f("#f-name"); if (nm) nm.oninput = () => { C.draft = nm.value; $f("#f-add-plant").disabled = !nm.value.trim(); };
+    on(".f-newphoto", (np) => np.onchange = async () => { const file = np.files[0]; if (!file) return; try { C.newPhoto = await swShrink(file); } catch (e) {} swFlowRender(); });
+    const ap = $f("#f-add-plant"); if (ap) ap.onclick = async () => {
+      const n = C.draft.trim(); if (!n) return;
+      let src = C.newPhoto || null;
+      if (src) { ap.disabled = true; ap.textContent = "사진 올리는 중…"; try { src = await swUpload(src, `plant_${Date.now()}.jpg`); } catch (e) { src = null; } }
+      const list = swStore(SW_PLANT_KEY, []).filter((p) => p[0] !== n); list.push([n, src]); swStoreSet(SW_PLANT_KEY, list);
+      toast(src ? `${n} 추가했어요` : `${n} 추가했어요. 사진은 나중에 등록해요`); pickPlant(n);
+    };
+    // 교체 전·후 사진
+    on(".f-file", (f) => f.onchange = async () => {
+      const key = k === "before" ? "bs" : "as"; const files = [...f.files].slice(0, SW_MAX - C[key].length);
+      if (f.files.length > files.length) toast(`${SW_MAX}장까지만 넣었어요`);
+      for (const file of files) { try { C[key].push(await swShrink(file)); } catch (e) { toast("사진을 읽지 못했어요", true); } }
+      swFlowRender();
+    });
+    on("[data-rm]", (b) => b.onclick = () => { C[k === "before" ? "bs" : "as"].splice(+b.dataset.rm, 1); swFlowRender(); });
+    const nx = $f("#f-next"); if (nx) nx.onclick = () => swFlowGo(1);
+    const sk = $f("#f-skip"); if (sk) sk.onclick = () => swFlowGo(1);
+    const cd = $f("#f-date"); if (cd) cd.onchange = () => { if (!cd.value || cd.value > issueTodayStr()) { toast("오늘이나 지난 날짜만 고를 수 있어요", true); cd.value = C.date; return; } C.date = cd.value; swFlowRender(); };
+    const sd = $f("#f-send"); if (sd) sd.onclick = async () => {
+      sd.disabled = true;
+      const rec = { id: swUid(), status: "완료", date: C.date, planDate: "", location: C.zone, species: C.sp, kind: C.same ? "same" : "swap", to: C.to,
+        why: (SW_WHY.find((w) => w[0] === C.why) || [])[1] || "", note: "", by: currentUser(), before: [], after: [] };
+      let failed = 0;
+      for (const [side, key, label] of [["before", "bs", "교체 전"], ["after", "as", "교체 후"]]) {
+        for (let j = 0; j < C[key].length; j++) {
+          sd.textContent = `사진 올리는 중… ${label} ${j + 1}/${C[key].length}`;
+          try { rec[side].push(await swUpload(C[key][j], `${rec.id}_${side === "before" ? "b" : "a"}${j + 1}.jpg`)); }
+          catch (e) { console.warn("[GARDEN] 교체 사진 업로드 실패:", e); failed++; }
+        }
+      }
+      sd.textContent = "보내는 중…";
+      getSwaps().unshift(rec); saveSwaps();
+      C.sent = failed ? "fail" : "ok"; C.done = true; _swSel = rec.id; _swMonth = "all";
+      swFlowRender(); reSwaps();
+    };
+    const ag = $f("#f-again"); if (ag) ag.onclick = swFlowOpen;
+    const cl = $f("#f-close"); if (cl) cl.onclick = () => { swFlowClose(); reSwaps(); };
+    const hh = el.querySelector(".gg-fstep h2"); if (hh) { hh.setAttribute("tabindex", "-1"); hh.focus({ preventScroll: true }); }
+  }
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const f = document.getElementById("ggFlow");
+    if (f && !f.hidden) swFlowClose();
+    else if (document.querySelector(".gg-zoom")) document.querySelector(".gg-zoom").remove();
+  });
+
+  /* ── 관리자 수정 폼 (기존 기록 수정 · 교체 예정 → 완료 처리) ── */
   function swPhotoSlots(side) {
     const list = _swDraft[side];
     const items = list.map((s, j) => `<span class="sw-slot"><img src="${esc(swImg(s))}" alt="" referrerpolicy="no-referrer"/>
@@ -2192,7 +2459,7 @@
     const date = finish && !x.date ? issueTodayStr() : x.date;
     const zones = activeZones().flatMap((g) => g.zones);
     const plants = [...new Set(getSwaps().flatMap((s) => [s.species, s.to]).concat(getIssues().map((s) => s.species)).filter(Boolean))];
-    const whys = SW_WHY.indexOf(x.why) < 0 && x.why ? [x.why].concat(SW_WHY) : SW_WHY;
+    const whys = SW_WHY_L.indexOf(x.why) < 0 && x.why ? [x.why].concat(SW_WHY_L) : SW_WHY_L;
     return `<div class="gmodal" id="swapFormModal">
       <div class="gmodal__bd" onclick="GARDEN.swapClose()"></div>
       <div class="gmodal__card gmodal__card--wide">
@@ -2266,20 +2533,6 @@
     const j = await r.json();
     if (!j || !j.ok || !j.url) throw new Error((j && j.error) || "업로드 실패");
     return j.url;
-  }
-
-  function swapsBody() {
-    const all = getSwaps().map((x, i) => ({ x, i }));
-    const list = all.filter(({ x }) => _swMonth === "all" || swMonthOf(x) === _swMonth);
-    if (!list.length) return `<div class="sw-none">${SW_LEAF}<p>${all.length ? "이 달에는 교체 기록이 없어요." : "아직 교체 기록이 없어요."}</p>
-      <span>＋ 교체 등록으로 교체 전·후 사진과 함께 남겨 보세요.</span></div>`;
-    const by = {};
-    list.forEach((e) => { const m = swMonthOf(e.x); (by[m] = by[m] || []).push(e); });
-    return Object.keys(by).sort((a, b) => (a < b ? 1 : -1)).map((m) => {
-      const arr = by[m].sort((a, b) => ((a.x.date || a.x.planDate) < (b.x.date || b.x.planDate) ? 1 : -1));
-      return `<section class="sw-month"><div class="sw-month__h"><h3>${esc(swMonthLong(m))}</h3><span class="mono">${arr.length}건</span></div>
-        <div class="sw-grid">${arr.map(({ x, i }) => swCard(x, i)).join("")}</div></section>`;
-    }).join("");
   }
 
   /* ---------- VIEWS ---------- */
@@ -2492,37 +2745,25 @@
 
     swaps() {
       const all = getSwaps();
-      const done = all.filter((x) => x.status === "완료");
-      const wait = all.length - done.length;
-      const swapN = done.filter((x) => x.kind === "swap").length;
-      const locN = new Set(done.map((x) => x.location).filter(Boolean)).size;
-      const last = done.slice().sort((a, b) => (a.date < b.date ? 1 : -1))[0];
-      const months = [...new Set(all.map(swMonthOf).filter(Boolean))].sort();
-      if (_swMonth !== "all" && months.indexOf(_swMonth) < 0) _swMonth = "all";
-      let lastY = "";
-      const chips = [`<button class="sw-chip ${_swMonth === "all" ? "is-on" : ""}" onclick="GARDEN.swapMonth('all')">전체</button>`]
-        .concat(months.map((m) => {
-          const y = m.slice(0, 4), yl = y !== lastY ? `<span class="sw-chip__yr">${y}</span>` : "";
-          lastY = y;
-          return `${yl}<button class="sw-chip ${_swMonth === m ? "is-on" : ""}" onclick="GARDEN.swapMonth('${m}')">${+m.slice(5)}월</button>`;
-        })).join("");
-      const stat = (label, val, unit, sub) =>
-        `<div class="iss-stat"><div class="iss-stat__n">${val}<small>${unit}</small></div><div class="iss-stat__l">${label}</div>${sub ? `<span class="rp-delta">${sub}</span>` : ""}</div>`;
+      if (_swSel && !all.some((x) => x.id === _swSel)) _swSel = null;
+      if (!_swSel && all.length && !swNarrow()) {
+        const top = all.slice().sort((a, b) => ((a.date || a.planDate) < (b.date || b.planDate) ? 1 : -1))[0];
+        _swSel = top.id;
+      }
       return `
-        <section class="view">
-          <div class="page-head">
-            <div><p class="eyebrow">Crew · 식물 관리</p><h2>교체 현황</h2>
-              <p class="sub">교체 전 → 교체 후 사진을 나란히 남기고, 월별·위치별로 교체 이력을 봅니다 · 카드를 누르면 상세가 열립니다</p></div>
-            <div class="seg"><button class="btn btn--primary btn--sm" onclick="GARDEN.swapAddOpen()">＋ 교체 등록</button></div>
+        <section class="view gg-view">
+          <div class="gg-layout">
+            <div class="gg-main">
+              <div class="gg-head">
+                <div><h1>아지트 식물 교체</h1><p>링키지랩 가드너가 관리하는 아지트 식물의 교체 전후 기록이에요.</p></div>
+                <button type="button" class="gg-rec" onclick="GARDEN.swapFlowOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>교체 기록하기</button>
+              </div>
+              ${swSummary(all)}
+              ${swBoardHTML(all)}
+            </div>
+            <aside class="gg-detail" id="ggDetail" aria-label="교체 상세">${swDetailHTML()}</aside>
           </div>
-          <div class="iss-stats sw-stats">
-            ${stat("누적 교체", done.length, "건", wait ? `교체 예정 ${wait}건` : "")}
-            ${stat("수종 변경", swapN, "건", `같은 수종 ${done.length - swapN}건`)}
-            ${stat("교체한 자리", locN, "곳", "")}
-            ${stat("최근 교체", last ? swDay(last.date) : "—", "", last ? esc(swTitle(last)) : "")}
-          </div>
-          ${months.length ? `<div class="sw-chips">${chips}</div>` : ""}
-          <div id="swBody">${swapsBody()}</div>
+          <div class="gg-scrim" id="ggScrim" onclick="GARDEN.swapDetailClose()"></div>
         </section>`;
     },
 
@@ -2895,6 +3136,7 @@
     if (view === "floors") GARDEN.loadFloors();
     if (view === "safety") GARDEN.loadSafetyFiles();
     if (view === "dashboard") GARDEN.loadWeather();
+    if (view === "swaps") swAfter();
     window.scrollTo(0, 0);
   }
 
@@ -3721,25 +3963,37 @@
     /* ---------- 월간리포트 (게시판) ---------- */
     /* --- 교체 현황 --- */
     swapMonth(m) { _swMonth = m; reSwaps(); },
-    swapAddOpen() {
-      if (document.getElementById("swapFormModal")) return;
-      document.body.insertAdjacentHTML("beforeend", swapFormModal(null));
+    swapFlowOpen() { swFlowOpen(); },
+    swapSelect(id) {
+      _swSel = id; _swMode = "pair";
+      document.querySelectorAll(".gg-card").forEach((c) => c.setAttribute("aria-selected", c.dataset.id === id ? "true" : "false"));
+      const d = document.getElementById("ggDetail");
+      if (!d) return;
+      d.innerHTML = swDetailHTML();
+      const inner = d.querySelector(".gg-detail__in"); if (inner) inner.classList.add("swap-in");
+      d.scrollTop = 0;
+      if (swNarrow()) { d.classList.add("open"); const sc = document.getElementById("ggScrim"); if (sc) sc.classList.add("on"); }
     },
-    swapOpen(i) {
-      if (document.getElementById("swapDetailModal")) return;
-      _swOpen = i;
-      document.body.insertAdjacentHTML("beforeend", swapDetailModal(i));
+    swapDetailClose() {
+      const d = document.getElementById("ggDetail"), sc = document.getElementById("ggScrim");
+      if (d) d.classList.remove("open"); if (sc) sc.classList.remove("on");
     },
-    swapDetailClose() { const m = document.getElementById("swapDetailModal"); if (m) m.remove(); },
-    swapShot(btn, side, j) {
-      const x = getSwaps()[_swOpen];
-      if (!x) return;
-      const list = side === "b" ? x.before : x.after;
-      btn.parentNode.querySelectorAll("button").forEach((b) => b.classList.toggle("is-on", b === btn));
-      const half = document.querySelector(`#swBig [data-side="${side}"]`);
-      if (!half) return;
+    swapMode(m) {
+      _swMode = m;
+      const a = document.getElementById("ggPairWrap"), b = document.getElementById("ggSlideWrap");
+      if (a) a.hidden = m !== "pair"; if (b) b.hidden = m !== "slide";
+      document.querySelectorAll(".gg-mode button").forEach((x, j) => x.setAttribute("aria-pressed", (j === 0) === (m === "pair") ? "true" : "false"));
+    },
+    swapShot(side, j, btn) {
+      const x = swSelected(); if (!x) return;
+      const list = side === "before" ? x.before : x.after;
+      btn.parentNode.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b === btn));
+      const half = document.querySelector(`#ggBig [data-side="${side}"]`); if (!half) return;
       half.querySelector("img").src = swImg(list[j]);
-      half.querySelector(".sw-lab").textContent = `${side === "b" ? "교체 전" : "교체 후"} ${j + 1}/${list.length}`;
+      half.querySelector(".gg-lab").textContent = `${side === "before" ? "교체 전" : "교체 후"} ${j + 1}/${list.length}`;
+    },
+    swapZoom(src) {
+      document.body.insertAdjacentHTML("beforeend", `<div class="gg-zoom" onclick="this.remove()"><img src="${esc(src)}" alt="" referrerpolicy="no-referrer"/></div>`);
     },
     swapEdit(i, finish) {
       if (!ensureAdmin()) return;
@@ -3800,13 +4054,14 @@
       }
       const list = getSwaps();
       if (i == null) list.unshift(rec); else if (list[i]) list[i] = rec; else return;
+      _swSel = rec.id;
       saveSwaps(); this.swapClose(); reSwaps(); toast("교체 기록 저장됨 ✓");
     },
     swapDelete(i) {
       if (!ensureAdmin()) return;
       const list = getSwaps(); if (!list[i]) return;
       if (!window.confirm("이 교체 기록을 삭제할까요? 되돌릴 수 없습니다.")) return;
-      list.splice(i, 1); saveSwaps(); this.swapDetailClose(); reSwaps(); toast("교체 기록 삭제됨 ✓");
+      list.splice(i, 1); _swSel = null; saveSwaps(); this.swapDetailClose(); reSwaps(); toast("교체 기록 삭제됨 ✓");
     },
 
     /* --- 월간리포트 (자동 산출) --- */

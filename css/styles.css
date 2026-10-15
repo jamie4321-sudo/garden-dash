@@ -1243,7 +1243,8 @@ button { font-family: inherit; }
 }
 .mr-eyebrow span { color: var(--accent-text); font-weight: 800; }
 .mr-title { margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
-.mr-lead { margin: 10px 0 0; font-size: 13px; color: var(--ink-2); max-width: 60ch; line-height: 1.55; text-wrap: balance; word-break: keep-all; }
+.mr-lead { margin: 10px 0 0; font-size: 13px; color: var(--ink-2); line-height: 1.55; word-break: keep-all; }
+@media (min-width: 768px) { .mr-lead { white-space: nowrap; } }
 .mr-top__r { display: flex; align-items: center; gap: 8px; }
 .mr-drive {
   display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px;

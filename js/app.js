@@ -2884,7 +2884,7 @@
         <button class="gg-primary" type="button" id="h-again">하나 더 기록하기</button><button class="gg-ghost" type="button" id="h-close">닫기</button>`;
     } else if (k === "who") {
       const names = [...new Set(getCrew().filter((c) => c.status !== "left" && !c.left).map((c) => c.name).filter(Boolean).concat(C.by ? [C.by] : []))];
-      body = `<h2>누가 재요?</h2><p class="hint">내 이름을 눌러요.</p>
+      body = `<h2>누가 기록하나요?</h2><p class="hint">내 이름을 눌러요.</p>
         <div class="gg-bgrid three">${names.map((n) => `<button class="gg-bigbtn zone ${n === C.by ? "yes" : ""}" type="button" data-who="${esc(n)}">${esc(n)}</button>`).join("")}</div>
         <input class="gg-bigin" id="h-name" type="text" maxlength="12" placeholder="이름이 없으면 여기에 써요" aria-label="이름"/>
         <button class="gg-primary" type="button" id="h-name-ok" disabled>이 이름으로 할게요</button>`;

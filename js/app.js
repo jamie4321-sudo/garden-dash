@@ -2060,6 +2060,7 @@
   const SW_PLANT_KEY = "garden-swap-plants"; // 기록하기에서 새로 추가한 식물 [[이름, 사진]] (이 기기)
   const SW_ZONE_KEY = "garden-swap-zones";   // 기록하기에서 새로 추가한 자리 {구역: [자리]} (이 기기)
   const SW_MAX = 5; // 교체 전·후 각 최대 사진 수
+  const SW_EXTRA_AREA = "직접 추가한 자리"; // 구역을 모르는 기록 위치(다른 기기에서 추가한 자리 등)
   // 가드너는 쉬운 말로 고르고, 화면에는 정리된 사유로 보인다 — [키, 사유(저장·표시), 판단 기준, 아이콘]
   const SW_WHY = [
     ["dead", "고사", "회복 불가 · 줄기 마름", "M12 3c3 4 5 7 5 10a5 5 0 0 1-10 0c0-3 2-6 5-10zM9 14l6-2"],
@@ -2070,9 +2071,11 @@
     ["pest", "병충해", "깍지벌레 · 응애 · 반점병", "M8 9h8v7a4 4 0 0 1-8 0zM12 9V6M9 4l2 2M15 4l-2 2M4 12h4M16 12h4M4 17h4M16 17h4"],
     ["light", "광량 부족", "저조도 · 도장(웃자람)", "M12 3a7 7 0 1 0 9 9 6 6 0 0 1-9-9z"],
     ["form", "관상가치 저하", "수형 불량 · 미관 훼손", "M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"],
-    ["etc", "기타", "현장 확인 필요", ""],
+    ["etc", "기타", "사유를 직접 써요", ""],
   ];
   const SW_WHY_L = SW_WHY.map((w) => w[1]);
+  // 기록하기에서 고른 사유 → 저장할 글 ('기타'는 직접 쓴 글이 있으면 그 글)
+  const swWhyText = (C) => (C.why === "etc" && (C.whyText || "").trim()) || (SW_WHY.find((w) => w[0] === C.why) || [])[1] || "";
   const SW_PLANT_IDEAS = ["고무나무", "여인초", "스투키", "스킨답서스", "극락조", "올리브나무", "아글라오네마", "행운목", "필로덴드론", "드라세나", "몬스테라", "홍콩야자"];
   let _swaps = null, _swMonth = "all", _swDraft = null, _swSel = null, _swMode = "pair", _swF = null;
 
@@ -2152,6 +2155,10 @@
     activeZones().forEach((g) => map.set(g.area, g.zones.slice()));
     const add = swZoneAdds();
     Object.keys(add).forEach((a) => { if (!map.has(a)) map.set(a, []); add[a].forEach((z) => { if (map.get(a).indexOf(z) < 0) map.get(a).push(z); }); });
+    // 다른 기기에서 직접 추가한 자리도 기록에 남은 위치로 보여 준다
+    const known = new Set([...map.values()].flat());
+    const extra = [...new Set(getSwaps().map((x) => x.location).filter((z) => z && !known.has(z)))];
+    if (extra.length) map.set(SW_EXTRA_AREA, (map.get(SW_EXTRA_AREA) || []).concat(extra));
     return map;
   }
   // 고를 수 있는 식물: 교체 기록(교체 후 사진 우선) · 식물 이슈 · 이 기기에서 추가한 식물
@@ -2297,7 +2304,7 @@
   const swDateLabel = (s) => { const [y, m, d] = s.split("-").map(Number); return s === issueTodayStr() ? `오늘 ${m}월 ${d}일` : `${y !== new Date().getFullYear() ? y + "년 " : ""}${m}월 ${d}일`; };
 
   function swFlowOpen() {
-    _swF = { step: 0, sub: null, area: null, zone: null, sp: null, same: null, to: null, why: null, bs: [], as: [], date: issueTodayStr(), done: false, draft: "", newPhoto: null, sent: "" };
+    _swF = { step: 0, sub: null, area: null, zone: null, sp: null, same: null, to: null, why: null, whyText: "", bs: [], as: [], date: issueTodayStr(), done: false, draft: "", newPhoto: null, sent: "" };
     let el = document.getElementById("ggFlow");
     if (!el) { el = document.createElement("div"); el.id = "ggFlow"; el.className = "gg-flow"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", "교체 기록하기"); document.body.appendChild(el); }
     el.hidden = false; document.body.style.overflow = "hidden";
@@ -2330,6 +2337,14 @@
       body = `<h2>새 자리를 만들어요</h2><p class="hint">${esc(C.area)}에 추가할 자리 이름을 써요.</p>
         <input class="gg-bigin" id="f-zone" type="text" maxlength="20" placeholder="예: 일반오피스 8B 창가" value="${esc(C.draft)}" aria-label="자리 이름"/>
         <button class="gg-primary" type="button" id="f-add-zone" ${C.draft.trim() ? "" : "disabled"}>${SW_IC.plus}자리 추가하기</button>`;
+    } else if (C.sub === "addArea") {
+      body = `<h2>새 구역을 만들어요</h2><p class="hint">구역 이름을 써요. 다음 화면에서 자리를 추가해요.</p>
+        <input class="gg-bigin" id="f-area" type="text" maxlength="20" placeholder="예: B동 6층 · 옥외 테라스" value="${esc(C.draft)}" aria-label="구역 이름"/>
+        <button class="gg-primary" type="button" id="f-add-area" ${C.draft.trim() ? "" : "disabled"}>${SW_IC.plus}구역 추가하기</button>`;
+    } else if (C.sub === "addWhy") {
+      body = `<h2>교체 사유를 써요</h2><p class="hint">짧게 써요. 비워 두면 ‘기타’로 기록돼요.</p>
+        <input class="gg-bigin" id="f-why" type="text" maxlength="30" placeholder="예: 공간 리뉴얼로 수종 변경" value="${esc(C.whyText || "")}" aria-label="교체 사유"/>
+        <button class="gg-primary" type="button" id="f-why-next">다음</button>`;
     } else if (C.sub === "addPlant") {
       body = `<h2>새 식물을 추가해요</h2><p class="hint">이름을 누르거나 직접 써요.</p>
         <div class="gg-keys">${SW_PLANT_IDEAS.filter((n) => !plants.has(n)).map((n) => `<button type="button" class="key ${C.draft === n ? "on" : ""}" data-name="${esc(n)}">${esc(n)}</button>`).join("")}</div>
@@ -2338,7 +2353,8 @@
         ${swPickBtns("f-newphoto", "새 식물 사진", false)}
         <button class="gg-primary" type="button" id="f-add-plant" ${C.draft.trim() ? "" : "disabled"}>${SW_IC.plus}${C.newPhoto ? "식물 추가하기" : "사진은 나중에 등록하고 추가"}</button>`;
     } else if (k === "area") {
-      body = `<h2>어느 구역이에요?</h2><div class="gg-bgrid">${[...areas.keys()].map((a) => `<button class="gg-bigbtn" type="button" data-a="${esc(a)}">${esc(a)}<small>${areas.get(a).length}곳</small></button>`).join("")}</div>`;
+      body = `<h2>어느 구역이에요?</h2><div class="gg-bgrid">${[...areas.keys()].map((a) => `<button class="gg-bigbtn" type="button" data-a="${esc(a)}">${esc(a)}<small>${areas.get(a).length}곳</small></button>`).join("")}
+        <button class="gg-bigbtn add" type="button" data-add="area">${SW_IC.plus}<small>구역 추가</small></button></div>`;
     } else if (k === "zone") {
       body = `<h2>${esc(C.area)} 어디예요?</h2><p class="hint">화분이 있는 자리를 골라요.</p>
         <div class="gg-bgrid three">${(areas.get(C.area) || []).map((z) => `<button class="gg-bigbtn zone" type="button" data-z="${esc(z)}">${esc(z)}</button>`).join("")}
@@ -2361,7 +2377,7 @@
         <button class="gg-primary" type="button" id="f-next" ${list.length ? "" : "disabled"}>다음</button>
         ${list.length ? "" : '<button class="gg-ghost" type="button" id="f-skip">사진은 나중에 등록할게요</button>'}`;
     } else if (k === "check") {
-      const wl = (SW_WHY.find((w) => w[0] === C.why) || [0, "—"])[1];
+      const wl = swWhyText(C) || "—";
       body = `<h2>이대로 보낼까요?</h2>
         <div class="gg-recap"><div class="gg-pair">${swCollage(C.bs, "before", "교체 전")}${swCollage(C.as, "after", "교체 후")}${SW_SEAM}</div>
           <ul><li><span>자리</span>${esc(C.zone)}</li><li><span>식물</span>${esc(C.same ? C.sp : `${C.sp} → ${C.to}`)}</li><li><span>사유</span>${esc(wl)}</li>
@@ -2376,11 +2392,21 @@
     if (bk) bk.onclick = () => { if (C.sub === "addPlant" && SW_STEPS[C.step] === "same") { C.sub = "pickTo"; swFlowRender(); } else if (C.sub) { C.sub = null; swFlowRender(); } else swFlowGo(-1); };
     on("[data-a]", (b) => b.onclick = () => { C.area = b.dataset.a; swFlowGo(1); });
     on("[data-z]", (b) => b.onclick = () => { C.zone = b.dataset.z; swFlowGo(1); });
-    on("[data-add]", (b) => b.onclick = () => { C.draft = ""; C.newPhoto = null; C.sub = b.dataset.add === "zone" ? "addZone" : "addPlant"; swFlowRender(); });
+    on("[data-add]", (b) => b.onclick = () => { C.draft = ""; C.newPhoto = null; C.sub = { zone: "addZone", area: "addArea" }[b.dataset.add] || "addPlant"; swFlowRender(); });
+    // 구역 추가
+    const ai = $f("#f-area"); if (ai) { ai.oninput = () => { C.draft = ai.value; $f("#f-add-area").disabled = !ai.value.trim(); }; ai.focus(); }
+    const aa = $f("#f-add-area"); if (aa) aa.onclick = () => {
+      const a = C.draft.trim(); if (!a) return;
+      const add = swZoneAdds(); if (!add[a] && !areas.has(a)) { add[a] = []; swStoreSet(SW_ZONE_KEY, add); }
+      toast(`${a} 구역을 추가했어요`); C.area = a; swFlowGo(1);
+    };
+    // 기타 사유 직접 쓰기
+    const wi = $f("#f-why"); if (wi) { wi.oninput = () => { C.whyText = wi.value; }; wi.focus(); }
+    const wn = $f("#f-why-next"); if (wn) wn.onclick = () => swFlowGo(1);
     const pickPlant = (n) => { if (SW_STEPS[C.step] === "plant") { C.sp = n; swFlowGo(1); } else { C.to = n; swFlowGo(1); } };
     on("[data-p]", (b) => b.onclick = () => pickPlant(b.dataset.p));
     on("[data-s]", (b) => b.onclick = () => { C.same = b.dataset.s === "1"; if (C.same) { C.to = C.sp; swFlowGo(1); } else { C.sub = "pickTo"; swFlowRender(); } });
-    on("[data-w]", (b) => b.onclick = () => { C.why = b.dataset.w; swFlowGo(1); });
+    on("[data-w]", (b) => b.onclick = () => { C.why = b.dataset.w; if (C.why === "etc") { C.sub = "addWhy"; swFlowRender(); } else { C.whyText = ""; swFlowGo(1); } });
     // 자리 추가
     const zi = $f("#f-zone"); if (zi) { zi.oninput = () => { C.draft = zi.value; $f("#f-add-zone").disabled = !zi.value.trim(); }; zi.focus(); }
     const az = $f("#f-add-zone"); if (az) az.onclick = () => {
@@ -2414,7 +2440,7 @@
     const sd = $f("#f-send"); if (sd) sd.onclick = async () => {
       sd.disabled = true;
       const rec = { id: swUid(), status: "완료", date: C.date, planDate: "", location: C.zone, species: C.sp, kind: C.same ? "same" : "swap", to: C.to,
-        why: (SW_WHY.find((w) => w[0] === C.why) || [])[1] || "", note: "", by: currentUser(), before: [], after: [] };
+        why: swWhyText(C), note: "", by: currentUser(), before: [], after: [] };
       let failed = 0;
       for (const [side, key, label] of [["before", "bs", "교체 전"], ["after", "as", "교체 후"]]) {
         for (let j = 0; j < C[key].length; j++) {
@@ -2477,7 +2503,8 @@
           </div>
           <div class="fld-row">
             <label class="fld"><span>위치 *</span><input id="sw_loc" list="sw_zones" value="${esc(x.location)}" placeholder="예: 일반오피스 7A · 창가 B4"/></label>
-            <label class="fld"><span>교체 사유</span><select id="sw_why"><option value="">선택</option>${whys.map((w) => `<option ${w === x.why ? "selected" : ""}>${esc(w)}</option>`).join("")}</select></label>
+            <label class="fld"><span>교체 사유</span><input id="sw_why" list="sw_whys" value="${esc(x.why)}" placeholder="고르거나 직접 쓰기"/></label>
+            <datalist id="sw_whys">${whys.map((w) => `<option value="${esc(w)}">`).join("")}</datalist>
           </div>
           <div class="sw-kindsel" role="radiogroup" aria-label="구분">
             <label><input type="radio" name="sw_kind" value="same" ${x.kind !== "swap" ? "checked" : ""} onchange="GARDEN.swapKind('same')"/> 같은 수종</label>

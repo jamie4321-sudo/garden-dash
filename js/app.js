@@ -1846,20 +1846,34 @@
     const sum = (arr) => arr.reduce((s, { x }) => s + (Number(x.amount) || 0), 0);
     const cost = sum(stl), costPrev = sum(stlPrev);
     const unpaid = sum(stl.filter(({ x }) => x.status !== "정산완료"));
-    const trend = [];
+    // 최근 6개월 월별 지표 (월별 비교표용)
+    const incAll = getIncidents(), meetAll = getSafetyMeetings();
+    const months = [];
     for (let k = -5; k <= 0; k++) {
       const t = rpShift(y, m, k), tym = rpYm(t.y, t.m);
-      trend.push({
+      const mi = issAll.filter(({ x }) => String(x.date).slice(0, 7) === tym).map(({ x }) => x);
+      const ms = stlAll.filter(({ x }) => String(x.date).slice(0, 7) === tym).map(({ x }) => x);
+      const md = mi.filter((x) => x.status === "완료");
+      const mdays = md.map((x) => rpDays(x.date, x.doneAt)).filter((d) => d != null);
+      const amt = (arr) => arr.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+      const cat = {}, scat = {};
+      mi.forEach((x) => { const c = x.category || "기타"; cat[c] = (cat[c] || 0) + 1; });
+      ms.forEach((x) => { const c = x.category || "기타"; scat[c] = (scat[c] || 0) + (Number(x.amount) || 0); });
+      months.push({
         label: `${t.m}월`, cur: k === 0,
-        iss: issAll.filter(({ x }) => String(x.date).slice(0, 7) === tym).length,
-        cost: stlAll.filter(({ x }) => String(x.date).slice(0, 7) === tym).reduce((s, { x }) => s + (Number(x.amount) || 0), 0),
+        iss: mi.length, done: md.length, rate: mi.length ? Math.round((md.length / mi.length) * 100) : null,
+        avg: mdays.length ? Math.round((mdays.reduce((a, b) => a + b, 0) / mdays.length) * 10) / 10 : null,
+        vok: mi.filter((x) => x.source === "VOK").length, urgent: mi.filter((x) => x.urgency === "긴급").length,
+        cat, cost: amt(ms), scat, unpaid: amt(ms.filter((x) => x.status !== "정산완료")),
+        inc: incAll.filter((x) => String(x.date).slice(0, 7) === tym).length,
+        meet: meetAll.filter((x) => String(x.date).slice(0, 7) === tym).length,
       });
     }
-    const inc = getIncidents().filter((x) => String(x.date).slice(0, 7) === ym);
-    const meet = getSafetyMeetings().filter((x) => String(x.date).slice(0, 7) === ym);
+    const inc = incAll.filter((x) => String(x.date).slice(0, 7) === ym);
+    const meet = meetAll.filter((x) => String(x.date).slice(0, 7) === ym);
     const xs = iss.map(({ x }) => x);
     return {
-      ym, y, m, iss, issPrev, done, carry, stl, cost, costPrev, unpaid, trend, inc, meet,
+      ym, y, m, iss, issPrev, done, carry, stl, cost, costPrev, unpaid, months, inc, meet,
       rate: iss.length ? Math.round((done.length / iss.length) * 100) : 0,
       avgDays: days.length ? Math.round((days.reduce((a, b) => a + b, 0) / days.length) * 10) / 10 : null,
       urgent: xs.filter((x) => x.urgency === "긴급").length,
@@ -1904,34 +1918,54 @@
     return L;
   }
 
-  function rpBars(items, fmt, empty) {
-    if (!items.length) return `<p class="rp-none">${empty || "데이터 없음"}</p>`;
-    const max = Math.max.apply(null, items.map((i) => i.n)) || 1;
-    const total = items.reduce((s, i) => s + i.n, 0) || 1;
-    return `<div class="rp-bars">${items.map((i) => `
-      <div class="rp-bar">
-        <span class="rp-bar__k">${esc(i.k)}</span>
-        <span class="rp-bar__track"><span class="rp-bar__fill" style="width:${Math.max(3, Math.round((i.n / max) * 100))}%"></span></span>
-        <span class="rp-bar__v">${fmt ? fmt(i.n) : i.n + "건"}<small>${Math.round((i.n / total) * 100)}%</small></span>
-      </div>`).join("")}</div>`;
+  // 월별 비교표 — 지표는 줄, 최근 6개월은 칸 (이번 달 강조 · 마지막 칸 전월 대비)
+  // goodUp: 늘면 좋은 지표(완료율·안전 회의), 그 외는 늘면 빨강
+  function rpSheetRows(r) {
+    const M = r.months, cur = M.length - 1;
+    const rows = [];
+    const grp = (l) => rows.push({ grp: l });
+    const row = (l, key, fmt, opt) => rows.push({ l, vals: M.map((t) => (typeof key === "function" ? key(t) : t[key])), fmt, ...(opt || {}) });
+    const n = (v) => (v == null ? "—" : v + "건");
+    const keysOf = (fixed, prop) => fixed.concat(Object.keys(M.reduce((o, t) => Object.assign(o, t[prop]), {})).filter((c) => fixed.indexOf(c) < 0))
+      .filter((c) => M.some((t) => t[prop][c]));
+    grp("식물 이슈");
+    row("발생", "iss", n, { strong: true });
+    row("완료", "done", n, { goodUp: true });
+    row("완료율", "rate", (v) => (v == null ? "—" : v + "%"), { goodUp: true });
+    row("평균 처리", "avg", (v) => (v == null ? "—" : v + "일"));
+    row("카카오 민원", "vok", n, { sub: "VOK" });
+    row("긴급", "urgent", n);
+    keysOf(ISS_CATEGORIES, "cat").forEach((c) => row(c, (t) => t.cat[c] || 0, n, { minor: true }));
+    grp("운영 비용");
+    row("총 비용", "cost", wonShort, { strong: true });
+    keysOf(STL_CATEGORIES, "scat").forEach((c) => row(c, (t) => t.scat[c] || 0, wonShort, { minor: true }));
+    row("미정산", "unpaid", wonShort, { sub: "예정·청구" });
+    grp("안전 · 보건");
+    row("사고 · 아차", "inc", n);
+    row("안전 회의", "meet", (v) => v + "회", { goodUp: true });
+    return { rows, M, cur };
   }
-  function rpTrend(trend, key, fmt) {
-    const max = Math.max.apply(null, trend.map((t) => t[key])) || 1;
-    return `<div class="rp-trend">${trend.map((t) => `
-      <div class="rp-trend__col ${t.cur ? "is-cur" : ""}" title="${t.label} · ${fmt(t[key])}">
-        <span class="rp-trend__v">${t[key] ? fmt(t[key]) : "—"}</span>
-        <span class="rp-trend__bar"><span style="height:${t[key] ? Math.max(4, Math.round((t[key] / max) * 100)) : 0}%"></span></span>
-        <span class="rp-trend__l">${t.label}</span>
-      </div>`).join("")}</div>`;
+  function rpSheetHTML(r, compact) {
+    const { rows, M, cur } = rpSheetRows(r);
+    const cols = M.length + 2;
+    const diff = (x) => {
+      const a = x.vals[cur], b = x.vals[cur - 1];
+      if (a == null || b == null || a === b) return `<span class="rp-dl">—</span>`;
+      const d = Math.round((a - b) * 10) / 10, up = d > 0, good = x.goodUp ? up : !up;
+      return `<span class="rp-dl ${good ? "is-good" : "is-bad"}">${up ? "▲" : "▼"} ${x.fmt(Math.abs(d))}</span>`;
+    };
+    return `<table class="rp-sheet ${compact ? "rp-sheet--a4" : ""}">
+      <thead><tr><th>지표</th>${M.map((t) => `<th class="num ${t.cur ? "is-cur" : ""}">${t.label}</th>`).join("")}<th class="num">전월 대비</th></tr></thead>
+      <tbody>${rows.map((x) => x.grp
+        ? `<tr class="rp-sheet__grp"><td colspan="${cols}">${x.grp}</td></tr>`
+        : `<tr class="${x.minor ? "is-minor" : ""} ${x.strong ? "is-strong" : ""}"><td>${esc(x.l)}${x.sub ? `<small>${x.sub}</small>` : ""}</td>${x.vals.map((v, i) => `<td class="num ${i === cur ? "is-cur" : ""} ${!v ? "is-zero" : ""}">${x.fmt(v)}</td>`).join("")}<td class="num">${diff(x)}</td></tr>`).join("")}</tbody>
+    </table>`;
   }
   const wonShort = (n) => n >= 1e8 ? (Math.round(n / 1e7) / 10) + "억" : n >= 1e4 ? Math.round(n / 1e4).toLocaleString("en-US") + "만" : (n || 0).toLocaleString("en-US");
 
   function monthlyReportHTML() {
     const r = rpData(_rpY, _rpM);
-    const stat = (label, val, unit, sub, mod) =>
-      `<div class="iss-stat rp-stat"><div class="iss-stat__n ${mod || ""}">${val}<small>${unit}</small></div><div class="iss-stat__l">${label}</div>${sub || ""}</div>`;
     const sumLines = rpSummaryLines(r).map((l) => `<li>${esc(l)}</li>`).join("");
-
     const issRows = r.iss.slice().sort((a, b) => (a.x.date < b.x.date ? -1 : 1)).map(({ x, i }) => {
       const d = rpDays(x.date, x.doneAt);
       return `<tr class="${x.status === "완료" ? "is-done" : ""}" onclick="GARDEN.issueOpen(${i})">
@@ -1963,39 +1997,33 @@
         <td class="stl-amt">${won(x.amount)}</td>
         <td><span class="iss-tag ${x.status === "정산완료" ? "iss-tag--done" : ""}">${esc(x.status)}</span></td>
       </tr>`).join("");
+    const safety = r.inc.map((x) => `<p><span class="mono">${esc(x.date).slice(5)}</span> <b>${esc(x.type)}</b> ${esc(x.place)} — ${esc(x.content) || "내용 없음"} <span class="iss-tag ${x.status === "완료" ? "iss-tag--done" : ""}">${esc(x.status)}</span></p>`)
+      .concat(r.meet.map((x) => `<p><span class="mono">${esc(x.date).slice(5)}</span> <b>${esc(x.title) || "회의"}</b> ${x.org ? esc(x.org) : ""}</p>`)).join("");
 
     return `
-      <div class="iss-period rp-period">
-        <button class="iss-nav" onclick="GARDEN.rpStep(-1)" title="이전 달">←</button>
-        <span class="iss-period__title">${r.y}년 ${r.m}월</span>
-        <button class="iss-nav" onclick="GARDEN.rpStep(1)" title="다음 달">→</button>
-        <button class="btn btn--sm rp-thismonth" onclick="GARDEN.rpStep(0)">이번 달</button>
-        <div class="rp-actions">
+      <div class="rp-head">
+        <div>
+          <p class="mr-eyebrow">AGIT GARDEN<span>·</span>MONTHLY REPORT</p>
+          <h2 class="rp-title">${r.y}년 ${r.m}월 운영 리포트</h2>
+          <p class="mr-lead">식물 이슈 · 운영 정산 · 산업안전 기록을 월 단위로 자동 집계합니다. 각 메뉴에 입력한 내용이 그대로 반영돼요.</p>
+        </div>
+        <div class="rp-head__r">
+          <div class="rp-mnav">
+            <button class="iss-nav" onclick="GARDEN.rpStep(-1)" title="이전 달">←</button>
+            <button class="rp-thismonth" onclick="GARDEN.rpStep(0)" title="이번 달로">이번 달</button>
+            <button class="iss-nav" onclick="GARDEN.rpStep(1)" title="다음 달">→</button>
+          </div>
           <button class="btn btn--sm" onclick="GARDEN.rpCopy()">요약 복사</button>
-          <button class="btn btn--sm" onclick="window.print()">인쇄 · PDF</button>
+          <button class="btn btn--sm rp-print" onclick="GARDEN.rpPrint()">A4 인쇄 · PDF</button>
         </div>
       </div>
 
-      <div class="iss-stats rp-stats">
-        ${stat("식물 이슈", r.iss.length, "건", rpDelta(r.iss.length, r.issPrev.length))}
-        ${stat("완료율", r.rate, "%", `<span class="rp-delta">${r.done.length} / ${r.iss.length}건 완료</span>`, "iss-stat__n--acid")}
-        ${stat("평균 처리", r.avgDays != null ? r.avgDays : "—", r.avgDays != null ? "일" : "", `<span class="rp-delta">발생일 → 완료일</span>`)}
-        ${stat("카카오 민원", r.vok, "건", `<span class="rp-delta">긴급 ${r.urgent} · 반복 ${r.recur}</span>`, r.vok ? "iss-stat__n--red" : "")}
-        ${stat("운영 비용", wonShort(r.cost), "원", rpDelta(r.cost, r.costPrev, (n) => wonShort(n)))}
+      <div class="dash-card rp-sheet-card">
+        <div class="card-head"><h3>월별 비교</h3><span class="asof">최근 6개월 · 이번 달 강조 · ▲▼ 전월 대비</span></div>
+        <div class="rp-sheet-wrap">${rpSheetHTML(r)}</div>
+        <div class="rp-cmt"><p class="rp-cmt__l">${r.m}월 코멘트<small>자동 산출</small></p><ul class="rp-sumlist">${sumLines}</ul></div>
       </div>
 
-      <div class="dash-card rp-summary">
-        <div class="card-head"><h3>${r.m}월 운영 요약</h3><span class="asof">자동 산출 · 식물 이슈 / 운영 정산 / 산업안전 데이터 기준</span></div>
-        <ul class="rp-sumlist">${sumLines}</ul>
-      </div>
-
-      <h3 class="rp-h">식물 이슈</h3>
-      <div class="rp-grid3">
-        <div class="dash-card"><div class="card-head"><h3>이슈 분류</h3></div>${rpBars(r.byCat, null, "이슈 없음")}</div>
-        <div class="dash-card"><div class="card-head"><h3>구역별</h3></div>${rpBars(r.byBld, null, "이슈 없음")}</div>
-        <div class="dash-card"><div class="card-head"><h3>처리 상태</h3></div>${rpBars(r.bySt, null, "이슈 없음")}
-          ${r.bySpecies.length ? `<p class="rp-mini">자주 나온 식물 · ${r.bySpecies.map((s) => `${esc(s.k)} ${s.n}`).join(" · ")}</p>` : ""}</div>
-      </div>
       <div class="dash-card rp-block">
         <div class="card-head"><h3>${r.m}월 이슈 내역</h3><span class="chip-mono">${r.iss.length}</span><span class="asof">행을 누르면 상세가 열립니다</span></div>
         ${r.iss.length ? `<div class="table-wrap"><table class="grid-table iss-table rp-table">
@@ -2006,34 +2034,68 @@
         <div class="card-head"><h3>이월 미해결 이슈</h3><span class="chip-mono">${r.carry.length}</span><span class="asof">${r.m}월 이전 발생 · 현재 미완료</span></div>
         <div class="dri-list">${carryRows}</div></div>` : ""}
 
-      <h3 class="rp-h">운영 비용</h3>
-      <div class="rp-grid3">
-        <div class="dash-card"><div class="card-head"><h3>구분별 비용</h3></div>${rpBars(r.costCat, won, "비용 없음")}</div>
-        <div class="dash-card"><div class="card-head"><h3>장소별 비용</h3></div>${rpBars(r.costPlace, won, "비용 없음")}</div>
-        <div class="dash-card"><div class="card-head"><h3>정산 상태</h3></div>${rpBars(r.costSt, won, "비용 없음")}
-          ${r.stl.length ? `<p class="rp-mini">미정산 잔액 · <b>${won(r.unpaid)}</b></p>` : ""}</div>
-      </div>
       <div class="dash-card rp-block">
-        <div class="card-head"><h3>${r.m}월 정산 내역</h3><span class="chip-mono">${won(r.cost)}</span></div>
+        <div class="card-head"><h3>${r.m}월 정산 내역</h3><span class="chip-mono">${won(r.cost)}</span>${r.unpaid ? `<span class="asof">미정산 ${won(r.unpaid)}</span>` : ""}</div>
         ${r.stl.length ? `<div class="table-wrap"><table class="grid-table stl-table rp-table">
           <thead><tr><th>작업일</th><th>장소</th><th>구분</th><th>작업 내용</th><th>거래처</th><th class="num">비용</th><th>상태</th></tr></thead>
           <tbody>${stlRows}</tbody>
           <tfoot><tr><td colspan="5">합계</td><td class="stl-amt">${won(r.cost)}</td><td></td></tr></tfoot></table></div>` : `<p class="rp-none">이번 달 등록된 정산 내역이 없습니다.</p>`}
       </div>
 
-      <h3 class="rp-h">최근 6개월 추이</h3>
-      <div class="rp-grid2">
-        <div class="dash-card"><div class="card-head"><h3>이슈 발생 건수</h3></div>${rpTrend(r.trend, "iss", (n) => n + "건")}</div>
-        <div class="dash-card"><div class="card-head"><h3>운영 비용</h3></div>${rpTrend(r.trend, "cost", wonShort)}</div>
+      <div class="dash-card rp-block">
+        <div class="card-head"><h3>안전 · 보건</h3><span class="chip-mono">${r.inc.length + r.meet.length}</span></div>
+        ${safety ? `<div class="rp-lines">${safety}</div>` : `<p class="rp-none">이번 달 사고 · 회의 기록 없음</p>`}
       </div>
+      ${rpA4HTML(r)}`;
+  }
 
-      <h3 class="rp-h">안전 · 보건</h3>
-      <div class="rp-grid2">
-        <div class="dash-card"><div class="card-head"><h3>사고 · 아차사고</h3><span class="chip-mono">${r.inc.length}</span></div>
-          ${r.inc.length ? `<div class="rp-lines">${r.inc.map((x) => `<p><span class="mono">${esc(x.date).slice(5)}</span> <b>${esc(x.type)}</b> ${esc(x.place)} — ${esc(x.content) || "내용 없음"} <span class="iss-tag ${x.status === "완료" ? "iss-tag--done" : ""}">${esc(x.status)}</span></p>`).join("")}</div>` : `<p class="rp-none">이번 달 사고 없음</p>`}</div>
-        <div class="dash-card"><div class="card-head"><h3>안전 회의</h3><span class="chip-mono">${r.meet.length}</span></div>
-          ${r.meet.length ? `<div class="rp-lines">${r.meet.map((x) => `<p><span class="mono">${esc(x.date).slice(5)}</span> <b>${esc(x.title) || "회의"}</b> ${x.org ? esc(x.org) : ""}</p>`).join("")}</div>` : `<p class="rp-none">이번 달 회의 기록 없음</p>`}</div>
-      </div>`;
+  // A4 요약 한 장 — 화면에서는 숨기고 인쇄할 때만 나온다. 넘치면 rpA4Fit 이 표 아랫줄부터 접는다.
+  function rpA4HTML(r) {
+    const first = (a, b) => (a ? 0 : 1) - (b ? 0 : 1);
+    const iss = r.iss.map(({ x }) => x).sort((a, b) =>
+      first(a.status !== "완료", b.status !== "완료") || first(a.source === "VOK", b.source === "VOK") || first(a.urgency === "긴급", b.urgency === "긴급") || (a.date < b.date ? -1 : 1));
+    const stl = r.stl.map(({ x }) => x).sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0));
+    const t = new Date(), td = `${t.getFullYear()}.${String(t.getMonth() + 1).padStart(2, "0")}.${String(t.getDate()).padStart(2, "0")}`;
+    return `<div class="rp-a4" id="rpA4" aria-hidden="true">
+      <div class="rp-a4__head">
+        <div><p class="rp-a4__eb">AGIT GARDEN / MONTHLY REPORT</p><p class="rp-a4__ttl">${r.y}년 ${r.m}월 운영 리포트</p></div>
+        <p class="rp-a4__meta">링키지랩 스낵&amp;가든 · 조경<br>출력 ${td} · 자동 산출</p>
+      </div>
+      <div><p class="rp-a4__h">월별 비교 <small>최근 6개월 · 이번 달 강조</small></p>${rpSheetHTML(r, true)}</div>
+      <div class="rp-a4__cmt"><p class="rp-a4__h">${r.m}월 코멘트</p><ul>${rpSummaryLines(r).map((l) => `<li>${esc(l)}</li>`).join("")}</ul></div>
+      <div data-fold="iss"><p class="rp-a4__h">${r.m}월 이슈 내역 <small>${r.iss.length}건 · 미완료 · VOK · 긴급 먼저</small></p>
+        ${iss.length ? `<table class="rp-a4__t"><thead><tr><th>발생</th><th>구역</th><th>분류</th><th>이슈</th><th>구분</th><th>상태</th><th class="num">처리</th></tr></thead><tbody>${iss.map((x) => {
+          const d = rpDays(x.date, x.doneAt);
+          return `<tr class="${x.status === "완료" ? "is-done" : ""}"><td>${esc(x.date).slice(5)}</td><td>${esc(x.building)}${x.location ? " " + esc(x.location) : ""}</td><td>${esc(x.category)}</td><td class="w">${esc(x.detail) || "—"}</td><td>${x.source === "VOK" ? `<b class="rp-a4__vok">VOK</b>` : esc(x.source || "LKG")}</td><td>${esc(x.status)}</td><td class="num">${d != null ? d + "일" : "—"}</td></tr>`;
+        }).join("")}</tbody></table><p class="rp-a4__more"></p>` : `<p class="rp-a4__none">등록된 이슈 없음</p>`}</div>
+      <div data-fold="stl"><p class="rp-a4__h">${r.m}월 정산 내역 <small>${won(r.cost)}${r.unpaid ? ` · 미정산 ${won(r.unpaid)}` : ""} · 금액 큰 순</small></p>
+        ${stl.length ? `<table class="rp-a4__t"><thead><tr><th>작업일</th><th>장소</th><th>구분</th><th>작업 내용</th><th class="num">비용</th><th>상태</th></tr></thead><tbody>${stl.map((x) =>
+          `<tr><td>${esc(x.date).slice(5)}</td><td>${esc(x.place) || "—"}</td><td>${esc(x.category)}</td><td class="w">${esc(x.title) || "—"}</td><td class="num"><b>${won(x.amount)}</b></td><td>${esc(x.status)}</td></tr>`).join("")}</tbody>
+          <tfoot><tr><td colspan="4">합계 ${r.stl.length}건</td><td class="num">${won(r.cost)}</td><td></td></tr></tfoot></table><p class="rp-a4__more"></p>` : `<p class="rp-a4__none">등록된 정산 없음</p>`}</div>
+      <div class="rp-a4__foot"><span>식물 이슈 · 운영 정산 · 산업안전 기록 기준 자동 집계</span><span>AGIT GARDEN · 링키지랩</span></div>
+    </div>`;
+  }
+  // 한 장(1123px)을 넘으면 더 긴 표의 마지막 줄부터 숨기고 '외 n건'을 단다 (Ctrl+P 로 인쇄해도 맞춘다)
+  window.addEventListener("beforeprint", () => rpA4Fit());
+  function rpA4Fit() {
+    const page = document.getElementById("rpA4"); if (!page) return;
+    page.classList.add("is-measure");
+    const fold = (k) => page.querySelector(`[data-fold="${k}"]`);
+    const shown = (k) => (fold(k) ? [...fold(k).querySelectorAll("tbody tr")].filter((tr) => !tr.hidden) : []);
+    page.querySelectorAll("tbody tr").forEach((tr) => (tr.hidden = false));
+    page.querySelectorAll(".rp-a4__more").forEach((p) => (p.textContent = ""));
+    let guard = 300;
+    while (page.scrollHeight > page.clientHeight + 1 && guard--) {
+      const a = shown("iss"), b = shown("stl"), pick = a.length >= b.length ? a : b;
+      if (pick.length <= 2) break;
+      pick[pick.length - 1].hidden = true;
+      ["iss", "stl"].forEach((k) => {
+        const f = fold(k), more = f && f.querySelector(".rp-a4__more"); if (!more) return;
+        const hid = f.querySelectorAll("tbody tr[hidden]").length;
+        more.textContent = hid ? `외 ${hid}건 — 전체는 화면의 ${k === "iss" ? "이슈" : "정산"} 내역에서 확인` : "";
+      });
+    }
+    page.classList.remove("is-measure");
   }
 
   // 복사용 텍스트 리포트 (메일·메신저 붙여넣기용)
@@ -3336,13 +3398,6 @@
     report() {
       return `
         <section class="view mr-view rp-view">
-          <div class="mr-top">
-            <div class="mr-top__l">
-              <p class="mr-eyebrow">AGIT GARDEN<span>·</span>MONTHLY REPORT</p>
-              <h2 class="mr-title">월간 리포트</h2>
-              <p class="mr-lead">식물 이슈 · 운영 정산 · 산업안전 기록을 월 단위로 자동 집계합니다. 각 메뉴에 입력한 내용이 그대로 반영돼요.</p>
-            </div>
-          </div>
           ${monthlyReportHTML()}
         </section>`;
     },
@@ -4723,6 +4778,7 @@
       else { const t = rpShift(_rpY, _rpM, d); _rpY = t.y; _rpM = t.m; }
       reReport();
     },
+    rpPrint() { rpA4Fit(); window.print(); },
     rpCopy() {
       const txt = rpPlainText();
       const ok = () => toast("리포트 요약을 복사했어요 ✓");

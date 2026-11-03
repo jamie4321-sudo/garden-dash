@@ -935,9 +935,11 @@
   const ISS_BUILDINGS = ["A동", "B동", "공용부", "외부"];
   const ISS_CATEGORIES = ["미화 관련", "유지관리 관련", "병해충", "관수/급수", "시설/환경", "기타"];
   const ISS_SOURCES = ["VOK", "LKG"]; // VOK=카카오 민원 · LKG=내부 셀프 확인
+  const GARDENER_URL = (window.CONFIG && window.CONFIG.GARDENER_URL) || "https://agit-gardener.pages.dev/"; // 아지트 가드너 현장 이슈 앱
   const ISSUE_DRIVE_URL = "https://drive.google.com/drive/folders/1h4a18kLTyOhLhg0FMWOUaJLtGR6R8gPr";
   let _issues = null, _issueQuery = "";
-  let _issuePeriodMode = "year", _issueYear = new Date().getFullYear(), _issueMonth = new Date().getMonth() + 1;
+  // 채용 키트식 3단: 위쪽 탭(_issTab) · 동 필터(_issB) · 고른 이슈(_issSel = getIssues() 인덱스)
+  let _issTab = "open", _issB = "전체", _issSel = null;
 
   function normalizeIssues(arr) {
     return (arr || []).map((x) => ({
@@ -983,13 +985,13 @@
   }
   function reIssues() { app.innerHTML = currentView() === "report" ? views.report() : views.issues(); }
   function issueTodayStr() { return `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`; }
-  function issueInPeriod(x) {
-    const d = String(x.date || "");
-    if (_issuePeriodMode === "year") return d.slice(0, 4) === String(_issueYear);
-    return d.slice(0, 7) === `${_issueYear}-${_pad(_issueMonth)}`;
+  const issOpen = (x) => x.status !== "완료";
+  function issRecent(x) {
+    const d = new Date(_now); d.setDate(d.getDate() - 30);
+    return String(x.date || "") >= `${d.getFullYear()}-${_pad(d.getMonth() + 1)}-${_pad(d.getDate())}`;
   }
   function issueMatch(x) {
-    if (!issueInPeriod(x)) return false;
+    if (_issB !== "전체" && x.building !== _issB) return false;
     if (_issueQuery) {
       const hay = [x.date, x.building, x.location, x.category, x.detail, x.species, x.assignee, x.action, x.memo]
         .join(" ").toLowerCase();
@@ -997,31 +999,86 @@
     }
     return true;
   }
+  // 같은 자리 묶기 — 띄어쓰기·'수납장/플랜트박스' 같은 군말을 빼고 동+상세구역으로 비교
+  const issPlaceKey = (x) => (x.building + " " + x.location).replace(/\s+/g, "").replace(/수납장|플랜트박스|좌석|창가|특대/g, "");
   const issTag = (t) => `<span class="iss-tag">${esc(t)}</span>`;
   const issUrgText = (u) => `<span class="iss-urgtext" data-u="${esc(u)}">${esc(u)}</span>`;
   const issSrc = (s) => `<span class="iss-src iss-src--${s === "VOK" ? "vok" : "lkg"}">${esc(s || "LKG")}</span>`;
 
-  function issueList(withIdx) {
-    if (!withIdx.length) return `<div class="iss-empty"><p>해당 기간에 등록된 이슈가 없습니다.</p></div>`;
-    const sorted = withIdx.slice().sort((a, b) => (a.x.date < b.x.date ? 1 : -1));
-    const rows = sorted.map(({ x, i }) => `<tr class="${x.status === "완료" ? "is-done" : ""}" onclick="GARDEN.issueOpen(${i})">
-      <td class="mono">${esc(x.date) || "—"}</td>
-      <td>${esc(x.building)}</td>
-      <td>${esc(x.location) || "—"}</td>
-      <td>${esc(x.category)}</td>
-      <td class="iss-td-title">${esc(x.detail) || "—"}${x.recur ? ` <span class="iss-recur-sm">반복</span>` : ""}</td>
-      <td><span class="iss-row__urg" data-u="${esc(x.urgency)}">${esc(x.urgency)}</span></td>
-      <td>${issTag(x.status)}</td>
-      <td class="mono">${x.doneAt ? esc(x.doneAt) : "—"}</td>
-      <td>${issSrc(x.source)}</td>
-    </tr>`).join("");
-    return `<div class="table-wrap"><table class="grid-table iss-table">
-      <thead><tr><th>발생일</th><th>구역</th><th>상세구역</th><th>이슈분류</th><th>이슈세부</th><th>긴급도</th><th>처리상태</th><th>완료일</th><th>구분</th></tr></thead>
-      <tbody>${rows}</tbody></table></div>`;
+  const issMD = (d) => { const m = String(d || "").match(/\d{4}-(\d{2})-(\d{2})/); return m ? `${+m[1]}/${+m[2]}` : "—"; };
+  function issTabList() {
+    const all = getIssues().map((x, i) => ({ x, i })).filter(({ x }) => issueMatch(x));
+    const byDate = (a, b) => String(b.x.date).localeCompare(String(a.x.date));
+    if (_issTab === "open") {
+      return { list: all.filter(({ x }) => issOpen(x)).sort(byDate), rest: all.filter(({ x }) => !issOpen(x)).sort(byDate).slice(0, 8) };
+    }
+    if (_issTab === "recent") return { list: all.filter(({ x }) => issRecent(x)).sort((a, b) => (issOpen(b.x) - issOpen(a.x)) || byDate(a, b)), rest: [] };
+    if (_issTab === "year") return { list: all.filter(({ x }) => String(x.date).startsWith(String(_now.getFullYear()))).sort(byDate), rest: [] };
+    return { list: all.sort(byDate), rest: [] };
   }
-  function renderIssueBody() {
-    const withIdx = getIssues().map((x, i) => ({ x, i })).filter(({ x }) => issueMatch(x));
-    return issueList(withIdx);
+  function issRow({ x, i }) {
+    const dot = issOpen(x) ? (x.urgency === "긴급" ? "is-urg" : "is-open") : "is-done";
+    return `<button class="ik-row${i === _issSel ? " is-on" : ""}" onclick="GARDEN.issueSel(${i})">
+      <span class="ik-dot ${dot}"></span>
+      <span class="ik-row__m"><b>${esc(x.building)} ${esc(x.location)}</b><small>${esc(x.detail) || "제목 없음"}${x.recur ? `<em>반복</em>` : ""}</small></span>
+      <span class="ik-row__s">${issOpen(x) ? esc(x.status) : `완료 ${issMD(x.doneAt || x.date)}`}</span></button>`;
+  }
+  function issListHTML() {
+    const { list, rest } = issTabList();
+    const shown = list.concat(rest);
+    if (_issSel == null || !shown.some((o) => o.i === _issSel)) _issSel = shown.length ? shown[0].i : null;
+    let h = list.length ? list.map(issRow).join("") : `<p class="ik-empty">${_issTab === "open" ? "진행 중인 이슈가 없어요 👍" : "해당하는 이슈가 없어요"}</p>`;
+    if (rest.length) h += `<p class="ik-g">최근 완료</p>` + rest.map(issRow).join("");
+    return h;
+  }
+  // 가운데 단계 흐름: 발견 → 조치 → 완료 (지금 단계만 펼침)
+  function issStepsHTML(x, i) {
+    const open = issOpen(x), now = open ? 2 : 4; // 완료면 세 단계 모두 체크
+    const days = x.doneAt && x.date ? Math.round((new Date(x.doneAt) - new Date(x.date)) / 864e5) : null;
+    const took = days != null && days >= 0 ? (days === 0 ? "당일" : `${days}일 걸림`) : "";
+    const step = (n, title, sub, body, show) => `<div class="ik-step${n < now ? " is-done" : n === now ? " is-now" : ""}">
+      <span class="ik-step__n">${n < now ? "✓" : n}</span>
+      <div class="ik-step__c"><div class="ik-step__t"><b>${title}</b><span>${sub}</span></div>${show ? `<div class="ik-step__b">${body}</div>` : ""}</div></div>`;
+    const s1 = `<p>${esc(x.detail) || "내용 없음"}</p>
+      <div class="ik-kv">${x.species ? `<span><i>대상 식물</i>${esc(x.species)}</span>` : ""}<span><i>구분</i>${x.source === "VOK" ? "VOK · 카카오 민원" : "LKG · 내부 확인"}</span></div>
+      ${x.photoUrl ? `<a class="btn btn--sm ik-photo" href="${esc(x.photoUrl)}" target="_blank" rel="noopener">📷 현장 사진 열기</a>` : ""}`;
+    const s2 = `<div class="ik-kv"><span><i>상태</i>${esc(x.status)}</span><span><i>담당자</i>${esc(x.assignee) || "—"}</span></div>
+      ${x.action ? `<p>${esc(x.action)}</p>` : `<p class="muted">아직 적힌 조치 내용이 없어요.</p>`}
+      <div class="ik-acts"><button class="btn btn--primary btn--sm" onclick="GARDEN.issueQuickDone(${i})">조치 완료</button><button class="btn btn--sm" onclick="GARDEN.issueEdit(${i})">조치 내용 쓰기</button></div>`;
+    const s3 = `<div class="ik-kv"><span><i>완료일</i>${esc(x.doneAt) || "—"}</span>${took ? `<span><i>걸린 시간</i>${took}</span>` : ""}<span><i>담당자</i>${esc(x.assignee) || "—"}</span></div>
+      ${x.action ? `<p>${esc(x.action)}</p>` : `<p class="muted">적힌 조치 내용이 없어요.</p>`}`;
+    return step(1, "발견", `${issMD(x.date)} · 접수`, s1, open)
+      + step(2, "조치", open ? "지금 진행 중" : (esc(x.assignee) || "담당자 미기재"), s2, open)
+      + step(3, "완료", open ? "조치 후" : `${issMD(x.doneAt)}${took ? " · " + took : ""}`, s3, !open);
+  }
+  function issDetailHTML() {
+    const i = _issSel, x = getIssues()[i];
+    if (!x) return `<div class="ik-detail"><p class="ik-empty">왼쪽에서 이슈를 골라 주세요.</p></div>`;
+    return `<div class="ik-detail">
+      <div class="ik-detail__h"><div><h3>${esc(x.detail) || "이슈"}</h3><p>${esc(x.building)} · ${esc(x.location) || "—"} · ${issMD(x.date)} 발견</p></div>
+        ${issOpen(x) ? `<button class="btn btn--primary btn--sm" onclick="GARDEN.issueQuickDone(${i})">조치 완료</button>` : `<span class="ik-done">조치 완료</span>`}</div>
+      ${issStepsHTML(x, i)}</div>`;
+  }
+  // 오른쪽 정보 칸: 위치 · 분류 태그 · 이 자리 이력 · 비고
+  function issInfoHTML() {
+    const i = _issSel, x = getIssues()[i];
+    if (!x) return "";
+    const key = issPlaceKey(x);
+    const same = getIssues().filter((y) => y !== x && issPlaceKey(y) === key).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    const urgCls = x.urgency === "긴급" ? " is-red" : x.urgency === "주의" ? " is-warn" : "";
+    return `<div class="ik-info">
+      <section><h6>위치</h6><div class="ik-v">${esc(x.building)}<small>${esc(x.location) || "—"}</small></div></section>
+      <section><h6>이슈</h6><span class="ik-tag">${esc(x.category)}</span><span class="ik-tag${urgCls}">${esc(x.urgency)}</span><span class="ik-tag${x.source === "VOK" ? " is-blue" : ""}">${esc(x.source || "LKG")}</span>${x.recur ? `<span class="ik-tag is-warn">반복</span>` : ""}</section>
+      <section><h6>이 자리 이력 · ${same.length + 1}번째</h6>${same.length
+        ? `<div class="ik-hist">${same.slice(0, 6).map((y) => `<div>${esc(y.detail) || "—"}<span>${issMD(y.date)}</span></div>`).join("")}${same.length > 6 ? `<div><span>외 ${same.length - 6}건</span></div>` : ""}</div>`
+        : `<p class="muted ik-memo">처음 생긴 자리예요</p>`}</section>
+      <section><h6>비고</h6><p class="ik-memo">${esc(x.memo) || `<span class="muted">—</span>`}</p></section>
+      <div class="ik-acts"><button class="btn btn--sm" onclick="GARDEN.issueEdit(${i})">수정</button><button class="btn btn--sm btn--danger" onclick="GARDEN.issueDelete(${i})">삭제</button></div>
+    </div>`;
+  }
+  function reIssBody() {
+    const set = (id, h) => { const el = document.getElementById(id); if (el) el.innerHTML = h; };
+    set("ikList", issListHTML()); set("ikDetail", issDetailHTML()); set("ikInfo", issInfoHTML());
   }
 
   function issueDetailModal(i) {
@@ -3558,47 +3615,32 @@
     },
 
     issues() {
-      const all = getIssues().filter((x) => issueMatch(x));
-      const total = all.length;
-      const doneN = all.filter((x) => x.status === "완료").length;
-      const openN = total - doneN;
-      const workN = all.filter((x) => x.status === "확인중" || x.status === "조치중").length;
-      const urgentN = all.filter((x) => x.urgency === "긴급" && x.status !== "완료").length;
-      const rate = total ? Math.round((doneN / total) * 100) : 0;
-      const stat = (label, val, unit, numMod) =>
-        `<div class="iss-stat"><div class="iss-stat__n ${numMod || ""}">${val}<small>${unit}</small></div><div class="iss-stat__l">${label}</div></div>`;
-      const periodTitle = _issuePeriodMode === "year" ? `${_issueYear}년` : `${_issueYear}년 ${_issueMonth}월`;
-
+      const all = getIssues();
+      const yr = String(_now.getFullYear());
+      const cnt = { open: all.filter(issOpen).length, recent: all.filter(issRecent).length,
+        year: all.filter((x) => String(x.date).startsWith(yr)).length, all: all.length };
+      const tabs = [["open", "진행 중"], ["recent", "최근 한 달"], ["year", `${yr}년`], ["all", "전체"]];
+      const list = issListHTML(); // 고른 이슈 기본값을 먼저 정함
       return `
-        <section class="view">
+        <section class="view ik">
           <div class="page-head">
-            <div><p class="eyebrow">Crew · 식물 관리</p><h2>식물 이슈 관리</h2>
-              <p class="sub">발생한 식물 이슈를 접수부터 완료까지 한눈에 추적합니다 · 행을 누르면 상세가 열립니다</p></div>
+            <div><p class="eyebrow">Crew · 식물 관리</p><h2>식물 이슈 관리</h2></div>
             <div class="seg">
+              <a class="btn btn--sm ik-app" href="${GARDENER_URL}" target="_blank" rel="noopener" title="가드너 현장 이슈 앱 새 창으로 열기">🌱 아지트 가드너 앱</a>
               <a class="btn btn--sm" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">🔗 드라이브</a>
               <button class="btn btn--primary btn--sm" onclick="GARDEN.issueAddOpen()">＋ 이슈 등록</button>
             </div>
           </div>
-          <div class="iss-stats">
-            ${stat("총 이슈", total, "건")}
-            ${stat("미완료", openN, "건")}
-            ${stat("처리중", workN, "건")}
-            ${stat("긴급", urgentN, "건", urgentN ? "iss-stat__n--red" : "")}
-            ${stat("해결률", rate, "%", "iss-stat__n--acid")}
+          <div class="ik-top">
+            <div class="ik-tabs">${tabs.map(([k, t]) => `<button class="${_issTab === k ? "is-on" : ""}" onclick="GARDEN.issueTab('${k}')">${t}<b>${cnt[k]}</b></button>`).join("")}</div>
+            <div class="ik-bf">${["전체", "A동", "B동", "공용부"].map((b) => `<button class="${_issB === b ? "is-on" : ""}" onclick="GARDEN.issueB('${b}')">${b}</button>`).join("")}</div>
+            <input class="searchbox ik-search" placeholder="자리 · 이슈 · 담당자 검색" value="${esc(_issueQuery)}" oninput="GARDEN.issueSearch(this.value)"/>
           </div>
-          <div class="iss-period">
-            <button class="iss-nav" onclick="GARDEN.issuePeriodStep(-1)" title="이전">←</button>
-            <span class="iss-period__title">${periodTitle}</span>
-            <button class="iss-nav" onclick="GARDEN.issuePeriodStep(1)" title="다음">→</button>
-            <div class="iss-modeseg">
-              <button class="iss-modebtn ${_issuePeriodMode === "month" ? "is-on" : ""}" onclick="GARDEN.issueMode('month')">월간</button>
-              <button class="iss-modebtn ${_issuePeriodMode === "year" ? "is-on" : ""}" onclick="GARDEN.issueMode('year')">연간</button>
-            </div>
+          <div class="ik-grid">
+            <div class="ik-list" id="ikList">${list}</div>
+            <div id="ikDetail">${issDetailHTML()}</div>
+            <div id="ikInfo">${issInfoHTML()}</div>
           </div>
-          <div class="iss-toolbar">
-            <input class="searchbox iss-search" placeholder="구역 · 이슈 · 담당자 검색" value="${esc(_issueQuery)}" oninput="GARDEN.issueSearch(this.value)"/>
-          </div>
-          <div id="issBody">${renderIssueBody()}</div>
         </section>`;
     },
 
@@ -4440,24 +4482,16 @@
     },
 
     /* --- 식물 이슈 관리 --- */
-    issueMode(m) {
-      _issuePeriodMode = m;
-      if (m === "month") { const n = new Date(); if (_issueYear === n.getFullYear() && !_issueMonth) _issueMonth = n.getMonth() + 1; }
-      reIssues();
-    },
-    issuePeriodStep(delta) {
-      if (_issuePeriodMode === "year") { _issueYear += delta; }
-      else {
-        _issueMonth += delta;
-        if (_issueMonth > 12) { _issueMonth = 1; _issueYear += 1; }
-        if (_issueMonth < 1) { _issueMonth = 12; _issueYear -= 1; }
-      }
-      reIssues();
+    issueTab(k) { _issTab = k; _issSel = null; reIssues(); },
+    issueB(b) { _issB = b; _issSel = null; reIssues(); },
+    issueSel(i) {
+      _issSel = i; reIssBody();
+      const d = document.getElementById("ikDetail");
+      if (d && window.innerWidth <= 900) d.scrollIntoView({ behavior: "smooth", block: "start" });
     },
     issueSearch(v) {
       _issueQuery = String(v).trim().toLowerCase();
-      const b = document.getElementById("issBody");
-      if (b) b.innerHTML = renderIssueBody();
+      _issSel = null; reIssBody();
     },
     issueAddOpen() {
       if (document.getElementById("issueFormModal")) return;

@@ -3580,39 +3580,38 @@
       const doneOf = (name, key) => recs.find((r) => r.name === name && r.key === key) || null;
       const total = crew.length;
 
-      // 교육별 이수 현황 (카운트 타일 · % 없음)
-      const overview = EDU_TRAININGS.map((t) => {
-        const done = crew.filter((c) => doneOf(c.name, t.key)).length;
-        const mod = (total > 0 && done === total) ? "is-full" : done === 0 ? "is-zero" : "";
-        return `<div class="edu-ov">
-          <span class="edu-ov__name">${t.full}</span>
-          <span class="edu-ov__val ${mod}">${done}<small> / ${total}명 이수</small></span>
-        </div>`;
-      }).join("");
+      const all = total * EDU_TRAININGS.length;
+      const doneCnt = (c) => EDU_TRAININGS.filter((t) => doneOf(c.name, t.key)).length;
+      const doneAll = crew.reduce((s, c) => s + doneCnt(c), 0);
+      const fullN = crew.filter((c) => doneCnt(c) === EDU_TRAININGS.length).length;
+      const leftN = crew.filter((c) => doneCnt(c) < EDU_TRAININGS.length).length;
+      const dl = new Date(+year, 11, 31), today = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
+      const dday = Math.ceil((dl - today) / 864e5);
+      const ddTxt = dday > 0 ? `D-${dday}` : dday === 0 ? "D-DAY" : "마감";
 
-      // 크루별 이수 현황 (매트릭스 · 이수/미이수 칩)
-      const heads = EDU_TRAININGS.map((t) => `<th class="edu-col">${t.label}</th>`).join("");
+      // 크루 × 교육 체크 표 — 이수는 라임 체크, 미이수는 빈 점선 동그라미
+      const heads = EDU_TRAININGS.map((t) => `<th>${t.label.replace("<br>", " ")}</th>`).join("");
       const body = total
         ? crew.map((c) => {
             const cells = EDU_TRAININGS.map((t) => {
               const r = doneOf(c.name, t.key);
               if (r) {
-                const d = esc(r.date).slice(5).replace("-", "/");
-                return `<td class="edu-cell" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="이수일 ${esc(r.date)} · 수정">
-                  <span class="edu-chip edu-chip--done">✓ 이수</span><span class="edu-cell-date">${d}</span></td>`;
+                const d = esc(r.date).slice(5).replace("-", "/").replace(/^0/, "").replace("/0", "/");
+                return `<td><button class="ed-ok" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="이수일 ${esc(r.date)} · 눌러서 수정"><i>✓</i><small>${d}</small></button></td>`;
               }
-              return `<td class="edu-cell" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="이수 기록 추가">
-                <span class="edu-chip edu-chip--miss">미이수</span></td>`;
+              return `<td><button class="ed-no" onclick="GARDEN.trainingOpen('${esc(c.name)}','${t.key}')" title="${esc(t.full)} 이수 기록 추가" aria-label="${esc(c.name)} ${esc(t.full)} 이수 기록 추가">＋</button></td>`;
             }).join("");
             return `<tr>
-              <td class="edu-name"><b>${esc(c.name)}</b>${c.role ? `<span class="t">${esc(c.role)}</span>` : ""}</td>
+              <td class="ed-name"><b>${esc(c.name)}</b>${c.role ? `<span>${esc(c.role)}</span>` : ""}</td>
               ${cells}
+              <td class="ed-pr${doneCnt(c) === EDU_TRAININGS.length ? " is-full" : ""}">${doneCnt(c)}/${EDU_TRAININGS.length}</td>
             </tr>`;
           }).join("")
-        : `<tr><td colspan="${EDU_TRAININGS.length + 1}" class="edu-empty">등록된 크루가 없습니다 · 크루 로스터에서 먼저 등록하세요.</td></tr>`;
+        : `<tr><td colspan="${EDU_TRAININGS.length + 2}" class="edu-empty">등록된 크루가 없습니다 · 크루 로스터에서 먼저 등록하세요.</td></tr>`;
 
-      const yearSel = `<select class="edu-year" onchange="GARDEN.trainingYear(this.value)">${
-        eduYears().map((y) => `<option value="${y}" ${String(y) === String(year) ? "selected" : ""}>${y}년</option>`).join("")}</select>`;
+      const years = eduYears().slice(0, 3);
+      const yearSeg = `<div class="rs-seg">${years.map((y) =>
+        `<button class="${String(y) === String(year) ? "is-on" : ""}" onclick="GARDEN.trainingYear('${y}')">${y}년</button>`).join("")}</div>`;
 
       return `
         <section class="view">
@@ -3626,22 +3625,21 @@
             </div>
           </div>
 
-          <div class="dash-card">
-            <div class="card-head"><h3>교육별 이수 현황</h3>
-              <span class="asof" style="margin-left:auto">${year}년 기준</span></div>
-            <div class="edu-ovgrid">${overview}</div>
+          <div class="rs-sum">
+            <div><span>${year}년 이수율</span><b>${all ? Math.round((doneAll / all) * 100) : 0}<small>%</small></b><em>${doneAll} / ${all}건</em></div>
+            <div><span>4개 모두 이수</span><b>${fullN}<small>명</small></b><em>크루 ${total}명 중</em></div>
+            <div><span>남은 이수</span><b>${all - doneAll}<small>건</small></b><em>${leftN}명 · 교육 ${EDU_TRAININGS.length}개</em></div>
+            <div><span>${year}년 마감까지</span><b>${ddTxt}</b><em>${dday < 0 ? "지난 연도" : "12월 31일"}</em></div>
           </div>
 
-          <div class="edu-mtx-head">
-            <h3>크루별 이수 현황</h3>
-            <div class="seg">
-              ${yearSel}
-              <button class="btn btn--sm" onclick="GARDEN.trainingCsv()">CSV 내보내기</button>
-            </div>
+          <div class="rs-tools">
+            ${yearSeg}
+            <span class="ed-hint">빈 동그라미를 누르면 이수 기록을 추가해요</span>
+            <button class="btn btn--sm ed-csv" onclick="GARDEN.trainingCsv()">CSV 내보내기</button>
           </div>
-          <div class="table-wrap edu-wrap">
-            <table class="grid-table edu-table">
-              <thead><tr><th>가드너</th>${heads}</tr></thead>
+          <div class="table-wrap">
+            <table class="grid-table ed-table">
+              <thead><tr><th>크루</th>${heads}<th>이수</th></tr></thead>
               <tbody>${body}</tbody>
             </table>
           </div>

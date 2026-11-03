@@ -107,7 +107,10 @@
         ? `<p class="bt-notice__t" onclick="GARDEN.noticeOpen(0)" title="눌러서 수정">${esc(latest.text).replace(/\n/g, "<br>")}</p>`
         : `<p class="bt-notice__t">등록된 공지사항이 없어요.</p>`}
       ${older ? `<div class="bt-notice__olds">${older}</div>` : ""}
-      <div class="bt__foot"><button class="bt-ghost" onclick="GARDEN.noticeOpen(null)">＋ 공지 등록</button></div>
+      <div class="bt__foot bt-notice__btns">
+        <button class="bt-ghost" onclick="GARDEN.noticeOpen(null)">＋ 공지 등록</button>
+        ${latest ? `<button class="bt-ghost" onclick="GARDEN.noticeOpen(0)">✏️ 수정 · 이력 ${list.length}개</button>` : ""}
+      </div>
     </div>`;
   }
 
@@ -143,41 +146,68 @@
     _pushNT = setTimeout(() => {
       fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ type: "notices", data: _notices }) })
-        .then(() => toast("공지사항 시트에 저장됨 ✓"))
+        .then(() => toast("공지사항을 시트로 보냈어요 ✓"))
         .catch((e) => { console.warn("[GARDEN] 공지사항 저장 실패:", e); toast("저장 실패 — 로컬만 저장됨", true); });
     }, 500);
   }
   // 공지사항 전용 비밀번호 — 다른 관리자 비밀번호와 별개(제이미만 인지)
-  function checkNoticePw() {
-    if (_noticeOK) return true;
-    const pw = String((window.CONFIG && window.CONFIG.NOTICE_PASSWORD) || "").trim();
-    if (!pw) { _noticeOK = true; return true; }
-    const input = window.prompt("공지사항 작성/수정/삭제 — 비밀번호를 입력하세요 (제이미 전용)");
-    if (input === null) return false;
-    if (input.trim() !== pw) { toast("비밀번호가 올바르지 않습니다", true); return false; }
-    _noticeOK = true;
-    return true;
-  }
-  function reDash() { app.innerHTML = views.dashboard(); if (window.GARDEN) GARDEN.loadWeather(); }
-  function noticeModal(i) {
-    const isNew = i == null;
+  // window.prompt 는 일부 앱 내 브라우저에서 막혀서, 팝업 안에서 입력받는다.
+  let _ntEdit = null, _noticeEditAt = 0;
+  function noticePw() { return String((window.CONFIG && window.CONFIG.NOTICE_PASSWORD) || "").trim(); }
+  function noticeUnlocked() { if (!noticePw()) _noticeOK = true; return _noticeOK; }
+  const isoToday = () => `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`;
+  function reDash() { if (currentView() !== "dashboard") return; app.innerHTML = views.dashboard(); if (window.GARDEN) GARDEN.loadWeather(); }
+
+  /* 공지 관리 팝업 — 비밀번호 · 작성/수정 · 이력(수정·삭제)을 한 창에서 */
+  function noticeModalBody() {
+    if (!noticeUnlocked()) {
+      return `<div class="nt-lock">
+        <p>공지사항 작성·수정·삭제는 제이미만 할 수 있어요.</p>
+        <div class="nt-lock__row">
+          <input id="nt_pw" type="password" placeholder="공지 비밀번호" autocomplete="off"
+            onkeydown="if(event.key==='Enter')GARDEN.noticeUnlock()"/>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.noticeUnlock()">확인</button>
+        </div>
+        <p class="nt-err" id="nt_err"></p>
+      </div>`;
+    }
     const list = getNotices();
-    const n = isNew ? { date: todayKey(), text: "" } : list[i];
-    if (!isNew && !n) return "";
+    const editing = _ntEdit != null && list[_ntEdit];
+    const n = editing ? list[_ntEdit] : { date: isoToday(), text: "" };
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(n.date) ? n.date : isoToday();
+    const hist = list.length
+      ? list.map((x, i) => `<div class="nt-row${i === _ntEdit ? " is-on" : ""}">
+          <span class="nt-row__d">${esc(x.date)}${i === 0 ? `<em>지금 보이는 공지</em>` : ""}</span>
+          <span class="nt-row__t">${esc(x.text)}</span>
+          <span class="nt-row__a">
+            <button class="btn btn--sm" onclick="GARDEN.noticeEdit(${i})">수정</button>
+            <button class="btn btn--sm btn--danger" onclick="GARDEN.noticeDelete(${i})">삭제</button>
+          </span></div>`).join("")
+      : `<p class="muted" style="margin:4px 0">아직 등록된 공지가 없어요.</p>`;
+    return `<div class="nt-form">
+        <p class="nt-mode">${editing ? `✏️ ${esc(list[_ntEdit].date)} 공지를 고치는 중` : "＋ 새 공지 쓰기"}</p>
+        <label class="fld"><span>날짜</span><input id="nt_date" type="date" value="${esc(date)}"/></label>
+        <label class="fld"><span>내용 *</span><textarea id="nt_text" rows="4" placeholder="근무 인원에게 전달할 공지 내용을 입력하세요">${esc(n.text)}</textarea></label>
+        <div class="nt-actions">
+          ${editing ? `<button class="btn btn--sm" onclick="GARDEN.noticeEdit(null)">새 공지로 바꾸기</button>` : ""}
+          <span class="gmodal__spacer"></span>
+          <button class="btn btn--primary btn--sm" onclick="GARDEN.noticeSave()">${editing ? "수정 저장" : "등록"}</button>
+        </div>
+      </div>
+      <div class="nt-hist"><p class="nt-hist__h">공지 이력 · ${list.length}개 <small>맨 위 공지가 대시보드에 보여요</small></p>${hist}</div>`;
+  }
+  function noticeModal() {
     return `<div class="gmodal" id="noticeModal">
       <div class="gmodal__bd" onclick="GARDEN.noticeClose()"></div>
-      <div class="gmodal__card">
-        <div class="gmodal__head"><h3>${isNew ? "공지사항 등록" : "공지사항 수정"}</h3><button class="gmodal__x" onclick="GARDEN.noticeClose()">×</button></div>
-        <div class="gform">
-          <label class="fld"><span>날짜</span><input id="nt_date" type="date" value="${esc(n.date)}"/></label>
-          <label class="fld"><span>내용 *</span><textarea id="nt_text" rows="5" placeholder="근무 인원에게 전달할 공지 내용을 입력하세요">${esc(n.text)}</textarea></label>
-        </div>
-        <div class="gmodal__foot">
-          ${isNew ? "" : `<button class="btn btn--sm btn--danger" onclick="GARDEN.noticeDelete(${i})">삭제</button><span class="gmodal__spacer"></span>`}
-          <button class="btn btn--sm" onclick="GARDEN.noticeClose()">취소</button>
-          <button class="btn btn--primary btn--sm" onclick="GARDEN.noticeSave(${isNew ? "null" : i})">저장</button>
-        </div>
+      <div class="gmodal__card nt-card">
+        <div class="gmodal__head"><h3>공지사항</h3><button class="gmodal__x" onclick="GARDEN.noticeClose()" aria-label="닫기">×</button></div>
+        <div id="ntBody">${noticeModalBody()}</div>
       </div></div>`;
+  }
+  function reNoticeModal() {
+    const b = document.getElementById("ntBody"); if (!b) return;
+    b.innerHTML = noticeModalBody();
+    const f = document.getElementById(noticeUnlocked() ? "nt_text" : "nt_pw"); if (f) f.focus();
   }
 
   /* ===== 오늘의 날씨 (경기 성남 분당구 · Open-Meteo, 매일 자동 갱신) ===== */
@@ -3979,28 +4009,50 @@
     },
 
     /* --- 공지사항 (제이미 전용 · 이력 누적) --- */
+    role() { return currentRole(); },
     noticeOpen(i) {
-      if (!checkNoticePw()) return;
-      if (document.getElementById("noticeModal")) return;
-      document.body.insertAdjacentHTML("beforeend", noticeModal(i));
-      const n = document.getElementById("nt_text"); if (n) n.focus();
+      _ntEdit = i == null ? null : i;
+      const m = document.getElementById("noticeModal");
+      if (m) { reNoticeModal(); return; }
+      document.body.insertAdjacentHTML("beforeend", noticeModal());
+      const f = document.getElementById(noticeUnlocked() ? "nt_text" : "nt_pw"); if (f) f.focus();
     },
-    noticeClose() { const m = document.getElementById("noticeModal"); if (m) m.remove(); },
-    noticeSave(i) {
-      if (!checkNoticePw()) return;
+    noticeClose() { const m = document.getElementById("noticeModal"); if (m) m.remove(); _ntEdit = null; },
+    noticeUnlock() {
+      const el = document.getElementById("nt_pw"), err = document.getElementById("nt_err");
+      if ((el && el.value.trim()) !== noticePw()) {
+        if (err) err.textContent = "비밀번호가 맞지 않아요.";
+        if (el) { el.value = ""; el.focus(); }
+        return;
+      }
+      _noticeOK = true; reNoticeModal();
+    },
+    noticeEdit(i) { _ntEdit = i; reNoticeModal(); },
+    noticeSave() {
+      if (!noticeUnlocked()) return;
       const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
       const text = v("nt_text");
       if (!text) { const n = document.getElementById("nt_text"); if (n) { n.focus(); n.style.borderColor = "var(--red)"; } return; }
-      const rec = { date: v("nt_date") || todayKey(), text, author: "제이미" };
       const list = getNotices();
-      if (i == null) list.unshift(rec); else if (list[i]) list[i] = rec; else return;
-      saveNotices(); this.noticeClose(); reDash(); toast("공지사항 저장됨 ✓");
+      const prev = _ntEdit != null ? list[_ntEdit] : null;
+      const rec = { date: v("nt_date") || isoToday(), text, author: (prev && prev.author) || "제이미" };
+      if (prev) list[_ntEdit] = rec;
+      else list.unshift(rec);
+      // 날짜가 최신인 공지가 맨 위(대시보드에 보이는 공지)
+      list.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      _noticeEditAt = Date.now();
+      saveNotices();
+      _ntEdit = null; reNoticeModal(); reDash();
+      toast(prev ? "공지사항을 고쳤어요 ✓" : "공지사항을 등록했어요 ✓");
     },
     noticeDelete(i) {
-      if (!checkNoticePw()) return;
+      if (!noticeUnlocked()) return;
       const list = getNotices(); if (!list[i]) return;
-      if (!window.confirm("이 공지사항을 삭제할까요? 되돌릴 수 없습니다.")) return;
-      list.splice(i, 1); saveNotices(); this.noticeClose(); reDash(); toast("공지사항 삭제됨 ✓");
+      if (!window.confirm("이 공지사항을 삭제할까요? 되돌릴 수 없어요.")) return;
+      list.splice(i, 1);
+      _noticeEditAt = Date.now();
+      saveNotices();
+      _ntEdit = null; reNoticeModal(); reDash(); toast("공지사항을 삭제했어요 ✓");
     },
 
     /* --- 항목 편집 --- */
@@ -5010,8 +5062,11 @@
           _settle = null;
           try { localStorage.removeItem(STL_KEY); } catch (e) {}
           // 공지사항도 시트가 항상 최신 소스(여러 이력 누적)
-          _notices = null;
-          try { localStorage.removeItem(NOTICE_KEY); } catch (e) {}
+          // 방금(2분 안) 이 기기에서 고친 공지는 시트 반영 전일 수 있으니 덮어쓰지 않음
+          if (Date.now() - _noticeEditAt > 120000) {
+            _notices = null;
+            try { localStorage.removeItem(NOTICE_KEY); } catch (e) {}
+          }
           // 교체 현황도 시트가 항상 최신 소스
           _swaps = null;
           _heat = null; // 체감온도: 시트 + 이 기기에서 방금 기록한 것(getHeat에서 합침)
@@ -5064,7 +5119,7 @@
       _booting = false;
       D.notices = notices; D.settlement = settlement; D.plantIssues = plantIssues; D.trainingRecords = trainingRecords;
       D.safetyMeetings = safetyMeetings; D.safetyChecks = safetyChecks; D.safetyIncidents = safetyIncidents;
-      _notices = null; try { localStorage.removeItem(NOTICE_KEY); } catch (e) {}
+      if (Date.now() - _noticeEditAt > 120000) { _notices = null; try { localStorage.removeItem(NOTICE_KEY); } catch (e) {} }
       _settle = null; try { localStorage.removeItem(STL_KEY); } catch (e) {}
       _issues = null; try { localStorage.removeItem(PI_KEY); } catch (e) {}
       _training = null; try { localStorage.removeItem(EDU_KEY); } catch (e) {}

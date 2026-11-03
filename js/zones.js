@@ -96,7 +96,9 @@
   function liveHTML() {
     const t = loadedAt ? loadedAt.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" }) : "";
     if (state === "loading") return `<span class="zn-dot"></span><span>구글 시트 불러오는 중…</span>`;
-    const sheet = `<a class="zn-link" href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit" target="_blank" rel="noopener">시트 열기 ↗</a>`;
+    // 시트 열기는 관리자만
+    const isAdmin = window.GARDEN && typeof window.GARDEN.role === "function" && window.GARDEN.role() === "관리자";
+    const sheet = isAdmin ? `<a class="zn-link" href="https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit" target="_blank" rel="noopener">시트 열기 ↗</a>` : "";
     if (state === "cache") return `<span class="zn-dot is-off"></span><span>시트를 못 불러와서 마지막으로 받은 내용을 보여주고 있어요</span>
       <button class="btn btn--sm" onclick="ZONES.load(true)">다시 시도</button>${sheet}`;
     if (state === "error") return `<span class="zn-dot is-off"></span><span>시트를 불러오지 못했어요 · 시트 공유가 ‘링크가 있는 모든 사용자 보기’인지 확인해 주세요</span>
@@ -142,7 +144,7 @@
     set("znHl", hlHTML());
     set("znSec", secHTML());
     set("znChips", chipsHTML());
-    set("znSecSub", Z.length ? `${Z.length}개 구역 · 블록을 누르면 상세 · 진할수록 관리 수량이 많아요` : "");
+    set("znSecSub", Z.length ? "진할 수록 수량이 많아요" : "");
     set("znSpSub", SP.length ? `${SP.length}종 · 자주 있는 12종 · 나머지는 검색 · 고르면 위 단면도에 표시` : "");
   }
 
@@ -182,12 +184,12 @@
       return `<section class="view zn">
         <div class="page-head">
           <div><p class="eyebrow">Crew · 관리 구역</p><h2>관리 구역</h2>
-            <p class="sub">구글 시트 「아지트 가든 관리구역」을 그대로 보여줘요 · 시트를 고치면 자동 반영 (5분마다·화면 돌아올 때)</p></div>
+</div>
           <div class="seg"><button class="btn btn--primary btn--sm" onclick="ZONES.load(true)">↻ 새로고침</button></div>
         </div>
         <div class="zn-live" id="znLive">${liveHTML()}</div>
         <div class="zn-card zn-block">
-          <div class="zn-bh"><h3>건물 보기</h3><p class="zn-muted" id="znSecSub"></p></div>
+          <div class="zn-bh"><h3>카카오 아지트</h3><p class="zn-muted" id="znSecSub"></p></div>
           <div id="znHl">${hlHTML()}</div>
           <div id="znSec">${secHTML()}</div>
           <div class="zn-legend">관리 수량 <span><i class="zn-h1"></i>적음</span><span><i class="zn-h2"></i></span><span><i class="zn-h3"></i></span><span><i class="zn-h4"></i>많음</span></div>

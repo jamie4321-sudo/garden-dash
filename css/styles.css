@@ -35,7 +35,7 @@
   --shadow: 0 14px 40px rgba(0,0,0,.4);
   --today-glow: rgba(198,255,46,.09);
 
-  --mono: "Pretendard", system-ui, sans-serif;
+  --mono: "Kakao Big Sans", "Pretendard", system-ui, sans-serif;
   --r-sm: 8px;
   --r:    10px;
   --r-lg: 16px;
@@ -73,10 +73,15 @@
   color-scheme: light;
 }
 
+/* 게임즈 가든과 같은 서체 (KS2350 서브셋) */
+@font-face { font-family: "Kakao Big Sans"; src: url("../fonts/kbs-regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Kakao Big Sans"; src: url("../fonts/kbs-bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Kakao Big Sans"; src: url("../fonts/kbs-extrabold.woff2") format("woff2"); font-weight: 800; font-display: swap; }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 body {
-  font-family: "Pretendard", system-ui, sans-serif;
+  font-family: "Kakao Big Sans", "Pretendard", system-ui, sans-serif;
   background: var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
@@ -119,19 +124,16 @@ button { font-family: inherit; }
   font-family: var(--mono); font-size: 9.5px; font-weight: 500;
   color: var(--ink-3); letter-spacing: 1.5px;
 }
+/* 게임즈 가든식 메뉴 — 선택된 메뉴는 라임 알약 */
 .nav__item {
   display: block; position: relative;
-  padding: 9px 12px; border-radius: var(--r-sm);
-  color: var(--ink-2); font-size: 13.5px; cursor: pointer;
-  transition: color .14s, background .14s;
-}
-.nav__item::before {
-  content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-  width: 2px; height: 0; background: var(--accent); border-radius: 2px; transition: height .16s;
+  padding: 8px 14px; margin: 1px 0; border-radius: 999px;
+  color: var(--ink-2); font-size: 13.5px; font-weight: 700; cursor: pointer;
+  transition: color .16s, background .16s;
 }
 .nav__item:hover { color: var(--ink); background: var(--panel-2); }
-.nav__item.is-active { color: var(--ink); font-weight: 700; background: var(--panel-2); }
-.nav__item.is-active::before { height: 16px; }
+.nav__item.is-active { color: var(--accent-ink); background: var(--accent); }
+.nav__item.is-active:hover { background: var(--accent); }
 .nav__item.is-soon { opacity: .38; cursor: default; }
 .nav__item.is-soon:hover { background: transparent; color: var(--ink-2); }
 
@@ -2066,3 +2068,142 @@ button { font-family: inherit; }
   .st-add .fld-row { grid-template-columns: minmax(0, 1fr); }
   .st-add .fld input { min-width: 0; width: 100%; }
 }
+
+/* =========================================================
+   대시보드 — 게임즈 가든식 타일 그리드 (2026-11-03)
+   ========================================================= */
+:root { --bt-c0: #2a2a2d; --bt-c1: #c6ff2e; --bt-c2: #8fbf10; --bt-c3: #5a760c; --bt-c4: #3d4a1a; --bt-c5: #e3f7a6; }
+:root[data-theme="light"] { --bt-c0: #e2e3dd; --bt-c1: #bff000; --bt-c2: #8cbf00; --bt-c3: #4f7300; --bt-c4: #c8d98a; --bt-c5: #2f4500; }
+
+.dash-bento { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: minmax(156px, auto); gap: 14px; }
+.bt {
+  background: var(--panel); border: 1px solid var(--line-soft); border-radius: 18px;
+  padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0;
+}
+.bt--s2 { grid-column: span 2; }
+.bt--r2 { grid-row: span 2; }
+.bt__lbl { font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+.bt__big { font-size: 46px; font-weight: 800; letter-spacing: -1.6px; line-height: 1; font-variant-numeric: tabular-nums; }
+.bt__big small { font-size: 16px; font-weight: 700; margin-left: 2px; letter-spacing: 0; }
+.bt__sub { font-size: 12.5px; font-weight: 700; }
+.bt__word { font-size: 22px; font-weight: 800; letter-spacing: -.4px; line-height: 1.2; }
+.bt__row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.bt__more { font-size: 12px; font-weight: 700; color: var(--accent-text); white-space: nowrap; }
+.bt__foot { margin-top: auto; }
+.bt--accent { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
+.bt--accent .bt__lbl { color: var(--accent-ink); opacity: .7; }
+.bt--link { transition: border-color .2s, transform .2s cubic-bezier(.23,1,.32,1); }
+.bt--link:hover { border-color: var(--ink-3); }
+.bt--link:active { transform: scale(.98); }
+.bt-pill { align-self: flex-start; font-size: 11.5px; font-weight: 800; padding: 3px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
+.bt-pill--warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber); }
+
+/* 공지 — 진한 타일 */
+.bt--dark { background: #16160f; border-color: transparent; color: #f4f4f5; }
+:root[data-theme="dark"] .bt--dark { background: var(--panel-2); border-color: var(--line); }
+.bt--dark .bt__lbl { color: rgba(244,244,245,.6); }
+.bt-notice__t { margin: 0; font-size: 17px; font-weight: 800; line-height: 1.45; cursor: pointer; }
+.bt-notice__olds { display: flex; flex-direction: column; gap: 2px; }
+.bt-notice__old { all: unset; cursor: pointer; font-size: 12px; color: rgba(244,244,245,.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-notice__old span { margin-right: 8px; opacity: .7; font-variant-numeric: tabular-nums; }
+.bt-notice__old:hover { color: #f4f4f5; }
+.bt-ghost { border: 1px solid rgba(244,244,245,.25); background: transparent; color: inherit; border-radius: 999px;
+  padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.bt-ghost:hover { border-color: rgba(244,244,245,.55); }
+
+/* 날씨 — wxFill 이 채우는 마크업을 타일 모양으로 */
+.bt-wx .wxw__left { display: flex; flex-direction: column; gap: 6px; }
+.bt-wx .wxw__temp { display: flex; align-items: center; gap: 8px; }
+.bt-wx .wxw__ico { font-size: 34px; line-height: 1; }
+.bt-wx .wxw__deg { font-size: 46px; font-weight: 800; letter-spacing: -1.6px; line-height: 1; font-variant-numeric: tabular-nums; }
+.bt-wx .wxw__feel { font-size: 12.5px; color: var(--ink-3); font-weight: 700; }
+.bt-wx .wxw__right { display: none; }
+
+/* 크루 구성 — 도넛 링 */
+.bt-ring { display: flex; align-items: center; gap: 24px; }
+.bt-ring svg { width: 120px; height: 120px; flex: none; }
+.bt-ring__n { font-size: 26px; font-weight: 800; fill: var(--ink); font-family: inherit; }
+.bt-ring__u { font-size: 11px; fill: var(--ink-3); font-family: inherit; }
+.bt-lg { flex: 1; display: flex; flex-direction: column; gap: 7px; font-size: 13px; min-width: 0; }
+.bt-lg div { display: flex; align-items: center; gap: 8px; }
+.bt-lg i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.bt-lg b { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* 최근 이슈 목록 — 타일 폭에 맞게 위치 칸을 넓히고 긴급도는 숨김 */
+.bt .dri-list { margin: 0; }
+.bt .dri-row { grid-template-columns: 40px minmax(0, 1.25fr) minmax(0, 1fr) auto; gap: 10px; padding: 10px 2px; }
+.bt .dri-row .iss-row__urg { display: none; }
+
+@media (max-width: 1100px) {
+  .dash-bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .dash-bento { grid-template-columns: 1fr; grid-auto-rows: auto; }
+  .bt--s2 { grid-column: auto; }
+  .bt--r2 { grid-row: auto; }
+  .bt__big, .bt-wx .wxw__deg { font-size: 40px; }
+}
+@media (max-width: 720px) {
+  .bt .dri-row { grid-template-columns: 40px minmax(0, 1fr) auto; }
+}
+
+/* =========================================================
+   크루 로스터 — 요약 띠 + 깔끔한 표 (2026-11-03)
+   ========================================================= */
+.rs-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: var(--panel); border: 1px solid var(--line-soft); border-radius: 18px; }
+.rs-sum > div { padding: 16px 20px; border-left: 1px solid var(--line-soft); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rs-sum > div:first-child { border-left: 0; }
+.rs-sum span { font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+.rs-sum b { font-size: 30px; font-weight: 800; letter-spacing: -.8px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.rs-sum b small { font-size: 13px; font-weight: 700; color: var(--ink-3); margin-left: 2px; letter-spacing: 0; }
+.rs-sum em { font-style: normal; font-size: 12px; color: var(--ink-3); }
+
+.rs-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 16px 0 12px; }
+.rs-tools .searchbox { flex: 0 1 300px; border-radius: 999px; }
+.rs-seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--panel-2); border-radius: 999px; }
+.rs-seg button { border: 0; background: none; padding: 7px 14px; border-radius: 999px; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink-2); cursor: pointer; white-space: nowrap; transition: background .2s, color .2s; }
+.rs-seg button.is-on { background: var(--accent); color: var(--accent-ink); }
+
+.rs-table tbody tr { cursor: pointer; }
+.rs-table td { padding: 13px 18px; }
+.rs-name b { display: block; font-size: 14px; font-weight: 800; }
+.rs-name span { display: block; font-size: 11.5px; color: var(--ink-3); margin-top: 1px; }
+.rs-date { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rs-date span { display: block; font-size: 11.5px; color: var(--ink-3); }
+.rs-ten { font-weight: 800; white-space: nowrap; }
+.rs-st { display: inline-flex; font-size: 11.5px; font-weight: 800; padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
+.rs-st--leave { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber); }
+.rs-st--out { background: var(--panel-2); color: var(--ink-3); }
+.rs-tag { display: inline-flex; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--panel-2); color: var(--ink-2); white-space: nowrap; margin: 1px 4px 1px 0; }
+.rs-memo { color: var(--ink-2); font-size: 12.5px; max-width: 260px; }
+.rs-table .crew-out td { color: var(--ink-3); }
+.rs-table .crew-out .rs-name b { color: var(--ink-2); }
+.rs-outwrap { margin-top: 18px; }
+.rs-outh { margin: 0 0 8px; font-size: 13px; font-weight: 800; color: var(--ink-2); }
+.rs-more { margin-top: 12px; border: 0; background: none; padding: 6px 2px; font: inherit; font-size: 13px; font-weight: 800; color: var(--ink-2); cursor: pointer; }
+.rs-more:hover { color: var(--ink); }
+
+@media (max-width: 900px) {
+  .rs-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rs-sum > div:nth-child(3) { border-left: 0; }
+  .rs-sum > div:nth-child(n + 3) { border-top: 1px solid var(--line-soft); }
+}
+@media (max-width: 720px) {
+  .rs-tools .searchbox { flex: 1 1 100%; }
+  .rs-table thead { display: none; }
+  .rs-table tr { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
+  .rs-table td { padding: 0; border: 0; }
+  .rs-table td:nth-child(n + 5) { display: none; }
+  .rs-table .rs-date { grid-column: 1; font-size: 12px; color: var(--ink-3); }
+  .rs-table .rs-ten { grid-column: 2; grid-row: 2; text-align: right; }
+  .rs-table td:nth-child(4) { grid-column: 2; grid-row: 1; text-align: right; }
+  .rs-table td:first-child { grid-column: 1; grid-row: 1; }
+}
+
+/* 사이드바 — 게임즈 가든식 마무리: 하위 메뉴는 대시 없이 들여쓰기만 */
+.nav__item--sub { padding-left: 28px; font-weight: 400; }
+.nav__item--sub::after { content: none; }
+.nav__item--sub.is-active { font-weight: 700; }
+.nav__label { font-weight: 800; }

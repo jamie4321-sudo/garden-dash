@@ -58,4 +58,8 @@ window.CONFIG = {
     url: "",
     anonKey: "",
   },
+
+  // 관리 구역(#zones) 데이터를 읽어올 구글 시트 ID. 시트 공유가 "링크가 있는 모든 사용자 보기"여야 함.
+  // 시트를 고치면 화면이 5분마다·다시 볼 때 자동 반영 (GAS 재배포 불필요)
+  ZONES_SHEET_ID: "1CNgkMtWYW-ajL4BCf86nH8KFapq3LEZsM_Cmd5i1eSE",
 };

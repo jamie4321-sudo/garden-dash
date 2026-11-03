@@ -40,74 +40,75 @@
   /* ---------- helpers ---------- */
   const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const DIS_COLORS = {
-    "발달장애": "var(--accent)", "자폐성장애": "var(--accent)", "지적장애": "var(--blue)",
-    "정신장애": "var(--green)", "지체장애": "var(--violet)", "뇌병변장애": "#ff9f43",
-    "청각장애": "var(--red)", "시각장애": "var(--amber)", "언어장애": "#26c6da",
-    "신장장애": "#26c6da", "심장장애": "#e0729a", "간장애": "#e0729a", "비장애": "var(--slate)",
-  };
-  const disColor = (d) => DIS_COLORS[d] || "var(--violet)";
-
-  /* 현재 연·월 기준 라벨 — 월이 바뀌면 자동 갱신 (예: '26년 8월 기준) */
-  function asOfLabel() {
-    const d = new Date();
-    return `'${String(d.getFullYear()).slice(2)}년 ${d.getMonth() + 1}월 기준`;
-  }
-
-  /* 크루 요약 카드 (대시보드 · 크루 공용) */
-  function crewStatusCard(title) {
+  /* ===== 대시보드 타일 (게임즈 가든식 타일 그리드) ===== */
+  const DASH_SHADES = ["var(--bt-c1)", "var(--bt-c2)", "var(--bt-c3)", "var(--bt-c4)", "var(--bt-c5)"];
+  function dashCrewStats() {
     const crew = getCrew().filter((c) => c.status === "active");
-    const total = crew.length;
     const dt = (c) => (c.disability == null ? "" : String(c.disability).trim());
-    const disN = crew.filter((c) => { const d = dt(c); return d && d !== "비장애"; }).length;
-    const nonN = crew.filter((c) => dt(c) === "비장애").length;
-    const uncl = total - disN - nonN;
-    const pct = (n) => (total ? Math.round((n / total) * 1000) / 10 : 0);
-    const segs = [
-      { label: "장애", val: disN, color: "var(--accent)" },
-      { label: "비장애", val: nonN, color: "var(--slate)" },
-    ];
-    if (uncl > 0) segs.push({ label: "미분류", val: uncl, color: "var(--line)" });
-    const RC = 2 * Math.PI * 70, dTotal = total || 1;
+    const typeMap = {};
+    crew.forEach((c) => { const d = dt(c); if (d && d !== "비장애") typeMap[d] = (typeMap[d] || 0) + 1; });
+    const types = Object.keys(typeMap).map((k) => [k, typeMap[k]]).sort((a, b) => b[1] - a[1]);
+    const dis = types.reduce((s, t) => s + t[1], 0);
+    const non = crew.filter((c) => dt(c) === "비장애").length;
+    return { total: crew.length, dis, non, uncl: crew.length - dis - non, types };
+  }
+  /* 크루 구성 · 도넛 링 */
+  function dashCrewRing(st) {
+    const segs = st.types.map(([t, n], i) => ({ label: t, val: n, color: DASH_SHADES[i % DASH_SHADES.length] }));
+    if (st.non) segs.push({ label: "비장애", val: st.non, color: "var(--bt-c0)" });
+    if (st.uncl) segs.push({ label: "미분류", val: st.uncl, color: "var(--line)" });
+    const R = 46, C = 2 * Math.PI * R, tot = st.total || 1, gap = segs.length > 1 ? 3 : 0;
     let off = 0;
     const rings = segs.map((s) => {
-      const len = (s.val / dTotal) * RC;
-      const seg = `<circle cx="95" cy="95" r="70" fill="none" stroke="${s.color}" stroke-width="20"
-        stroke-dasharray="0 ${RC}" stroke-dashoffset="${-off}" data-len="${len}" transform="rotate(-90 95 95)"/>`;
-      off += len; return seg;
+      const len = Math.max(0, (s.val / tot) * C - gap);
+      const el = `<circle r="${R}" cx="60" cy="60" fill="none" stroke="${s.color}" stroke-width="16"
+        stroke-dasharray="${len} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`;
+      off += (s.val / tot) * C; return el;
     }).join("");
-    const legend = segs.map((s) =>
-      `<li class="dleg__row"><span class="dleg__dot" style="background:${s.color}"></span>
-        <span class="dleg__label">${s.label}</span>
-        <span class="dleg__val">${s.val}<small>명</small></span>
-        <span class="dleg__pct">${pct(s.val)}%</span></li>`).join("");
-    return `<div class="dash-card dash-card--donut">
-      <div class="card-head"><h3>${title}</h3><span class="chip-mono">${total}명</span>
-        <span class="asof" style="margin-left:auto">${asOfLabel()}</span></div>
-      <div class="donut-wrap">
-        <svg class="donut" viewBox="0 0 190 190">${rings}
-          <text class="donut__num" x="95" y="92" text-anchor="middle">${total}</text>
-          <text class="donut__unit" x="95" y="110" text-anchor="middle">근무 인원</text></svg>
-        <ul class="dleg">${legend}</ul>
-      </div></div>`;
+    const legend = segs.map((s) => `<div><i style="background:${s.color}"></i>${esc(s.label)}<b>${s.val}명</b></div>`).join("");
+    return `<div class="bt bt--s2">
+      <span class="bt__lbl">크루 구성 · ${st.total}명</span>
+      ${st.total ? `<div class="bt-ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">${rings}
+          <text x="60" y="62" text-anchor="middle" class="bt-ring__n">${st.total}</text>
+          <text x="60" y="80" text-anchor="middle" class="bt-ring__u">명</text></svg>
+        <div class="bt-lg">${legend}</div></div>`
+        : `<p class="muted" style="margin:0">재직 중인 크루가 없어요.</p>`}
+    </div>`;
   }
-  function crewTypeCard() {
-    const crew = getCrew().filter((c) => c.status === "active");
-    const dt = (c) => (c.disability == null ? "" : String(c.disability).trim());
-    const disList = crew.filter((c) => { const d = dt(c); return d && d !== "비장애"; });
-    const typeMap = {};
-    disList.forEach((c) => { const d = dt(c); typeMap[d] = (typeMap[d] || 0) + 1; });
-    const types = Object.keys(typeMap).map((k) => [k, typeMap[k]]).sort((a, b) => b[1] - a[1]);
-    const maxT = types.length ? types[0][1] : 1;
-    const bars = types.length
-      ? types.map(([name, val]) =>
-          `<div class="tbar"><span class="tbar__label"><span class="gdot" style="background:${disColor(name)}"></span>${esc(name)}</span>
-            <span class="tbar__track"><span class="tbar__fill" data-pct="${Math.round((val / maxT) * 100)}" style="background:${disColor(name)}"></span></span>
-            <span class="tbar__val">${val}<small>명</small></span></div>`).join("")
-      : `<p class="muted" style="margin:6px 0">장애 유형 데이터가 없습니다. 시트 <b>crew</b> 탭에 <b>disability</b> 컬럼을 채워주세요.</p>`;
-    return `<div class="dash-card">
-      <div class="card-head"><h3>장애유형별 분포</h3><span class="chip-mono">${disList.length}명</span></div>
-      <div class="tbars">${bars}</div></div>`;
+  /* 식물 이슈 요약 — 미완료 수 · 이번 달 · 최근 3개월 많이 나온 이슈 */
+  function dashIssueStats() {
+    const list = getIssues();
+    const now = new Date(), ym = `${now.getFullYear()}-${_pad(now.getMonth() + 1)}`;
+    const from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const fromKey = `${from.getFullYear()}-${_pad(from.getMonth() + 1)}-01`;
+    const open = list.filter((x) => x.status !== "완료").length;
+    const month = list.filter((x) => String(x.date || "").startsWith(ym)).length;
+    const freq = {};
+    list.filter((x) => String(x.date || "") >= fromKey).forEach((x) => {
+      String(x.detail || "").split(/[,·/]/).map((s) => s.replace(/\s*발생$/, "").trim()).filter(Boolean)
+        .forEach((k) => { freq[k] = (freq[k] || 0) + 1; });
+    });
+    const top = Object.keys(freq).map((k) => [k, freq[k]]).sort((a, b) => b[1] - a[1]);
+    return { open, month, top };
+  }
+  function dashToday() {
+    const d = new Date();
+    return `${d.getMonth() + 1}월 ${d.getDate()}일 ${WX_DOW[d.getDay()]}요일`;
+  }
+  function dashNoticeTile() {
+    const list = getNotices(), latest = list[0];
+    const meta = latest ? `${latest.author ? esc(latest.author) + " · " : ""}${esc(latest.date)}` : "";
+    const older = list.slice(1, 3).map((n, idx) =>
+      `<button class="bt-notice__old" onclick="GARDEN.noticeOpen(${idx + 1})"><span>${esc(n.date)}</span>${esc(n.text)}</button>`).join("");
+    return `<div class="bt bt--s2 bt--dark">
+      <span class="bt__lbl">📢 공지${meta ? " · " + meta : ""}</span>
+      ${latest
+        ? `<p class="bt-notice__t" onclick="GARDEN.noticeOpen(0)" title="눌러서 수정">${esc(latest.text).replace(/\n/g, "<br>")}</p>`
+        : `<p class="bt-notice__t">등록된 공지사항이 없어요.</p>`}
+      ${older ? `<div class="bt-notice__olds">${older}</div>` : ""}
+      <div class="bt__foot"><button class="bt-ghost" onclick="GARDEN.noticeOpen(null)">＋ 공지 등록</button></div>
+    </div>`;
   }
 
   /* ===== 공지사항 (대시보드 상단 · 이력 누적 · 작성/수정/삭제는 제이미만) ===== */
@@ -158,39 +159,6 @@
     return true;
   }
   function reDash() { app.innerHTML = views.dashboard(); if (window.GARDEN) GARDEN.loadWeather(); }
-  function noticeCard() {
-    const list = getNotices();
-    const latest = list[0];
-    const older = list.slice(1, 6);
-    const meta = latest ? `${latest.author ? esc(latest.author) + " · " : ""}${esc(latest.date)}` : "";
-    const olderRows = older.length
-      ? `<div class="notice-old">` + older.map((n, idx) => {
-          const i = idx + 1;
-          return `<div class="notice-old__row" onclick="GARDEN.noticeOpen(${i})" title="클릭해서 수정">
-            <span class="notice-old__date">${esc(n.date)}</span>
-            <span class="notice-old__text">${esc(n.text)}</span>
-          </div>`;
-        }).join("") + `</div>`
-      : "";
-    return `<div class="dash-card notice-card${latest ? "" : " notice-card--empty"}" style="margin-bottom:16px">
-      <div class="notice-tools">
-        <span class="notice-box red"></span>
-        <span class="notice-box yellow"></span>
-        <span class="notice-box green"></span>
-      </div>
-      <div class="notice-card__in">
-        <div class="card-head">
-          <h3>📢 공지사항</h3>
-          ${meta ? `<span class="asof">${meta}</span>` : ""}
-          <button class="btn btn--sm" style="margin-left:${meta ? "10px" : "auto"}" onclick="GARDEN.noticeOpen(null)">＋ 공지 등록</button>
-        </div>
-        ${latest
-          ? `<p class="notice-card__text" onclick="GARDEN.noticeOpen(0)" title="클릭해서 수정">${esc(latest.text).replace(/\n/g, "<br>")}</p>`
-          : `<p class="notice-card__text">등록된 공지사항이 없습니다.</p>`}
-        ${olderRows}
-      </div>
-    </div>`;
-  }
   function noticeModal(i) {
     const isNew = i == null;
     const list = getNotices();
@@ -233,22 +201,6 @@
   };
   const wxCode = (c) => WX_CODES[c] || ["🌡️", "—"];
   const wxDate = (d) => `${_pad(d.getMonth() + 1)}.${_pad(d.getDate())} ${WX_DOW[d.getDay()]}`;
-
-  function wxWidgetHTML() {
-    return `<div class="wxw" id="wxWidget" aria-live="polite" title="경기 성남시 분당구 · 매일 자동 갱신">
-      <div class="wxw__bg"><span></span><span></span><span></span></div>
-      <div class="wxw__body" id="wxBody">
-        <div class="wxw__left">
-          <div class="wxw__temp"><span class="wxw__ico">⏳</span><span class="wxw__deg">--°</span></div>
-          <div class="wxw__feel">불러오는 중…</div>
-        </div>
-        <div class="wxw__right">
-          <div class="wxw__loc">📍 ${WX_COORD.name}</div>
-          <div class="wxw__date">${wxDate(new Date())}</div>
-        </div>
-      </div>
-    </div>`;
-  }
 
   function wxFill(cur, stale) {
     const body = document.getElementById("wxBody");
@@ -1124,6 +1076,7 @@
       </div></div>`;
   }
 
+  let _crewSeg = "work"; // 크루 로스터 보기: work(재직·휴직) · out · all
   const statusMap = {
     active: { cls: "badge--active", label: "재직", dot: "var(--green)" },
     leave:  { cls: "badge--leave",  label: "휴직", dot: "var(--amber)" },
@@ -1781,7 +1734,7 @@
       <div class="page-head"><div><p class="eyebrow">Overview</p><h2>운영 대시보드</h2>
         <p class="sub">현황을 불러오고 있어요</p></div></div>
       ${sproutLoader("대시보드 불러오는 중")}
-      <div class="dash-grid"><div class="sk sk-card"></div><div class="sk sk-card"></div></div>
+      <div class="dash-bento"><div class="sk sk-card"></div><div class="sk sk-card"></div><div class="sk sk-card bt--s2"></div></div>
     </section>`;
   }
   function crewSkeleton() {
@@ -3181,22 +3134,47 @@
             </div>`;
           }).join("")
         : `<p class="muted" style="margin:8px 4px">등록된 식물 이슈가 없습니다.</p>`;
+      const cs = dashCrewStats(), is = dashIssueStats();
+      const top = is.top[0], second = is.top[1];
       return `
         <section class="view">
           <div class="page-head">
             <div>
-              <p class="eyebrow">Overview · ${D.asOf || ""}</p>
+              <p class="eyebrow">Overview · ${dashToday()}</p>
               <h2>운영 대시보드</h2>
               <p class="sub">근무 인원 · 장애유형 · 식물 이슈 현황</p>
             </div>
-            ${wxWidgetHTML()}
           </div>
-          ${noticeCard()}
-          <div class="dash-grid">${crewStatusCard("근무 인원 현황")}${crewTypeCard()}</div>
-          <div class="dash-card" style="margin-top:16px">
-            <div class="card-head"><h3>최근 식물 이슈</h3>
-              <a class="dri-more" href="#issues">전체 보기 →</a></div>
-            <div class="dri-list">${recentRows}</div>
+          <div class="dash-bento">
+            <div class="bt bt--accent">
+              <span class="bt__lbl">근무 인원</span>
+              <span class="bt__big">${cs.total}<small>명</small></span>
+              <span class="bt__sub">장애 ${cs.dis} · 비장애 ${cs.non}${cs.uncl ? ` · 미분류 ${cs.uncl}` : ""}</span>
+            </div>
+            <div class="bt bt-wx" id="wxWidget" aria-live="polite" title="경기 성남시 분당구 · 매일 자동 갱신">
+              <span class="bt__lbl">오늘 날씨 · ${WX_COORD.name}</span>
+              <div id="wxBody"><div class="wxw__left">
+                <div class="wxw__temp"><span class="wxw__ico">⏳</span><span class="wxw__deg">--°</span></div>
+                <div class="wxw__feel">불러오는 중…</div></div></div>
+            </div>
+            ${dashNoticeTile()}
+            <div class="bt bt--s2 bt--r2">
+              <div class="bt__row"><span class="bt__lbl">최근 식물 이슈</span><a class="bt__more" href="#issues">전체 보기 →</a></div>
+              <div class="dri-list">${recentRows}</div>
+            </div>
+            <a class="bt bt--link" href="#issues">
+              <span class="bt__lbl">미완료 이슈</span>
+              <span class="bt__big">${is.open}<small>건</small></span>
+              ${is.open ? `<span class="bt-pill bt-pill--warn">처리 중</span>` : `<span class="bt-pill">모두 완료</span>`}
+              <span class="bt__sub muted">이번 달 등록 ${is.month}건</span>
+            </a>
+            <div class="bt">
+              <span class="bt__lbl">많이 나온 이슈 · 최근 3개월</span>
+              ${top ? `<span class="bt__word">${esc(top[0])}</span>
+                <span class="bt__sub muted">${top[1]}건${second ? ` · ${esc(second[0])} ${second[1]}건` : ""}</span>`
+                : `<span class="bt__sub muted">기록된 이슈가 없어요</span>`}
+            </div>
+            ${dashCrewRing(cs)}
           </div>
         </section>`;
     },
@@ -3205,36 +3183,37 @@
       if (_booting && !getCrew().length) return crewSkeleton();
       const list = getCrew();
       const disType = (c) => (c.disability == null ? "" : String(c.disability).trim());
-      const rank = { active: 0, leave: 1, out: 2 };
-      const order = list.map((c, i) => ({ c, i })).sort((a, b) => (rank[a.c.status] ?? 3) - (rank[b.c.status] ?? 3));
-
-      const rows = order.map(({ c, i }) => {
-        const s = statusMap[c.status] || statusMap.active;
-        const tags = (c.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join("");
-        const d = disType(c);
-        const disCell = d
-          ? `<span class="dis" style="--dc:${disColor(d)}"><span class="dis__dot"></span>${esc(d)}</span>`
-          : `<span class="muted">—</span>`;
-        const ten = tenure(c.since, c.status === "out" ? c.left : "");
-        const leftInfo = (c.status === "out" && c.left) ? `<span class="crew-left">${esc(c.left)} 퇴사</span>` : "";
-        return `<tr class="${c.status === "out" ? "crew-out" : ""}">
-          <td class="crew-name"><span class="gdot" style="background:${s.dot}"></span>
-            <button class="crew-name-btn" onclick="GARDEN.crewOpen(${i})" title="정보 보기 · 수정 · 삭제">${esc(c.name)}</button>
-            <span class="t">${esc(c.store)}</span></td>
-          <td class="mono">${esc(c.role)}</td>
-          <td class="mono-cell">
-            <span class="crew-since">${esc(c.since) || "—"}</span>
-            ${ten ? `<span class="crew-ten">${ten}</span>` : ""}
-          </td>
-          <td class="crew-status">
-            <div class="crew-status__row"><span class="badge ${s.cls}">${s.label}</span>${leftInfo}</div>
-          </td>
-          <td>${disCell}</td>
-          <td><div class="tagset">${tags}</div></td>
-          <td><span class="crew-memo">${esc(c.memo) || "—"}</span></td>
-        </tr>`;
-      }).join("");
+      const ym = (v) => { const m = String(v || "").match(/(\d{4})[-.\/\s]*(\d{1,2})?/); return m ? +m[1] * 12 + (m[2] ? +m[2] - 1 : 0) : null; };
+      const nowYM = _now.getFullYear() * 12 + _now.getMonth();
       const cnt = (st) => list.filter((c) => c.status === st).length;
+      const working = list.filter((c) => c.status !== "out");
+      const active = list.filter((c) => c.status === "active");
+      const disN = active.filter((c) => { const d = disType(c); return d && d !== "비장애"; }).length;
+      const mons = active.map((c) => ym(c.since)).filter((v) => v != null).map((v) => nowYM - v);
+      const avg = mons.length ? Math.round(mons.reduce((s, v) => s + v, 0) / mons.length) : 0;
+      const year = _now.getFullYear();
+      const inY = list.filter((c) => String(c.since || "").startsWith(String(year))).length;
+      const outY = list.filter((c) => c.status === "out" && String(c.left || "").startsWith(String(year))).length;
+
+      const row = ({ c, i }) => {
+        const s = statusMap[c.status] || statusMap.active;
+        const d = disType(c);
+        const ten = tenure(c.since, c.status === "out" ? c.left : "");
+        return `<tr class="${c.status === "out" ? "crew-out" : ""}" onclick="GARDEN.crewOpen(${i})" title="정보 보기 · 수정 · 삭제">
+          <td class="rs-name"><b>${esc(c.name)}</b><span>${esc([c.store, c.role].filter(Boolean).join(" · "))}</span></td>
+          <td class="rs-date">${esc(c.since) || "—"}${c.status === "out" && c.left ? `<span>→ ${esc(c.left)}</span>` : ""}</td>
+          <td class="rs-ten">${ten || "—"}</td>
+          <td><span class="rs-st rs-st--${esc(c.status || "active")}">${s.label}</span></td>
+          <td>${d ? esc(d) : `<span class="muted">—</span>`}</td>
+          <td>${(c.tags || []).map((t) => `<span class="rs-tag">${esc(t)}</span>`).join("") || `<span class="muted">—</span>`}</td>
+          <td class="rs-memo">${esc(c.memo) || `<span class="muted">—</span>`}</td>
+        </tr>`;
+      };
+      const head = `<thead><tr><th>이름</th><th>입사 · 퇴사</th><th>근속</th><th>상태</th><th>장애유형</th><th>계약</th><th>비고</th></tr></thead>`;
+      const ix = list.map((c, i) => ({ c, i }));
+      const mainRows = ix.filter(({ c }) => c.status !== "out").sort((a, b) => (a.c.status === "leave") - (b.c.status === "leave")).map(row).join("");
+      const outRows = ix.filter(({ c }) => c.status === "out").sort((a, b) => String(b.c.left || "").localeCompare(String(a.c.left || ""))).map(row).join("");
+      const seg = _crewSeg;
 
       return `
         <section class="view">
@@ -3243,16 +3222,21 @@
               <p class="sub">재직 ${cnt("active")} · 휴직 ${cnt("leave")} · 퇴사 ${cnt("out")}</p></div>
             <button class="btn btn--primary btn--sm" onclick="GARDEN.crewAddOpen()">＋ 크루 등록</button>
           </div>
-          <div class="dash-grid">${crewStatusCard("근무 인원 현황")}${crewTypeCard()}</div>
-          <div class="toolbar-row">
-            <input class="searchbox" placeholder="이름 · 매장 · 태그 · 장애유형 검색" oninput="GARDEN.filterCrew(this.value)"/>
+          <div class="rs-sum">
+            <div><span>재직 크루</span><b>${cnt("active")}<small>명</small></b><em>휴직 ${cnt("leave")}명</em></div>
+            <div><span>장애 크루</span><b>${disN}<small>명</small></b><em>재직자의 ${active.length ? Math.round((disN / active.length) * 100) : 0}%</em></div>
+            <div><span>평균 근속</span><b>${Math.floor(avg / 12) ? `${Math.floor(avg / 12)}<small>년</small> ` : ""}${avg % 12}<small>개월</small></b><em>재직자 기준</em></div>
+            <div><span>올해 입사 · 퇴사</span><b>${inY} · ${outY}<small>명</small></b><em>${year}년</em></div>
           </div>
-          <div class="table-wrap">
-            <table class="grid-table">
-              <thead><tr><th>이름 / 매장</th><th>구분</th><th class="num">입사 · 재직</th><th class="crew-status-col">상태</th><th>장애유형</th><th>태그</th><th>비고</th></tr></thead>
-              <tbody id="crewBody">${rows}</tbody>
-            </table>
+          <div class="rs-tools">
+            <div class="rs-seg">${[["work", `재직 ${working.length}`], ["out", `퇴사 ${cnt("out")}`], ["all", "전체"]].map(([k, t]) =>
+              `<button class="${seg === k ? "is-on" : ""}" onclick="GARDEN.crewSeg('${k}')">${t}</button>`).join("")}</div>
+            <input class="searchbox" placeholder="이름 · 매장 · 장애유형 · 비고 검색" oninput="GARDEN.filterCrew(this.value)"/>
           </div>
+          ${seg !== "out" ? `<div class="table-wrap"><table class="grid-table rs-table">${head}<tbody id="crewBody">${mainRows || `<tr><td colspan="7" class="muted">재직 중인 크루가 없어요.</td></tr>`}</tbody></table></div>` : ""}
+          ${outRows && seg !== "work" ? `<div class="rs-outwrap"><p class="rs-outh">퇴사한 크루 ${cnt("out")}명</p>
+            <div class="table-wrap"><table class="grid-table rs-table">${seg === "out" ? head : ""}<tbody id="crewOutBody">${outRows}</tbody></table></div></div>` : ""}
+          ${outRows && seg === "work" ? `<button class="rs-more" onclick="GARDEN.crewSeg('all')">퇴사한 크루 ${cnt("out")}명 보기 ▾</button>` : ""}
         </section>`;
     },
 
@@ -3452,6 +3436,8 @@
           ${body}
         </section>`;
     },
+
+    zones() { return window.ZONES ? ZONES.html() : ""; },
 
     floors() {
       return `
@@ -3732,6 +3718,7 @@
     settlement: "OPERATION / SETTLEMENT",
     issues: "CREW / PLANT ISSUES",
     plants: "CREW / PLANT CHECK",
+    zones: "CREW / ZONES",
     floors: "CREW / FLOOR STATUS",
     safety: "CREW / SAFETY & HEALTH",
     schedule: "OPERATION / SCHEDULE",
@@ -3758,6 +3745,7 @@
         c.setAttribute("stroke-dasharray", `${c.dataset.len} ${C}`);
       });
     });
+    if (view === "zones" && window.ZONES) ZONES.mount();
     if (view === "floors") GARDEN.loadFloors();
     if (view === "safety") GARDEN.loadSafetyFiles();
     if (view === "dashboard") GARDEN.loadWeather();
@@ -3963,9 +3951,10 @@
       try { localStorage.removeItem("garden-entry-ok"); localStorage.removeItem("garden-entry-who"); localStorage.removeItem(ROLE_KEY); } catch (e) {}
       location.reload();
     },
+    crewSeg(k) { _crewSeg = k; render("crew"); },
     filterCrew(q) {
       q = q.trim().toLowerCase();
-      document.querySelectorAll("#crewBody tr").forEach((tr) => {
+      document.querySelectorAll("#crewBody tr, #crewOutBody tr").forEach((tr) => {
         tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none";
       });
     },
@@ -4974,8 +4963,8 @@
     applyTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark"));
   try {
     const saved = localStorage.getItem("garden-theme");
-    if (saved) applyTheme(saved);
-  } catch (e) {}
+    applyTheme(saved || "light"); // 게임즈 가든처럼 밝은 화면이 기본
+  } catch (e) { applyTheme("light"); }
 
   /* ---------- data source: Apps Script API → fallback mock ---------- */
   function loadRemote() {

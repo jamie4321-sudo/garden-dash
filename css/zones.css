@@ -1,0 +1,103 @@
+/* =========================================================
+   GARDEN — 관리 구역 (#zones)
+   건물 단면도 + 식물 수종 TOP 10 · 클린 카드
+   ========================================================= */
+:root {
+  --zn-h1: #1f2610; --zn-h2: #34430f; --zn-h3: #5a760c; --zn-h4: #8fbf10;
+  --zn-ease: cubic-bezier(.23, 1, .32, 1);
+}
+:root[data-theme="light"] {
+  --zn-h1: #eef7c8; --zn-h2: #dcef8a; --zn-h3: #c3e43a; --zn-h4: #9cc10c;
+}
+
+.zn-muted { color: var(--ink-3); font-size: 12.5px; margin: 0; }
+.zn-card { background: var(--card-bg); border: 1px solid var(--line-soft); border-radius: var(--r-lg); }
+
+/* 연결 상태 줄 */
+.zn-live { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); margin: -10px 0 18px; }
+.zn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.zn-dot.is-on { background: var(--green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 20%, transparent); }
+.zn-dot.is-off { background: var(--amber); }
+.zn-link { color: var(--accent-text); font-weight: 700; text-decoration: none; }
+.zn-link:hover { text-decoration: underline; }
+.zn-new { color: var(--green); }
+
+/* 블록 */
+.zn-block { padding: 22px 24px; margin-bottom: 16px; }
+.zn-block--sp { padding: 6px 0 0; }
+.zn-bh { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.zn-bh h3 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -.3px; }
+.zn-empty { padding: 34px; text-align: center; color: var(--ink-3); font-size: 13px; }
+
+/* 건물 단면도 */
+.zn-sec { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.zn-col h4 { margin: 0 0 8px; font-size: 11.5px; font-weight: 800; color: var(--ink-3); letter-spacing: 1.2px; }
+.zn-fl { display: grid; grid-template-columns: 42px 1fr; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line-soft); }
+.zn-fl > b { font-size: 12.5px; font-weight: 800; text-align: right; color: var(--ink-2); }
+.zn-zs { display: flex; gap: 4px; flex-wrap: wrap; }
+.zn-z {
+  border: 2px solid transparent; border-radius: 7px; padding: 3px 7px; font: inherit; font-size: 11px; font-weight: 700;
+  line-height: 1.2; text-align: left; cursor: pointer; color: var(--ink); background: var(--panel-2);
+  transition: opacity .25s, border-color .25s, transform .2s var(--zn-ease);
+}
+.zn-z:hover { transform: translateY(-1px); }
+.zn-z:active { transform: scale(.97); }
+.zn-z small { display: block; font-size: 10px; font-weight: 700; opacity: .72; font-variant-numeric: tabular-nums; }
+.zn-h1 { background: var(--zn-h1); }
+.zn-h2 { background: var(--zn-h2); }
+.zn-h3 { background: var(--zn-h3); }
+.zn-h4 { background: var(--zn-h4); color: var(--accent-ink); }
+.zn-sec.is-hl .zn-z { opacity: .16; }
+.zn-sec.is-hl .zn-z.is-hit { opacity: 1; border-color: var(--ink); }
+
+.zn-legend { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-3); margin-top: 14px; }
+.zn-legend i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+.zn-hl {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px;
+  padding: 10px 14px; margin-bottom: 14px; border-radius: var(--r); background: var(--panel-2);
+}
+.zn-hl b { font-size: 15px; font-weight: 800; }
+.zn-hl .btn { margin-left: auto; }
+
+/* 식물 수종 — 칩 + 검색 (고르면 위 단면도에 표시) */
+.zn-chipbar { display: flex; flex-direction: column; gap: 12px; }
+.zn-srch {
+  align-self: flex-start; width: 280px; max-width: 100%; border: 1px solid var(--line); background: var(--panel);
+  border-radius: 999px; padding: 9px 16px; font: inherit; font-size: 13px; color: var(--ink);
+}
+.zn-srch:focus { outline: none; border-color: var(--ink-3); }
+.zn-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.zn-tag {
+  display: inline-flex; align-items: center; gap: 4px; border: 0; cursor: pointer; font: inherit;
+  font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--panel-2); color: var(--ink-2);
+}
+.zn-tag em { font-style: normal; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.zn-tag.is-on { background: var(--accent); color: var(--accent-ink); }
+.zn-tag.is-on em { color: var(--accent-ink); opacity: .7; }
+.zn-warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber); cursor: default; }
+
+/* 구역 상세 시트 */
+.zn-scrim { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, .5); opacity: 0; pointer-events: none; transition: opacity .25s; }
+.zn-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 81; width: min(440px, 100%); overflow: auto; padding: 24px;
+  background: var(--panel); box-shadow: var(--shadow); transform: translateX(102%); transition: transform .35s var(--zn-ease);
+}
+.zn.is-dr .zn-scrim { opacity: 1; pointer-events: auto; }
+.zn.is-dr .zn-drawer { transform: none; }
+.zn-drawer h3 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.4px; padding-right: 40px; }
+.zn-x { position: absolute; top: 18px; right: 18px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--panel-2); color: var(--ink); cursor: pointer; font-size: 15px; }
+.zn-ds { margin-top: 20px; }
+.zn-ds h6 { margin: 0 0 8px; font-size: 11.5px; font-weight: 800; color: var(--ink-3); letter-spacing: 1px; }
+.zn-dg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.zn-dg div { background: var(--panel-2); border-radius: 10px; padding: 10px 12px; }
+.zn-dg b { display: block; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.zn-dg span { font-size: 11.5px; color: var(--ink-3); font-weight: 700; }
+
+@media (max-width: 900px) {
+  .zn-sec { grid-template-columns: 1fr; }
+  .zn-block { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zn-z, .zn-t, .zn-drawer, .zn-scrim { transition: none; }
+}

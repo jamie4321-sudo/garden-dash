@@ -3566,6 +3566,19 @@
     },
 
     heat() { return heatViewHTML(); },
+    sla() {
+      return `
+        <section class="view">
+          <div class="page-head">
+            <div><p class="eyebrow">Operation · SLA</p><h2>SLA</h2>
+              <p class="sub">서비스 수준 기준과 지킴 현황</p></div>
+          </div>
+          <div class="sla-empty">
+            <b>SLA 화면을 준비하고 있어요</b>
+            <p>들어갈 기준(예: 이슈 대응 시간, 조치 완료 기한)이 정해지면 여기에 채워요.</p>
+          </div>
+        </section>`;
+    },
     settings() { return settingsViewHTML(); },
     safety() {
       const manual = _safetyCache && _safetyCache.manual;
@@ -3813,6 +3826,7 @@
     safety: "CREW / SAFETY & HEALTH",
     schedule: "OPERATION / SCHEDULE",
     monthly: "OPERATION / MONTHLY REVIEW",
+    sla: "OPERATION / SLA",
     report: "OPERATION / MONTHLY REPORT",
     swaps: "CREW / PLANT SWAPS",
     heat: "CREW / SAFETY / FEELS-LIKE TEMP",

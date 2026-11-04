@@ -2347,3 +2347,27 @@ button { font-family: inherit; }
   .ik-tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
   .ik-detail { padding: 18px; min-height: 0; }
 }
+
+/* 아지트 가드너 앱 현장 이슈 (읽기 전용 연결) */
+.ag-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px dashed var(--line); background: var(--panel); border-radius: 999px;
+  padding: 7px 14px; font: inherit; font-size: 12.5px; font-weight: 800; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+.ag-chip:hover { border-color: var(--ink-3); color: var(--ink); }
+.ag-chip.is-on { border-style: solid; cursor: default; color: var(--accent-text); }
+.ag-chip.is-on button { border: 0; background: var(--panel-2); border-radius: 999px; padding: 2px 8px; font: inherit; font-size: 11px; font-weight: 700; color: var(--ink-3); cursor: pointer; }
+.ag-mark { font-style: normal; margin-right: 4px; }
+.ag-badge { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent-text); }
+.ag-lbl { margin: 0 0 6px; font-size: 11.5px; font-weight: 800; color: var(--ink-3); }
+.ag-ph { display: flex; gap: 8px; flex-wrap: wrap; }
+.ag-ph__i { width: 84px; height: 84px; border: 0; padding: 0; border-radius: 10px; overflow: hidden; background: var(--line); cursor: zoom-in; }
+.ag-ph__i img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ag-cheers { display: flex; gap: 6px; flex-wrap: wrap; }
+.ag-cheer { font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line-soft); }
+.ag-cmts { display: flex; flex-direction: column; gap: 6px; }
+.ag-cmt { background: var(--panel); border-radius: 10px; padding: 9px 12px; font-size: 12.5px; }
+.ag-cmt b { font-weight: 800; margin-right: 6px; }
+.ag-cmt small { color: var(--ink-3); }
+.ag-cmt p { margin: 3px 0 0; line-height: 1.45; }
+.ag-names { display: flex; gap: 6px; flex-wrap: wrap; }
+.ag-names button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 7px 13px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.ag-names button.is-on { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
+.ik-tag.is-lime { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent-text); }

@@ -65,4 +65,7 @@ window.CONFIG = {
 
   // 식물 이슈 관리의 "아지트 가드너 앱" 버튼 주소 (가드너 현장 이슈 앱).
   GARDENER_URL: "https://agit-gardener.pages.dev/",
+  // 아지트 가드너 앱 현장 이슈 읽기 (가드너 앱과 같은 공개 키 — 표는 막혀 있고 ag_* 함수만, 가드너 계정 로그인 필요)
+  GARDENER_SB_URL: "https://qdwynctnhjndkmykecbu.supabase.co",
+  GARDENER_SB_KEY: "sb_publishable_gv8l9z7imNyR0_lsUmVLxw_cFFclQ6O",
 };

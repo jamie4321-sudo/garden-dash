@@ -2372,7 +2372,3 @@ button { font-family: inherit; }
 .ag-names button.is-on { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
 .ik-tag.is-lime { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent-text); }
 
-/* SLA (OPERATION) — 내용 정해지기 전 빈 화면 */
-.sla-empty { background: var(--panel); border: 1px dashed var(--line); border-radius: 18px; padding: 40px 24px; text-align: center; }
-.sla-empty b { display: block; font-size: 17px; font-weight: 800; margin-bottom: 6px; }
-.sla-empty p { margin: 0; font-size: 13.5px; color: var(--ink-3); }

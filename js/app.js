@@ -3566,19 +3566,7 @@
     },
 
     heat() { return heatViewHTML(); },
-    sla() {
-      return `
-        <section class="view">
-          <div class="page-head">
-            <div><p class="eyebrow">Operation · SLA</p><h2>SLA</h2>
-              <p class="sub">서비스 수준 기준과 지킴 현황</p></div>
-          </div>
-          <div class="sla-empty">
-            <b>SLA 화면을 준비하고 있어요</b>
-            <p>들어갈 기준(예: 이슈 대응 시간, 조치 완료 기한)이 정해지면 여기에 채워요.</p>
-          </div>
-        </section>`;
-    },
+    sla() { return window.SLA ? SLA.html() : ""; },
     settings() { return settingsViewHTML(); },
     safety() {
       const manual = _safetyCache && _safetyCache.manual;
@@ -3850,6 +3838,7 @@
       });
     });
     if (view === "zones" && window.ZONES) ZONES.mount();
+    if (view === "sla" && window.SLA) SLA.mount();
     if (view === "floors") GARDEN.loadFloors();
     if (view === "issues" && window.AGI && AGI.on()) AGI.refresh();
     if (view === "safety") GARDEN.loadSafetyFiles();
@@ -5078,6 +5067,13 @@
     },
   };
   window.GARDEN = GARDEN;
+  // SLA(js/sla.js)가 다른 메뉴 기록을 근거로 읽어 가도록 읽기 전용으로 열어 둠
+  window.GD = {
+    getCrew, getTraining, getSafetyMeetings, getSafetyChecks, getIncidents, getIssues,
+    getSettle, getSwaps, getHeat, getMonthly, htFeel, eduTrainings: EDU_TRAININGS,
+    role: () => currentRole(), go: (v) => { location.hash = "#" + v; },
+  };
+
 
   /* ---------- theme ---------- */
   const root = document.documentElement;

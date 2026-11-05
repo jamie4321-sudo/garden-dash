@@ -201,3 +201,7 @@
 .sl-flag { border: 1px dashed var(--line); background: var(--panel); color: var(--ink-3); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 11px; font-weight: 800; white-space: nowrap; cursor: pointer; }
 .sl-flag:hover { border-color: var(--ink-3); color: var(--ink); }
 .sl-flag.is-on { border: 1px solid transparent; background: color-mix(in srgb, var(--red) 13%, transparent); color: var(--red); }
+#slFd { width: 96px; }
+#slFc { flex: 1; min-width: 140px; }
+.sl-form .sl-cp { width: 72px; }
+.sl-ev .sl-ic + .sl-ic--h { margin-left: 0; }

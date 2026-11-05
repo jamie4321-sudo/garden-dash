@@ -61,6 +61,24 @@
   ];
   // 2026 상반기는 보내 주신 표의 소계를 처음 값으로 (1.1 95 · 3.1 44 · 3.2 44)
   const SEED = { "2026-H1": { n: { "1.1": 1, "3.1": 2, "3.2": 2 }, memo: {} } };
+  // 자동 기록 기본 고침값 (Jamie 확인 내용) — 기간 · 항목 · 날짜 · 내용 앞부분으로 찾아서 적용
+  const DEF_FIX = [
+    { p: "2026-H2", code: "1.1", d: "6/26", start: "헨리 퇴사", fix: { c: "중증장애인턴 TO 전환", k: "info" } },
+    { p: "2026-H2", code: "1.1", d: "7/6", start: "루카 · ", fix: { t: "루카 · 7/6자로 TO변경 — 중증장애인턴제 영입크루" } },
+    { p: "2026-H2", code: "1.1", d: "8/3", start: "에드윈 입사", fix: { c: "하절기 단기 TO 충원", k: "ok" } },
+  ];
+  // 평가기준(기준 문구 · 비고 · 감점 점수) 고치기 — 반기와 상관없이 하나로 저장
+  const CKEY = "garden-sla-crit";
+  ITEMS.forEach((it) => { it._d = { crit: it.crit.slice(), note: it.note, per: it.per }; });
+  function critStore() { try { return JSON.parse(localStorage.getItem(CKEY) || "{}"); } catch (e) { return {}; } }
+  function applyCrit() {
+    const all = critStore();
+    ITEMS.forEach((it) => { const o = all[it.code] || {};
+      it.crit = Array.isArray(o.crit) ? o.crit : it._d.crit.slice();
+      it.note = "note" in o ? o.note : it._d.note;
+      it.per = Number(o.per) > 0 ? Number(o.per) : it._d.per; });
+  }
+  applyCrit();
 
   /* ---------- 상태 ---------- */
   const now = new Date();
@@ -121,7 +139,7 @@
         const late = vac.filter((v) => v.over).length, open = vac.filter((v) => !v.next && !v.over);
         const ev = [];
         carry.forEach((c) => ev.push({ d: d10(c.left), row: () => { const v = vac.find((x) => x.c === c);
-          return [md(c.left), `${esc(c.name)} 퇴사(${typ(c)}) — 앞 기간 결원이 이어짐 · 채용 기한 ${v.limit === 90 ? "3개월" : "2개월"}`,
+          return [md(c.left), `${esc(c.name)} 퇴사(${typ(c)})`,
             v.over ? ["bad", `기한 ${v.gap - v.limit}일 넘김`] : v.next ? ["info", "아래 입사로 충원"] : ["warn", `${v.limit - v.gap}일 남음`]]; } }));
         joins.forEach((c) => ev.push({ d: d10(c.since), row: () => {
           const was = filledBy.get(c), v = was && vac.find((x) => x.c === was);
@@ -245,6 +263,20 @@
   const rowKey = (row) => row[0] + "|" + row[1];
   const preOf = (it, r) => ((r.pre || {})[it.code]) || it.pre;
   const KINDS = { ok: "잘 지킴", warn: "확인 필요", bad: "감점 사유" };
+  const CHIPK = { ok: "초록(잘 지킴)", info: "회색(참고)", warn: "노랑(확인 필요)", bad: "빨강(감점)" };
+  const plain = (h) => { const el = document.createElement("div"); el.innerHTML = String(h || "").replace(/<br\s*\/?>/g, "\n"); return el.textContent; };
+  // 자동 기록 고침: r.ev[code].fix[자동 기록 키] = { d, t, c(칩 글자), k(칩 색) } · 빈 {} = 자동 그대로 · 키가 없으면 DEF_FIX
+  function fixOf(it, row, o) {
+    const fx = (o || {}).fix || {}, k = rowKey(row);
+    if (k in fx) return Object.keys(fx[k] || {}).length ? fx[k] : null;
+    const t = plain(row[1]), def = DEF_FIX.find((x) => x.p === pkey() && x.code === it.code && x.d === row[0] && t.startsWith(x.start));
+    return def ? def.fix : null;
+  }
+  function fixRow(it, row, o) {
+    const f = fixOf(it, row, o); if (!f) return row;
+    const st = f.c ? [f.k || "info", esc(f.c)] : row[2];
+    return [f.d ? esc(f.d) : row[0], "t" in f ? esc(f.t).replace(/\n/g, "<br>") : row[1], st];
+  }
   function evx(it, r) {
     const ev = evidence(it, r), o = ((r.ev || {})[it.code]) || {}, hide = o.hide || [], add = o.add || [];
     const bad = add.filter((a) => a.k === "bad").length;
@@ -253,7 +285,7 @@
       sum: o.sum ? esc(o.sum) : ev.sum,
       good: "good" in o ? esc(o.good) : ev.good,
       edited: !!(o.sum || "good" in o),
-      auto: ev.rows.map((row, i) => ({ row, i })).filter((x) => !hide.includes(rowKey(x.row))),
+      auto: ev.rows.map((row, i) => ({ row: fixRow(it, row, o), i, fixed: !!fixOf(it, row, o) })).filter((x) => !hide.includes(rowKey(ev.rows[x.i]))),
       hidden: hide.length, add,
       sug: (ev.sug || 0) + bad,
       sugWhy: [ev.sugWhy, bad ? `직접 기록한 감점 사유 ${bad}건` : ""].filter(Boolean).join(" · "),
@@ -271,6 +303,15 @@
         <select id="slRk" aria-label="상태">${Object.keys(KINDS).map((k) => `<option value="${k}"${(a.k || "ok") === k ? " selected" : ""}>${KINDS[k]}</option>`).join("")}</select></div>
       <textarea id="slRt" rows="2" placeholder="예) 3/12 라운딩 — 7층 화분 물주기 일정 지연, 당일 보완">${esc(a.t || "")}</textarea>
       <div class="sl-form__b"><button class="sl-btn sl-btn--ink" onclick="SLA.saveRow()">저장</button><button class="sl-btn" onclick="SLA.cancel()">취소</button></div></div>`;
+  const fixForm = (d, txt, st, fixed) => {
+    const isHtml = st[0] === "html", k = isHtml ? "" : st[0];
+    return `<div class="sl-form">
+      <div class="sl-form__r"><input id="slFd" value="${esc(plain(d))}" placeholder="날짜 예) 6/26" aria-label="날짜">
+        ${isHtml ? "" : `<input id="slFc" value="${esc(plain(st[1]))}" placeholder="상태 글자" aria-label="상태 글자">
+        <select id="slFk" aria-label="상태 색">${Object.keys(CHIPK).map((x) => `<option value="${x}"${(k || "info") === x ? " selected" : ""}>${CHIPK[x]}</option>`).join("")}</select>`}</div>
+      <textarea id="slRt" rows="2" aria-label="내용">${esc(plain(txt))}</textarea>
+      <div class="sl-form__b"><button class="sl-btn sl-btn--ink" onclick="SLA.saveFix()">저장</button><button class="sl-btn" onclick="SLA.cancel()">취소</button>${fixed ? `<button class="sl-btn sl-btn--ghost" onclick="SLA.resetFix()">자동 기록으로 되돌리기</button>` : ""}</div></div>`;
+  };
   const head = () => {
     const halves = [[1, "상반기"], [2, "하반기"]];
     return `<div class="page-head">
@@ -290,8 +331,8 @@
     const addRows = ev.add.map((a, i) => E.kind === "row" && E.i === i ? rowForm(a) :
       `<div class="sl-ev sl-ev--me"><span class="sl-ev__d">${d10(a.d) ? md(a.d) : "—"}</span><span class="sl-ev__t"><em class="sl-me">직접 기록</em>${esc(a.t).replace(/\n/g, "<br>")}</span>
         <span class="sl-ev__r">${chip(a.k || "ok", KINDS[a.k] || KINDS.ok)}<button class="sl-ic" onclick="SLA.ed('row',${i})" aria-label="고치기" title="고치기">✎</button><button class="sl-ic" onclick="SLA.delRow(${i})" aria-label="지우기" title="지우기">✕</button></span></div>`).join("");
-    const autoRows = ev.auto.map(({ row: [d, txt, st], i }) => `<div class="sl-ev"><span class="sl-ev__d">${d}</span><span class="sl-ev__t">${txt}</span>
-        <span class="sl-ev__r">${st[0] === "html" ? st[1] : chip(st[0], st[1])}<button class="sl-ic sl-ic--h" onclick="SLA.hide(${i})" aria-label="이 기록 숨기기" title="보고서·가채점에서 빼기">✕</button></span></div>`).join("");
+    const autoRows = ev.auto.map(({ row: [d, txt, st], i, fixed }) => E.kind === "fix" && E.i === i ? fixForm(d, txt, st, fixed) : `<div class="sl-ev"><span class="sl-ev__d">${d}</span><span class="sl-ev__t">${txt}</span>
+        <span class="sl-ev__r">${st[0] === "html" ? st[1] : chip(st[0], st[1])}<button class="sl-ic" onclick="SLA.ed('fix',${i})" aria-label="고치기" title="고치기">✎</button><button class="sl-ic sl-ic--h" onclick="SLA.hide(${i})" aria-label="이 기록 숨기기" title="보고서·가채점에서 빼기">✕</button></span></div>`).join("");
     const newForm = E.kind === "new" ? rowForm({}) : "";
     const rows = addRows || autoRows || newForm ? newForm + addRows + autoRows : `<p class="sl-empty">이 기간 기록이 없어요</p>`;
     const sumH = E.kind === "sum" ? `<div class="sl-form">
@@ -308,7 +349,12 @@
       <div class="sl-ttl"><div><h3>${it.code} ${it.name}</h3><span>${cat.name} · 반영 ${cat.w}% · ${cat.cycle} · 만점 ${it.max}점</span></div><span class="sl-pt">${scoreOf(it, r)}점</span></div>
       <div class="sl-flow">
         <div class="sl-fs"><span class="sl-n is-ok">1</span><div><h4>평가기준 <small>${it.per}점 감점 / ${it.unit}</small></h4>
-          <ul class="sl-crit">${it.crit.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>${it.note ? `<p class="sl-note">비고 · ${esc(it.note)}</p>` : ""}</div></div>
+          ${E.kind === "crit" ? `<div class="sl-form">
+            <span class="sl-lbl">평가기준 · 한 줄에 하나씩</span><textarea id="slCr" rows="${Math.max(3, it.crit.length + 1)}">${esc(it.crit.join("\n"))}</textarea>
+            <label class="sl-memo"><span class="sl-lbl">비고</span><input id="slCn" value="${esc(it.note)}" placeholder="비우면 표시 안 해요"></label>
+            <div class="sl-row"><span class="sl-lbl">감점 점수</span><input id="slCp" type="number" min="1" max="${it.max}" value="${it.per}" class="sl-cp" aria-label="감점 점수"><span class="sl-muted">점 / ${it.unit}</span></div>
+            <div class="sl-form__b"><button class="sl-btn sl-btn--ink" onclick="SLA.saveCrit()">저장</button><button class="sl-btn" onclick="SLA.cancel()">취소</button>${critStore()[it.code] ? `<button class="sl-btn sl-btn--ghost" onclick="SLA.resetCrit()">처음 기준으로 되돌리기</button>` : ""}</div></div>`
+          : `<div class="sl-pre"><div><ul class="sl-crit">${it.crit.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>${it.note ? `<p class="sl-note">비고 · ${esc(it.note)}</p>` : ""}</div><button class="sl-ic sl-ic--t" onclick="SLA.ed('crit')" title="기준 고치기">✎ 고치기</button></div>`}</div></div>
         <div class="sl-fs"><span class="sl-n is-on">2</span><div><h4>이렇게 진행했어요 <small>대시보드 기록 · ${S.year} ${S.half === 1 ? "상반기" : "하반기"}</small></h4>
           <div class="sl-box">${sumH}<div class="sl-evs">${rows}</div>
           <div class="sl-acts">${E.kind === "new" ? "" : `<button class="sl-btn sl-btn--ink" onclick="SLA.ed('new')">＋ 기록 추가</button>`}${ev.hidden ? `<button class="sl-btn sl-btn--ghost" onclick="SLA.unhide()">숨긴 자동 기록 ${ev.hidden}개 다시 보기</button>` : ""}
@@ -384,7 +430,7 @@
     /* 진행 내역 · 가채점 근거 고치기 */
     ed(kind, i) {
       S.ed = { kind, i }; paint();
-      const f = document.getElementById(kind === "sum" ? "slSs" : kind === "pre" ? "slPre" : "slRt");
+      const f = document.getElementById(kind === "sum" ? "slSs" : kind === "pre" ? "slPre" : kind === "crit" ? "slCr" : "slRt");
       if (f) { f.focus(); if (f.setSelectionRange) { const l = f.value.length; f.setSelectionRange(l, l); } }
     },
     cancel() { S.ed = null; paint(); },
@@ -403,6 +449,29 @@
       const r = rec(), it = ITEMS[S.sel], row = evidence(it, r).rows[i]; if (!row) return;
       const o = evOf(r, it.code); o.hide = (o.hide || []).concat(rowKey(row)); save(r); paint();
     },
+    saveFix() {
+      const r = rec(), it = ITEMS[S.sel], row = evidence(it, r).rows[S.ed.i]; if (!row) return;
+      const o = evOf(r, it.code), f = {}, d = val("slFd"), t = val("slRt"), c = val("slFc");
+      if (d && d !== plain(row[0])) f.d = d;
+      if (t !== plain(row[1])) f.t = t;
+      if (document.getElementById("slFc") && (c !== plain(row[2][1]) || val("slFk") !== row[2][0])) { f.c = c || plain(row[2][1]); f.k = val("slFk") || "info"; }
+      o.fix = o.fix || {}; o.fix[rowKey(row)] = f;
+      save(r); S.ed = null; paint();
+    },
+    resetFix() {
+      const r = rec(), it = ITEMS[S.sel], row = evidence(it, r).rows[S.ed.i]; if (!row) return;
+      const o = evOf(r, it.code); o.fix = o.fix || {}; o.fix[rowKey(row)] = {};
+      save(r); S.ed = null; paint();
+    },
+    saveCrit() {
+      const it = ITEMS[S.sel], el = document.getElementById("slCr"), all = critStore();
+      const crit = (el ? el.value : "").split(/\r?\n/).map((x) => x.trim().replace(/^[·•\-]\s*/, "")).filter(Boolean);
+      const o = { crit, note: val("slCn"), per: Math.max(1, Math.floor(Number(val("slCp"))) || it._d.per) };
+      if (crit.join("|") === it._d.crit.join("|") && o.note === it._d.note && o.per === it._d.per) delete all[it.code]; else all[it.code] = o;
+      try { localStorage.setItem(CKEY, JSON.stringify(all)); } catch (e) {}
+      applyCrit(); S.ed = null; paint();
+    },
+    resetCrit() { const all = critStore(); delete all[ITEMS[S.sel].code]; try { localStorage.setItem(CKEY, JSON.stringify(all)); } catch (e) {} applyCrit(); S.ed = null; paint(); },
     flag(k) {
       k = decodeURIComponent(k); const r = rec(); r.flag = r.flag || {};
       if (r.flag[k]) delete r.flag[k]; else r.flag[k] = 1; save(r); paint();

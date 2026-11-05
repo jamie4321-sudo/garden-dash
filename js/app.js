@@ -108,7 +108,7 @@
               <h2>운영 대시보드</h2>
               <p class="dash-hello__hi">${who ? `<b>${esc(who)}님,</b> ` : ""}${hi} · 오늘도 아지트 가든을 함께 가꿔요</p>
             </div>
-            <img class="dash-hello__char" src="img/hello-char.webp" alt="링키지랩 캐릭터 두두와 페피가 손을 흔들어요" width="246" height="223">
+            <img class="dash-hello__char" src="img/duo-garden.webp" alt="모종삽과 물뿌리개를 든 링키지랩 가드너 두두와 페피" width="420" height="377">
           </div>`;
   }
   function dashNoticeTile() {

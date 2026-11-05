@@ -4,7 +4,7 @@
 .dash-hello__hi { margin: 10px 0 0; font-size: 14px; color: var(--ink-2); }
 .dash-hello__hi b { color: var(--ink); font-weight: 800; }
 .dash-hello__char {
-  flex: none; display: block; width: 150px; height: auto; margin: -18px 6px -18px 0;
+  flex: none; display: block; width: 170px; height: auto; margin: -26px 6px -18px 0;
   transform-origin: 50% 100%; animation: dashHi 3.6s cubic-bezier(.45, 0, .25, 1) infinite;
 }
 :root:not([data-theme="light"]) .dash-hello__char { background: #f6f7f1; border-radius: 28px; padding: 8px; }

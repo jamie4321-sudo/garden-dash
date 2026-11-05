@@ -69,8 +69,9 @@
   ];
   // 평가기준(기준 문구 · 비고 · 감점 점수) 고치기 — 반기와 상관없이 하나로 저장
   const CKEY = "garden-sla-crit";
-  // 기록·기준·가채점 고치기는 제이미만 (로그인 이름에 '제이미'가 들어간 경우)
-  const isJamie = () => { try { return (localStorage.getItem("garden-entry-who") || "").indexOf("제이미") >= 0; } catch (e) { return false; } };
+  // 기록·기준·가채점 고치기는 제이미 · 링키지랩(관리자 계정)만 (로그인 이름 기준)
+  const EDITORS = ["제이미", "링키지랩"];
+  const isJamie = () => { try { const u = localStorage.getItem("garden-entry-who") || ""; return EDITORS.some((n) => u.indexOf(n) >= 0); } catch (e) { return false; } };
   ITEMS.forEach((it) => { it._d = { crit: it.crit.slice(), note: it.note, per: it.per }; });
   function critStore() { try { return JSON.parse(localStorage.getItem(CKEY) || "{}"); } catch (e) { return {}; } }
   function applyCrit() {

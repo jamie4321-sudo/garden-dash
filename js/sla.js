@@ -251,8 +251,10 @@
         const byM = {};
         is.forEach((x) => { const k = d10(x.date).slice(0, 7); byM[k] = (byM[k] || 0) + 1; });
         const vRows = vok.map((x) => { const k = vokKey(x), on = !!fl[k];
-          return [md(x.date), `VOK · ${esc(x.building)} ${esc(x.location)} · ${esc(x.detail)}`,
-            ["html", `<button class="sl-flag${on ? " is-on" : ""}" onclick="SLA.flag('${encodeURIComponent(k)}')" aria-pressed="${on}" title="눌러서 관리 기준 미준수 여부 바꾸기">${on ? "관리 기준 미준수" : "일반 VOK"}</button>`]]; });
+          return [md(x.date), `${esc(x.building)} ${esc(x.location)} · ${esc(x.detail)}`,
+            on ? ["bad", "관리 기준 미준수"] : ["info", "일반 VOK"],
+            [{ on, t: "관리 기준 미준수로 표시", fn: `SLA.flag('${encodeURIComponent(k)}')` }],
+            `VOK 접수 · ${x.status ? esc(x.status) : ""}${d10(x.doneAt) ? ` · ${md(x.doneAt)} 조치` : ""} · 관리 기준을 못 지켜 생긴 VOK만 감점 후보예요`]; });
         const mRows = Object.keys(byM).sort().reverse().map((k) => { const v = vok.filter((x) => d10(x.date).startsWith(k)).length;
           return [`${+k.slice(5)}월`, `식물 이슈 ${byM[k]}건 처리 · VOK ${v}건`, ["", v ? `VOK ${v}건` : "VOK 없음"]]; });
         return { sum: `식물 이슈 ${is.length}건 · 처리 완료 ${is.length ? Math.round(done / is.length * 100) : 0}% · VOK ${vok.length}건 중 관리 기준 미준수 ${flagged}건 · 월간 리뷰 ${mons.length}회`,
@@ -287,10 +289,11 @@
           if (isLate && !prev) late++;
           if (rawLate && off && !fb && !prev) offN++;
           if (rawLate && fb && !prev) fbN++;
-          let st = prev ? ["bad", `재발 · ${md(prev.doneAt)} 조치 후${isLate ? ` · ${gap}일 뒤 조치` : ""}`] : open ? ["warn", "같은 건 추가 접수"] : gap === 0 || (gap != null && !bg) ? ["ok", gap === 0 ? "당일 조치" : "주말 접수 · 다음 영업일 조치"] : fb ? ["ok", gap != null ? `당일 피드백 · ${gap}일 뒤 조치` : "당일 피드백 · 처리 중"] : off ? ["ok", gap != null ? `업무 시간 외 접수 · ${gap}일 뒤 조치` : "업무 시간 외 접수 · 처리 중"] : gap != null ? ["bad", `${gap}일 뒤 조치 · 당일 대응 못함`] : bg ? ["bad", "처리 중 · 당일 대응 못함"] : ["warn", "처리 중"];
+          let st = prev ? ["bad", `재발 · ${md(prev.doneAt)} 조치 후${isLate ? ` · ${gap}일 뒤 조치` : ""}`] : open ? ["warn", "같은 건 추가 접수"] : gap === 0 || (gap != null && !bg) ? ["ok", gap === 0 ? "당일 조치" : "당일 조치 · 주말 접수 → 다음 영업일"] : fb ? ["ok", gap != null ? `당일 피드백 · ${gap}일 뒤 조치` : "당일 피드백 · 처리 중"] : off ? ["off", gap != null ? `업무 시간 외 · 제외 · ${gap}일 뒤 조치` : "업무 시간 외 · 제외 · 처리 중"] : gap != null ? ["bad", `당일 대응 못함 · ${gap}일 뒤 조치`] : bg ? ["bad", "당일 대응 못함 · 처리 중"] : ["warn", "처리 중"];
           const ek = encodeURIComponent(ok);
-          if (rawLate) st = ["html", `${chip(st[0], st[1])}<button class="sl-flag sl-flag--oh${fb ? " is-on" : ""}" onclick="SLA.fb('${ek}')" aria-pressed="${fb}" title="접수한 날 피드백(1차 대응)을 했으면 눌러서 당일 대응 미준수에서 빼기">${fb ? "✓ 당일 피드백" : "당일 피드백?"}</button><button class="sl-flag sl-flag--oh${off ? " is-on" : ""}" onclick="SLA.offh('${ek}')" aria-pressed="${off}" title="업무 시간 외에 접수된 건이면 눌러서 당일 대응 판정에서 빼기">${off ? "✓ 업무 시간 외" : "업무 시간 외?"}</button>`];
-          return [md(x.date), `${esc(x.building)} ${esc(x.location)} · ${esc(x.detail)}`, st];
+          const acts = rawLate ? [{ on: fb, t: "당일 피드백 했음", fn: `SLA.fb('${ek}')` }, { on: off, t: "업무 시간 외 접수", fn: `SLA.offh('${ek}')` }] : null;
+          const det = `${md(x.date)} 접수 → ${end ? `${md(end)} 조치 완료${gap ? ` · ${gap}일 뒤${bg !== gap ? ` (영업일 ${bg}일)` : ""}` : " · 당일"}` : "아직 처리 중"}${prev ? ` · 같은 자리 ${md(prev.date)} 접수 건을 ${md(prev.doneAt)}에 조치한 뒤 다시 접수` : open ? " · 앞선 같은 건을 처리하는 중에 들어온 요청" : ""}`;
+          return [md(x.date), `${esc(x.building)} ${esc(x.location)} · ${esc(x.detail)}`, st, acts, det];
         });
         return { sum: `VOK ${vok.length}건 · 당일 조치 ${same}건 · 당일 대응 못함 ${late}건 · 재발 ${again}건`, good: vok.length && !late ? "VOK를 모두 접수한 날(영업일) 대응했어요" : "",
           rows, sug: again + late, sugWhy: [late ? `최초 대응(당일) 미준수 ${late}건` : "", again ? `조치 후 같은 자리 재발 ${again}건` : ""].filter(Boolean).join(" · ") + (late && again ? " (겹치는 건은 한 번만)" : "") + (fbN ? ` · 당일 피드백 ${fbN}건 제외` : "") + (offN ? ` · 업무 시간 외 접수 ${offN}건 제외` : ""), go: "issues" };
@@ -347,7 +350,7 @@
   function fixRow(it, row, o) {
     const f = fixOf(it, row, o); if (!f) return row;
     const st = f.c ? [f.k || "info", esc(f.c)] : row[2];
-    return [f.d ? esc(f.d) : row[0], "t" in f ? esc(f.t).replace(/\n/g, "<br>") : row[1], st];
+    return [f.d ? esc(f.d) : row[0], "t" in f ? esc(f.t).replace(/\n/g, "<br>") : row[1], st, row[3], row[4]];
   }
   function evx(it, r) {
     const ev = evidence(it, r), o = ((r.ev || {})[it.code]) || {}, hide = o.hide || [], add = o.add || [];
@@ -376,6 +379,19 @@
         <select id="slRk" aria-label="상태">${Object.keys(KINDS).map((k) => `<option value="${k}"${(a.k || "ok") === k ? " selected" : ""}>${KINDS[k]}</option>`).join("")}</select></div>
       <textarea id="slRt" rows="2" placeholder="예) 3/12 라운딩 — 7층 화분 물주기 일정 지연, 당일 보완">${esc(a.t || "")}</textarea>
       <div class="sl-form__b"><button class="sl-btn sl-btn--ink" onclick="SLA.saveRow()">저장</button><button class="sl-btn" onclick="SLA.cancel()">취소</button></div></div>`;
+  /* 진행 기록 한 줄 — 날짜 · 자리(진하게) · 내용(흐리게) · 판정 단어 하나(색 점). 누르면 아래로 자세히 + 체크·고치기 */
+  const DOT = { ok: "ok", bad: "bad", warn: "warn" };
+  function lineRow(key, d, txt, st, acts, det, mine, tools, J) {
+    const lab = st[0] === "html" ? plain(st[1]) : st[1], cut = String(lab).indexOf(" · "), word = cut > 0 ? lab.slice(0, cut) : lab, rest = cut > 0 ? lab.slice(cut + 3) : "";
+    const k = String(txt).indexOf(" · "), head = k > 0 ? `${txt.slice(0, k)} <span>· ${txt.slice(k + 3)}</span>` : txt;
+    const on = S.open === key;
+    const actH = (acts || []).length ? `<div class="sl-tgs"><span class="sl-tgl">판정 체크</span>${acts.map((a) => J ? `<button class="sl-tg${a.on ? " is-on" : ""}" onclick="${a.fn}" aria-pressed="${!!a.on}">${a.on ? "✓ " : ""}${a.t}</button>` : a.on ? `<span class="sl-tg is-on">✓ ${a.t}</span>` : "").join("")}</div>` : "";
+    return `<div class="sl-ln${on ? " is-on" : ""}" onclick="SLA.open('${key}')" role="button" aria-expanded="${on}">
+        <span class="sl-ln__d">${d}</span><span class="sl-ln__t">${mine ? `<em class="sl-me">직접 기록</em>` : ""}${head}</span>
+        <span class="sl-ln__v sl-v--${DOT[st[0]] || "off"}"><i></i>${word}</span><span class="sl-ln__c" aria-hidden="true">›</span></div>
+      ${on ? `<div class="sl-dr"><p class="sl-dr__t">${txt}</p>${rest || det ? `<p class="sl-dr__m">${rest ? `<b>${word}</b> · ${rest}` : ""}${rest && det ? "<br>" : ""}${det || ""}</p>` : ""}
+        ${actH}${J ? `<div class="sl-tgs">${tools}</div>` : ""}</div>` : ""}`;
+  }
   const fixForm = (d, txt, st, fixed) => {
     const isHtml = st[0] === "html", k = isHtml ? "" : st[0];
     return `<div class="sl-form">
@@ -403,10 +419,11 @@
     const listH = CATS.map((c) => `<p class="sl-gh">${c.no}. ${c.name} · ${c.w}%</p>` + ITEMS.map((x, i) => x.c !== c.no ? "" :
       `<button class="sl-li${i === S.sel ? " is-on" : ""}" onclick="SLA.sel(${i})"><span class="sl-dot${nOf(x, r) ? " is-w" : ""}"></span><b>${x.code} ${x.name}</b><span class="sl-li__s">${scoreOf(x, r)}<i>/${x.max}</i></span></button>`).join("")).join("");
     const addRows = ev.add.map((a, i) => E.kind === "row" && E.i === i ? rowForm(a) :
-      `<div class="sl-ev sl-ev--me"><span class="sl-ev__d">${d10(a.d) ? md(a.d) : "—"}</span><span class="sl-ev__t"><em class="sl-me">직접 기록</em>${esc(a.t).replace(/\n/g, "<br>")}</span>
-        <span class="sl-ev__r">${chipBtn(a.k || "ok", KINDS[a.k] || KINDS.ok, `SLA.ed('row',${i})`)}<button class="sl-ic" onclick="SLA.ed('row',${i})" aria-label="고치기" title="고치기">✎</button><button class="sl-ic" onclick="SLA.delRow(${i})" aria-label="지우기" title="지우기">✕</button></span></div>`).join("");
-    const autoRows = ev.auto.map(({ row: [d, txt, st], i, fixed }) => E.kind === "fix" && E.i === i ? fixForm(d, txt, st, fixed) : `<div class="sl-ev"><span class="sl-ev__d">${d}</span><span class="sl-ev__t">${txt}</span>
-        <span class="sl-ev__r">${st[0] === "html" ? st[1] : chipBtn(st[0], st[1], `SLA.ed('fix',${i})`)}<button class="sl-ic" onclick="SLA.ed('fix',${i})" aria-label="고치기" title="고치기">✎</button><button class="sl-ic sl-ic--h" onclick="SLA.hide(${i})" aria-label="이 기록 숨기기" title="보고서·가채점에서 빼기">✕</button></span></div>`).join("");
+      lineRow("m" + i, d10(a.d) ? md(a.d) : "—", esc(a.t).replace(/\n/g, "<br>"), [a.k || "ok", KINDS[a.k] || KINDS.ok], null, "", true,
+        `<button class="sl-tg sl-tg--g" onclick="SLA.ed('row',${i})">✎ 고치기</button><button class="sl-tg sl-tg--g" onclick="SLA.delRow(${i})">지우기</button>`, J)).join("");
+    const autoRows = ev.auto.map(({ row: [d, txt, st, acts, det], i, fixed }) => E.kind === "fix" && E.i === i ? fixForm(d, txt, st, fixed) :
+      lineRow("a" + i, d, txt, st, acts, det, false,
+        `<button class="sl-tg sl-tg--g" onclick="SLA.ed('fix',${i})">✎ 고치기</button><button class="sl-tg sl-tg--g" onclick="SLA.hide(${i})" title="보고서·가채점에서 빼기">숨기기</button>`, J)).join("");
     const newForm = E.kind === "new" ? rowForm({}) : "";
     const rows = addRows || autoRows || newForm ? newForm + addRows + autoRows : `<p class="sl-empty">이 기간 기록이 없어요</p>`;
     const sumH = E.kind === "sum" ? `<div class="sl-form">
@@ -558,9 +575,10 @@
   window.SLA = {
     html() { return `<section class="view sl"><div id="slHead">${head()}</div><div id="slBody"></div></section>`; },
     mount() { paint(); pull(); },
-    sel(i) { S.sel = i; S.ed = null; paint(); },
+    sel(i) { S.sel = i; S.ed = null; S.open = null; paint(); },
     tab(k) { S.tab = k; S.ed = null; paint(); },
     rp(k) { S.rp = k; paint(); },
+    open(k) { S.open = S.open === k ? null : k; paint(); },
     fed(on) { S.fed = !!on; paint(); },
     saveFocus() {
       const F = FOCUS[S.year] || [];

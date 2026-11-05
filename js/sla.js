@@ -64,7 +64,7 @@
 
   /* ---------- 상태 ---------- */
   const now = new Date();
-  const S = { year: now.getFullYear(), half: now.getMonth() < 6 ? 1 : 2, sel: 0, tab: "score" };
+  const S = { year: now.getFullYear(), half: now.getMonth() < 6 ? 1 : 2, sel: 0, tab: "score", ed: null };
   const pkey = () => `${S.year}-H${S.half}`;
   function store() { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { return {}; } }
   function rec() {
@@ -195,9 +195,37 @@
     return { sum: "", rows: [], sug: 0, go: "" };
   }
 
+  /* ---------- 직접 고친 내용 합치기 ----------
+     r.ev[code] = { sum, good, add: [{d, t, k}], hide: [자동 기록 키] } · r.pre[code] = [가채점 근거 줄] */
+  const rowKey = (row) => row[0] + "|" + row[1];
+  const preOf = (it, r) => ((r.pre || {})[it.code]) || it.pre;
+  const KINDS = { ok: "잘 지킴", warn: "확인 필요", bad: "감점 사유" };
+  function evx(it, r) {
+    const ev = evidence(it), o = ((r.ev || {})[it.code]) || {}, hide = o.hide || [], add = o.add || [];
+    const bad = add.filter((a) => a.k === "bad").length;
+    return Object.assign({}, ev, {
+      autoSum: ev.sum, autoGood: ev.good || "",
+      sum: o.sum ? esc(o.sum) : ev.sum,
+      good: "good" in o ? esc(o.good) : ev.good,
+      edited: !!(o.sum || "good" in o),
+      auto: ev.rows.map((row, i) => ({ row, i })).filter((x) => !hide.includes(rowKey(x.row))),
+      hidden: hide.length, add,
+      sug: (ev.sug || 0) + bad,
+      sugWhy: [ev.sugWhy, bad ? `직접 기록한 감점 사유 ${bad}건` : ""].filter(Boolean).join(" · "),
+    });
+  }
+  const evOf = (r, code) => { r.ev = r.ev || {}; return (r.ev[code] = r.ev[code] || {}); };
+  const val = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+
   /* ---------- 그리기 ---------- */
   const chip = (k, t) => `<span class="sl-chip sl-chip--${k}">${t}</span>`;
-  const stepper = (it, r) => `<span class="sl-step"><button onclick="SLA.n('${it.code}',-1)" aria-label="감점 빼기">−</button><b>${nOf(it, r)}</b><button onclick="SLA.n('${it.code}',1)" aria-label="감점 더하기">＋</button></span>`;
+  const maxN = (it) => Math.floor(it.max / it.per);
+  const stepper = (it, r) => `<span class="sl-step"><button onclick="SLA.n('${it.code}',-1)" aria-label="감점 빼기">−</button><input type="number" inputmode="numeric" min="0" max="${maxN(it)}" value="${nOf(it, r)}" aria-label="감점 ${it.unit} 수" onchange="SLA.set('${it.code}',this.value)"><button onclick="SLA.n('${it.code}',1)" aria-label="감점 더하기">＋</button></span>`;
+  const rowForm = (a) => `<div class="sl-form">
+      <div class="sl-form__r"><input type="date" id="slRd" value="${esc(d10(a.d) || "")}" aria-label="날짜">
+        <select id="slRk" aria-label="상태">${Object.keys(KINDS).map((k) => `<option value="${k}"${(a.k || "ok") === k ? " selected" : ""}>${KINDS[k]}</option>`).join("")}</select></div>
+      <textarea id="slRt" rows="2" placeholder="예) 3/12 라운딩 — 7층 화분 물주기 일정 지연, 당일 보완">${esc(a.t || "")}</textarea>
+      <div class="sl-form__b"><button class="sl-btn sl-btn--ink" onclick="SLA.saveRow()">저장</button><button class="sl-btn" onclick="SLA.cancel()">취소</button></div></div>`;
   const head = () => {
     const halves = [[1, "상반기"], [2, "하반기"]];
     return `<div class="page-head">
@@ -211,11 +239,25 @@
   };
 
   function scoreView() {
-    const r = rec(), it = ITEMS[S.sel], ev = evidence(it), t = total(r), g = gradeOf(t), cat = CATS[it.c - 1];
+    const r = rec(), it = ITEMS[S.sel], ev = evx(it, r), t = total(r), g = gradeOf(t), cat = CATS[it.c - 1], E = S.ed || {};
     const listH = CATS.map((c) => `<p class="sl-gh">${c.no}. ${c.name} · ${c.w}%</p>` + ITEMS.map((x, i) => x.c !== c.no ? "" :
       `<button class="sl-li${i === S.sel ? " is-on" : ""}" onclick="SLA.sel(${i})"><span class="sl-dot${nOf(x, r) ? " is-w" : ""}"></span><b>${x.code} ${x.name}</b><span class="sl-li__s">${scoreOf(x, r)}<i>/${x.max}</i></span></button>`).join("")).join("");
-    const rows = ev.rows.length ? ev.rows.map(([d, txt, st]) => `<div class="sl-ev"><span class="sl-ev__d">${d}</span><span class="sl-ev__t">${txt}</span>${chip(st[0], st[1])}</div>`).join("")
-      : `<p class="sl-empty">이 기간 기록이 없어요</p>`;
+    const addRows = ev.add.map((a, i) => E.kind === "row" && E.i === i ? rowForm(a) :
+      `<div class="sl-ev sl-ev--me"><span class="sl-ev__d">${d10(a.d) ? md(a.d) : "—"}</span><span class="sl-ev__t"><em class="sl-me">직접 기록</em>${esc(a.t).replace(/\n/g, "<br>")}</span>
+        <span class="sl-ev__r">${chip(a.k || "ok", KINDS[a.k] || KINDS.ok)}<button class="sl-ic" onclick="SLA.ed('row',${i})" aria-label="고치기" title="고치기">✎</button><button class="sl-ic" onclick="SLA.delRow(${i})" aria-label="지우기" title="지우기">✕</button></span></div>`).join("");
+    const autoRows = ev.auto.map(({ row: [d, txt, st], i }) => `<div class="sl-ev"><span class="sl-ev__d">${d}</span><span class="sl-ev__t">${txt}</span>
+        <span class="sl-ev__r">${chip(st[0], st[1])}<button class="sl-ic sl-ic--h" onclick="SLA.hide(${i})" aria-label="이 기록 숨기기" title="보고서·가채점에서 빼기">✕</button></span></div>`).join("");
+    const newForm = E.kind === "new" ? rowForm({}) : "";
+    const rows = addRows || autoRows || newForm ? newForm + addRows + autoRows : `<p class="sl-empty">이 기간 기록이 없어요</p>`;
+    const sumH = E.kind === "sum" ? `<div class="sl-form">
+        <label class="sl-memo"><span class="sl-lbl">한 줄 요약</span><input id="slSs" value="${esc(ev.edited && ((r.ev || {})[it.code] || {}).sum || "")}" placeholder="${esc(ev.autoSum)}"></label>
+        <label class="sl-memo"><span class="sl-lbl">잘 지킨 점</span><input id="slSg" value="${esc("good" in ((r.ev || {})[it.code] || {}) ? r.ev[it.code].good : ev.autoGood)}" placeholder="비우면 표시 안 해요"></label>
+        <div class="sl-form__b"><button class="sl-btn sl-btn--ink" onclick="SLA.saveSum()">저장</button><button class="sl-btn" onclick="SLA.cancel()">취소</button>${ev.edited ? `<button class="sl-btn sl-btn--ghost" onclick="SLA.resetSum()">자동 요약으로 되돌리기</button>` : ""}</div></div>`
+      : `<div class="sl-sumrow"><div><p class="sl-sum">${ev.sum}</p>${ev.good ? `<p class="sl-good">✓ ${ev.good}</p>` : ""}</div><button class="sl-ic sl-ic--t" onclick="SLA.ed('sum')" title="요약 고치기">✎ 고치기</button></div>`;
+    const pre = preOf(it, r), preEdited = !!((r.pre || {})[it.code]);
+    const preH = E.kind === "pre" ? `<div class="sl-form"><span class="sl-lbl">가채점 근거 · 한 줄에 하나씩</span><textarea id="slPre" rows="${Math.max(3, pre.length + 1)}">${esc(pre.join("\n"))}</textarea>
+        <div class="sl-form__b"><button class="sl-btn sl-btn--ink" onclick="SLA.savePre()">저장</button><button class="sl-btn" onclick="SLA.cancel()">취소</button>${preEdited ? `<button class="sl-btn sl-btn--ghost" onclick="SLA.resetPre()">처음 내용으로 되돌리기</button>` : ""}</div></div>`
+      : `<div class="sl-pre"><div>${pre.length ? pre.map((p) => "· " + esc(p)).join("<br>") : `<span class="sl-muted0">가채점 근거가 없어요</span>`}</div><button class="sl-ic sl-ic--t" onclick="SLA.ed('pre')" title="근거 고치기">✎ 고치기</button></div>`;
     const n = nOf(it, r), sug = ev.sug || 0;
     const center = `
       <div class="sl-ttl"><div><h3>${it.code} ${it.name}</h3><span>${cat.name} · 반영 ${cat.w}% · ${cat.cycle} · 만점 ${it.max}점</span></div><span class="sl-pt">${scoreOf(it, r)}점</span></div>
@@ -223,12 +265,13 @@
         <div class="sl-fs"><span class="sl-n is-ok">1</span><div><h4>평가기준 <small>${it.per}점 감점 / ${it.unit}</small></h4>
           <ul class="sl-crit">${it.crit.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>${it.note ? `<p class="sl-note">비고 · ${esc(it.note)}</p>` : ""}</div></div>
         <div class="sl-fs"><span class="sl-n is-on">2</span><div><h4>이렇게 진행했어요 <small>대시보드 기록 · ${S.year} ${S.half === 1 ? "상반기" : "하반기"}</small></h4>
-          <div class="sl-box"><p class="sl-sum">${ev.sum}</p>${ev.good ? `<p class="sl-good">✓ ${ev.good}</p>` : ""}<div class="sl-evs">${rows}</div>
-          ${ev.go ? `<button class="sl-go" onclick="GD.go('${ev.go}')">기록 보러 가기 →</button>` : ""}</div></div></div>
+          <div class="sl-box">${sumH}<div class="sl-evs">${rows}</div>
+          <div class="sl-acts">${E.kind === "new" ? "" : `<button class="sl-btn sl-btn--ink" onclick="SLA.ed('new')">＋ 기록 추가</button>`}${ev.hidden ? `<button class="sl-btn sl-btn--ghost" onclick="SLA.unhide()">숨긴 자동 기록 ${ev.hidden}개 다시 보기</button>` : ""}
+          ${ev.go ? `<button class="sl-go" onclick="GD.go('${ev.go}')">기록 보러 가기 →</button>` : ""}</div></div></div></div>
         <div class="sl-fs"><span class="sl-n">3</span><div><h4>가채점 <small>${n ? `−${n * it.per}점` : "감점 없음"}</small></h4>
           <div class="sl-box"><div class="sl-row"><span class="sl-lbl">감점 ${it.unit} 수</span>${stepper(it, r)}<span class="sl-muted">${it.max} → <b>${scoreOf(it, r)}</b>점</span></div>
           ${sug && sug !== n ? `<div class="sl-sug">대시보드 기준 감점 후보 <b>${sug}${it.unit}</b> · ${esc(ev.sugWhy)}<button onclick="SLA.set('${it.code}',${sug})">후보 적용</button></div>` : sug && sug === n ? `<p class="sl-good">✓ 대시보드 감점 후보(${sug}${it.unit})와 같아요</p>` : n > sug ? `<p class="sl-diff">대시보드 기록의 감점 후보(${sug}${it.unit})보다 ${n - sug}${it.unit} 많아요 · 라운딩 의견 등 근거를 메모에 남겨 주세요</p>` : ""}
-          <div class="sl-pre">${it.pre.map((p) => "· " + esc(p)).join("<br>")}</div>
+          ${preH}
           <label class="sl-memo"><span class="sl-lbl">가채점 메모</span><textarea rows="2" placeholder="라운딩 의견, 감점 근거 등" oninput="SLA.memo('${it.code}',this.value)">${esc(r.memo[it.code] || "")}</textarea></label></div></div></div>
       </div>`;
     const kept = ITEMS.filter((x) => !nOf(x, r)).length;
@@ -256,7 +299,7 @@
         <td><b>${x.code} ${x.name}</b><br><span class="muted">만점 ${x.max}</span></td>
         <td><ul class="sl-crit">${x.crit.map((v) => `<li>${esc(v)}</li>`).join("")}</ul>${x.note ? `<p class="sl-note">${esc(x.note)}</p>` : ""}</td>
         <td>${x.per}점 감점 / ${x.unit}</td>
-        <td class="sl-tbl__ev">${evidence(x).sum}</td>
+        <td class="sl-tbl__ev">${evx(x, r).sum}</td>
         <td>${stepper(x, r)}</td>
         <td class="num"><b>${scoreOf(x, r)}</b></td></tr>`).join("")).join("")}
       <tr class="sl-tbl__c"><td colspan="5">합계 (영역별 점수 합 ÷ 만점 합 × 반영비율)</td><td class="num">${f2(t)}</td></tr></tbody></table></div>`;
@@ -270,7 +313,7 @@
         <div class="sl-a4__top"><span class="sl-grade sl-grade--lg">${g[0]}</span><div><b>${f2(t)}점</b><p>${esc(g[4])}</p></div>
           <div class="sl-a4__inc"><span>인센티브 지급률</span><b>${g[3] > 0 ? "+" : ""}${g[3]}%</b><span>${esc(g[5] || "—")}</span></div></div>
         <table><thead><tr><th>구분</th><th>항목</th><th>진행 내역</th><th class="r">만점</th><th class="r">점수</th><th>감점 · 메모</th></tr></thead><tbody>
-        ${ITEMS.map((x) => `<tr><td>${x.c}. ${CATS[x.c - 1].name}<br><span class="muted">${CATS[x.c - 1].w}%</span></td><td>${x.code} ${x.name}</td><td>${evidence(x).sum}</td><td class="r">${x.max}</td><td class="r"><b>${scoreOf(x, r)}</b></td>
+        ${ITEMS.map((x) => `<tr><td>${x.c}. ${CATS[x.c - 1].name}<br><span class="muted">${CATS[x.c - 1].w}%</span></td><td>${x.code} ${x.name}</td><td>${(() => { const e = evx(x, r); return e.sum + e.add.map((a) => `<br>· ${d10(a.d) ? md(a.d) + " " : ""}${esc(a.t)}`).join(""); })()}</td><td class="r">${x.max}</td><td class="r"><b>${scoreOf(x, r)}</b></td>
           <td>${nOf(x, r) ? `−${nOf(x, r) * x.per}점 (${nOf(x, r)}${x.unit})` : "감점 없음"}${r.memo[x.code] ? `<br>${esc(r.memo[x.code])}` : ""}</td></tr>`).join("")}
         <tr class="sl-a4__sum"><td colspan="4">합계 (반영비율 적용) · ${CATS.map((c) => `${c.no}) ${f2(catScore(c, r))}`).join(" · ")}</td><td class="r"><b>${f2(t)}</b></td><td>${g[0]}등급</td></tr></tbody></table>
         <p class="sl-a4__h">등급 구간</p>
@@ -287,12 +330,50 @@
   window.SLA = {
     html() { return `<section class="view sl"><div id="slHead">${head()}</div><div id="slBody"></div></section>`; },
     mount() { paint(); },
-    sel(i) { S.sel = i; paint(); },
-    tab(k) { S.tab = k; paint(); },
-    half(h) { S.half = h; paint(); },
-    year(d) { S.year += d; paint(); },
-    n(code, d) { const r = rec(), it = ITEMS.find((x) => x.code === code); r.n[code] = Math.max(0, Math.min(Math.floor(it.max / it.per), nOf(it, r) + d)); save(r); paint(); },
-    set(code, v) { const r = rec(); r.n[code] = v; save(r); paint(); },
+    sel(i) { S.sel = i; S.ed = null; paint(); },
+    tab(k) { S.tab = k; S.ed = null; paint(); },
+    half(h) { S.half = h; S.ed = null; paint(); },
+    year(d) { S.year += d; S.ed = null; paint(); },
+    n(code, d) { const r = rec(), it = ITEMS.find((x) => x.code === code); r.n[code] = Math.max(0, Math.min(maxN(it), nOf(it, r) + d)); save(r); paint(); },
+    set(code, v) { const r = rec(), it = ITEMS.find((x) => x.code === code); r.n[code] = Math.max(0, Math.min(maxN(it), Math.floor(Number(v)) || 0)); save(r); paint(); },
+    /* 진행 내역 · 가채점 근거 고치기 */
+    ed(kind, i) {
+      S.ed = { kind, i }; paint();
+      const f = document.getElementById(kind === "sum" ? "slSs" : kind === "pre" ? "slPre" : "slRt");
+      if (f) { f.focus(); if (f.setSelectionRange) { const l = f.value.length; f.setSelectionRange(l, l); } }
+    },
+    cancel() { S.ed = null; paint(); },
+    saveRow() {
+      const t = val("slRt"); if (!t) { const f = document.getElementById("slRt"); if (f) f.focus(); return; }
+      const r = rec(), o = evOf(r, ITEMS[S.sel].code), a = { d: val("slRd"), t, k: val("slRk") || "ok" };
+      o.add = o.add || [];
+      if (S.ed && S.ed.kind === "row") o.add[S.ed.i] = a; else o.add.unshift(a);
+      save(r); S.ed = null; paint();
+    },
+    delRow(i) {
+      if (!confirm("이 기록을 지울까요?")) return;
+      const r = rec(), o = evOf(r, ITEMS[S.sel].code); (o.add || []).splice(i, 1); save(r); S.ed = null; paint();
+    },
+    hide(i) {
+      const r = rec(), it = ITEMS[S.sel], row = evidence(it).rows[i]; if (!row) return;
+      const o = evOf(r, it.code); o.hide = (o.hide || []).concat(rowKey(row)); save(r); paint();
+    },
+    unhide() { const r = rec(), o = evOf(r, ITEMS[S.sel].code); delete o.hide; save(r); paint(); },
+    saveSum() {
+      const r = rec(), it = ITEMS[S.sel], o = evOf(r, it.code), s = val("slSs"), g = val("slSg"), auto = evidence(it).good || "";
+      if (s) o.sum = s; else delete o.sum;
+      if (g !== auto) o.good = g; else delete o.good;
+      save(r); S.ed = null; paint();
+    },
+    resetSum() { const r = rec(), o = evOf(r, ITEMS[S.sel].code); delete o.sum; delete o.good; save(r); S.ed = null; paint(); },
+    savePre() {
+      const r = rec(), it = ITEMS[S.sel], el = document.getElementById("slPre");
+      const lines = (el ? el.value : "").split(/\r?\n/).map((x) => x.trim().replace(/^[·•\-]\s*/, "")).filter(Boolean);
+      r.pre = r.pre || {};
+      if (lines.join("|") === it.pre.join("|")) delete r.pre[it.code]; else r.pre[it.code] = lines;
+      save(r); S.ed = null; paint();
+    },
+    resetPre() { const r = rec(); if (r.pre) delete r.pre[ITEMS[S.sel].code]; save(r); S.ed = null; paint(); },
     memo(code, v) { const r = rec(); r.memo[code] = v; save(r); },
     print() {
       document.body.classList.add("sl-printing");

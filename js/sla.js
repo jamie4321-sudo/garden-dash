@@ -97,23 +97,54 @@
     const r = range();
     switch (it.src) {
       case "crew": {
+        // 기간(하반기면 7/1~) 안의 입사·퇴사 기록을 날짜순으로 정리하고, 결원마다 채용 기한(비장애 2개월 · 장애 3개월) 준수를 판정
         const crew = list("getCrew"), dis = (c) => { const d = String(c.disability || "").trim(); return d && d !== "비장애"; };
+        const typ = (c) => (dis(c) ? "장애" : "비장애");
         const active = crew.filter((c) => c.status !== "out" || (d10(c.left) && d10(c.left) > r.to));
-        const leavers = crew.filter((c) => c.status === "out" && inP(c.left)).sort((a, b) => d10(a.left).localeCompare(d10(b.left)));
+        const allOut = crew.filter((c) => c.status === "out" && d10(c.left)).sort((a, b) => d10(a.left).localeCompare(d10(b.left)));
         const joins = crew.filter((c) => inP(c.since));
-        const rows = [], used = new Set(); let late = 0, filled = 0;
-        leavers.forEach((c) => {
-          const limit = dis(c) ? 90 : 60;
-          const next = crew.filter((x) => x !== c && !used.has(x) && d10(x.since) >= d10(c.left)).sort((a, b) => d10(a.since).localeCompare(d10(b.since)))[0];
-          if (next) { used.add(next); filled++; }
-          const gap = next ? days(c.left, next.since) : days(c.left, periodEnd());
-          const over = gap > limit;
-          if (over) late++;
-          rows.push([md(c.left), `${esc(c.name)} 퇴사(${dis(c) ? "장애 · 3개월 내" : "비장애 · 2개월 내"}) → ${next ? `${esc(next.name)} ${md(next.since)} 입사 · ${gap}일` : `아직 충원 전 · ${gap}일째`}`,
-            over ? ["bad", `기한 ${gap - limit}일 넘김`] : next ? ["ok", "기한 안 충원"] : ["warn", `${limit - gap}일 남음`]]);
+        const leavers = allOut.filter((c) => inP(c.left));
+        // 전체 이력으로 퇴사자 ↔ 다음 입사자 짝짓기 (앞 반기 결원이 이번 기간에 채워진 경우도 잡기 위해)
+        const used = new Set(), fill = new Map();
+        allOut.forEach((c) => {
+          const next = crew.filter((x) => x !== c && !used.has(x) && d10(x.since) && d10(x.since) >= d10(c.left)).sort((a, b) => d10(a.since).localeCompare(d10(b.since)))[0];
+          if (next) { used.add(next); fill.set(c, next); }
         });
-        return { sum: `재직 ${active.length}명 · 이 기간 퇴사 ${leavers.length}명 · 입사 ${joins.length}명`,
-          good: !leavers.length ? "이 기간 결원이 없었어요" : !late && filled === leavers.length ? "퇴사자 자리를 모두 기한 안에 채웠어요" : !late ? `결원 ${leavers.length - filled}명은 충원 기한 안이에요` : "",
+        const filledBy = new Map(); fill.forEach((n, c) => filledBy.set(n, c));
+        // 판정 대상 결원 = 이 기간 퇴사자 + 앞 기간 퇴사했는데 기간 시작 때 아직 비어 있던 자리
+        const carry = allOut.filter((c) => d10(c.left) < r.from && (!fill.get(c) || d10(fill.get(c).since) >= r.from));
+        const vac = carry.concat(leavers).map((c) => {
+          const limit = dis(c) ? 90 : 60, next = fill.get(c);
+          const gap = next ? days(c.left, next.since) : days(c.left, periodEnd());
+          return { c, limit, next, gap, over: gap > limit };
+        });
+        const late = vac.filter((v) => v.over).length, open = vac.filter((v) => !v.next && !v.over);
+        const ev = [];
+        carry.forEach((c) => ev.push({ d: d10(c.left), row: () => { const v = vac.find((x) => x.c === c);
+          return [md(c.left), `${esc(c.name)} 퇴사(${typ(c)}) — 앞 기간 결원이 이어짐 · 채용 기한 ${v.limit === 90 ? "3개월" : "2개월"}`,
+            v.over ? ["bad", `기한 ${v.gap - v.limit}일 넘김`] : v.next ? ["info", "아래 입사로 충원"] : ["warn", `${v.limit - v.gap}일 남음`]]; } }));
+        joins.forEach((c) => ev.push({ d: d10(c.since), row: () => {
+          const was = filledBy.get(c), v = was && vac.find((x) => x.c === was);
+          return [md(c.since), `${esc(c.name)} 입사(${typ(c)}${c.role ? " · " + esc(c.role) : ""})${was ? ` — ${esc(was.name)} ${md(was.left)} 퇴사 자리 충원 · ${days(was.left, c.since)}일` : " — 인원 보강"}`,
+            v && v.over ? ["bad", `기한 ${v.gap - v.limit}일 넘김`] : was ? ["ok", "기한 안 충원"] : ["info", "입사"]]; } }));
+        leavers.forEach((c) => ev.push({ d: d10(c.left), row: () => {
+          const v = vac.find((x) => x.c === c);
+          return [md(c.left), `${esc(c.name)} 퇴사(${typ(c)}${c.memo ? " · " + esc(c.memo) : ""}) → ${v.next ? `${esc(v.next.name)} ${md(v.next.since)} 입사 · ${v.gap}일` : `충원 기한 ${md(new Date(new Date(d10(c.left)).getTime() + v.limit * 864e5).toISOString())}까지 · ${v.gap}일째`}`,
+            v.over ? ["bad", `기한 ${v.gap - v.limit}일 넘김`] : v.next ? ["ok", "기한 안 충원"] : ["warn", `채용 진행 · ${v.limit - v.gap}일 남음`]]; } }));
+        // 메모에 이 기간 날짜가 적힌 변경(예: 'TO변경')도 참고로
+        crew.forEach((c) => { const m = String(c.memo || "").match(/(\d{1,2})\s*[\/.]\s*(\d{1,2})/); if (!m || joins.includes(c) || leavers.includes(c)) return;
+          const d = `${S.year}-${pad(+m[1])}-${pad(+m[2])}`; if (!inP(d)) return;
+          ev.push({ d, row: () => [md(d), `${esc(c.name)} · ${esc(c.memo)}`, ["info", "참고"]] }); });
+        ev.sort((a, b) => a.d.localeCompare(b.d));
+        const rows = ev.map((x) => x.row());
+        const from = md(r.from), quiet = !joins.length && !leavers.length && !carry.length;
+        if (quiet) rows.push([`${from}~`, `이 기간 입사·퇴사 인원 없음 — 결원 없이 재직 ${active.length}명 그대로 유지`, ["ok", "채용 기한 준수"]]);
+        const verdict = late ? `채용 기한 넘긴 결원 ${late}명` : open.length ? `채용 기한 준수 (결원 ${open.length}명 채용 진행 중 · 기한 안)` : "채용 기한 준수";
+        return { sum: quiet ? `${from}~ 입퇴사 인원 없음 · 재직 ${active.length}명 유지 → 채용 기한 준수`
+            : `${from}~ 입사 ${joins.length}명 · 퇴사 ${leavers.length}명 · 재직 ${active.length}명 → ${verdict}`,
+          good: quiet ? "이 기간 입퇴사가 없어 결원 없이 계약 인원을 유지했어요"
+            : !late && !open.length ? "결원 자리를 모두 채용 기한 안에 채웠어요"
+            : !late ? `채워진 자리는 모두 기한 안이고, 남은 결원 ${open.length}명도 아직 기한 안이에요` : "",
           rows, sug: late, sugWhy: late ? `채용 기한을 넘긴 결원 ${late}명` : "", go: "crew" };
       }
       case "training": {

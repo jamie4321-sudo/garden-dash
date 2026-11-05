@@ -69,6 +69,8 @@
   ];
   // 평가기준(기준 문구 · 비고 · 감점 점수) 고치기 — 반기와 상관없이 하나로 저장
   const CKEY = "garden-sla-crit";
+  // 기록·기준·가채점 고치기는 제이미만 (로그인 이름에 '제이미'가 들어간 경우)
+  const isJamie = () => { try { return (localStorage.getItem("garden-entry-who") || "").indexOf("제이미") >= 0; } catch (e) { return false; } };
   ITEMS.forEach((it) => { it._d = { crit: it.crit.slice(), note: it.note, per: it.per }; });
   function critStore() { try { return JSON.parse(localStorage.getItem(CKEY) || "{}"); } catch (e) { return {}; } }
   function applyCrit() {
@@ -296,6 +298,7 @@
 
   /* ---------- 그리기 ---------- */
   const chip = (k, t) => `<span class="sl-chip sl-chip--${k}">${t}</span>`;
+  const chipBtn = (k, t, on) => isJamie() ? `<button class="sl-chip sl-chip--${k} sl-chip--btn" onclick="${on}" title="눌러서 고치기">${t}</button>` : chip(k, t);
   const maxN = (it) => Math.floor(it.max / it.per);
   const stepper = (it, r) => `<span class="sl-step"><button onclick="SLA.n('${it.code}',-1)" aria-label="감점 빼기">−</button><input type="number" inputmode="numeric" min="0" max="${maxN(it)}" value="${nOf(it, r)}" aria-label="감점 ${it.unit} 수" onchange="SLA.set('${it.code}',this.value)"><button onclick="SLA.n('${it.code}',1)" aria-label="감점 더하기">＋</button></span>`;
   const rowForm = (a) => `<div class="sl-form">
@@ -325,14 +328,15 @@
   };
 
   function scoreView() {
+    const J = isJamie(); if (!J) S.ed = null;
     const r = rec(), it = ITEMS[S.sel], ev = evx(it, r), t = total(r), g = gradeOf(t), cat = CATS[it.c - 1], E = S.ed || {};
     const listH = CATS.map((c) => `<p class="sl-gh">${c.no}. ${c.name} · ${c.w}%</p>` + ITEMS.map((x, i) => x.c !== c.no ? "" :
       `<button class="sl-li${i === S.sel ? " is-on" : ""}" onclick="SLA.sel(${i})"><span class="sl-dot${nOf(x, r) ? " is-w" : ""}"></span><b>${x.code} ${x.name}</b><span class="sl-li__s">${scoreOf(x, r)}<i>/${x.max}</i></span></button>`).join("")).join("");
     const addRows = ev.add.map((a, i) => E.kind === "row" && E.i === i ? rowForm(a) :
       `<div class="sl-ev sl-ev--me"><span class="sl-ev__d">${d10(a.d) ? md(a.d) : "—"}</span><span class="sl-ev__t"><em class="sl-me">직접 기록</em>${esc(a.t).replace(/\n/g, "<br>")}</span>
-        <span class="sl-ev__r">${chip(a.k || "ok", KINDS[a.k] || KINDS.ok)}<button class="sl-ic" onclick="SLA.ed('row',${i})" aria-label="고치기" title="고치기">✎</button><button class="sl-ic" onclick="SLA.delRow(${i})" aria-label="지우기" title="지우기">✕</button></span></div>`).join("");
+        <span class="sl-ev__r">${chipBtn(a.k || "ok", KINDS[a.k] || KINDS.ok, `SLA.ed('row',${i})`)}<button class="sl-ic" onclick="SLA.ed('row',${i})" aria-label="고치기" title="고치기">✎</button><button class="sl-ic" onclick="SLA.delRow(${i})" aria-label="지우기" title="지우기">✕</button></span></div>`).join("");
     const autoRows = ev.auto.map(({ row: [d, txt, st], i, fixed }) => E.kind === "fix" && E.i === i ? fixForm(d, txt, st, fixed) : `<div class="sl-ev"><span class="sl-ev__d">${d}</span><span class="sl-ev__t">${txt}</span>
-        <span class="sl-ev__r">${st[0] === "html" ? st[1] : chip(st[0], st[1])}<button class="sl-ic" onclick="SLA.ed('fix',${i})" aria-label="고치기" title="고치기">✎</button><button class="sl-ic sl-ic--h" onclick="SLA.hide(${i})" aria-label="이 기록 숨기기" title="보고서·가채점에서 빼기">✕</button></span></div>`).join("");
+        <span class="sl-ev__r">${st[0] === "html" ? st[1] : chipBtn(st[0], st[1], `SLA.ed('fix',${i})`)}<button class="sl-ic" onclick="SLA.ed('fix',${i})" aria-label="고치기" title="고치기">✎</button><button class="sl-ic sl-ic--h" onclick="SLA.hide(${i})" aria-label="이 기록 숨기기" title="보고서·가채점에서 빼기">✕</button></span></div>`).join("");
     const newForm = E.kind === "new" ? rowForm({}) : "";
     const rows = addRows || autoRows || newForm ? newForm + addRows + autoRows : `<p class="sl-empty">이 기간 기록이 없어요</p>`;
     const sumH = E.kind === "sum" ? `<div class="sl-form">
@@ -363,7 +367,7 @@
           <div class="sl-box"><div class="sl-row"><span class="sl-lbl">감점 ${it.unit} 수</span>${stepper(it, r)}<span class="sl-muted">${it.max} → <b>${scoreOf(it, r)}</b>점</span></div>
           ${sug && sug !== n ? `<div class="sl-sug">대시보드 기준 감점 후보 <b>${sug}${it.unit}</b> · ${esc(ev.sugWhy)}<button onclick="SLA.set('${it.code}',${sug})">후보 적용</button></div>` : sug && sug === n ? `<p class="sl-good">✓ 대시보드 감점 후보(${sug}${it.unit})와 같아요</p>` : n > sug ? `<p class="sl-diff">대시보드 기록의 감점 후보(${sug}${it.unit})보다 ${n - sug}${it.unit} 많아요 · 라운딩 의견 등 근거를 메모에 남겨 주세요</p>` : ""}
           ${preH}
-          <label class="sl-memo"><span class="sl-lbl">가채점 메모</span><textarea rows="2" placeholder="라운딩 의견, 감점 근거 등" oninput="SLA.memo('${it.code}',this.value)">${esc(r.memo[it.code] || "")}</textarea></label></div></div></div>
+          <label class="sl-memo"><span class="sl-lbl">가채점 메모</span><textarea rows="2" placeholder="라운딩 의견, 감점 근거 등" oninput="SLA.memo('${it.code}',this.value)"${J ? "" : " readonly"}>${esc(r.memo[it.code] || "")}</textarea></label></div></div></div>
       </div>`;
     const kept = ITEMS.filter((x) => !nOf(x, r)).length;
     const nx = GRADES[GRADES.indexOf(g) - 1];
@@ -373,7 +377,7 @@
       <div class="sl-rs"><span class="sl-lbl">잘 지킨 항목</span><p class="sl-kept"><b>${kept}</b> / ${ITEMS.length}개 항목 감점 없음</p></div>
       <div class="sl-rs"><span class="sl-lbl">영역별</span>${CATS.map((c) => { const v = catScore(c, r); return `<div class="sl-cat"><b>${c.no}. ${c.name}</b><span>${f2(v)} / ${c.w}</span><div class="sl-bar"><i class="${v < c.w ? "is-w" : ""}" style="width:${v / c.w * 100}%"></i></div></div>`; }).join("")}</div>
       <div class="sl-rs"><span class="sl-lbl">다음 등급까지</span><p class="sl-next">${nx ? `${nx[0]}등급(${nx[1]}점)까지 <b>${f2(nx[1] - t)}점</b>` : "가장 높은 등급이에요"}</p></div>`;
-    return `<div class="sl-3">
+    return `${J ? "" : `<p class="sl-ro-note">🔒 기록·기준·가채점 고치기는 제이미만 할 수 있어요 · 지금은 보기만 돼요</p>`}<div class="sl-3${J ? "" : " sl-ro"}">
       <div class="sl-pane sl-pane--list">${listH}</div>
       <div class="sl-pane">${center}</div>
       <div class="sl-pane sl-pane--side">${right}</div></div>`;
@@ -418,6 +422,7 @@
     const h = document.getElementById("slHead"); if (h) h.innerHTML = head();
   }
 
+  const EDIT_FNS = ["n", "set", "ed", "saveRow", "delRow", "hide", "flag", "unhide", "saveSum", "resetSum", "savePre", "resetPre", "memo", "saveFix", "resetFix", "saveCrit", "resetCrit"];
   window.SLA = {
     html() { return `<section class="view sl"><div id="slHead">${head()}</div><div id="slBody"></div></section>`; },
     mount() { paint(); },
@@ -500,4 +505,5 @@
       window.print();
     },
   };
+  EDIT_FNS.forEach((k) => { const f = window.SLA[k]; if (f) window.SLA[k] = function () { if (!isJamie()) return; return f.apply(this, arguments); }; });
 })();

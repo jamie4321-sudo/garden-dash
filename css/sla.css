@@ -205,3 +205,8 @@
 #slFc { flex: 1; min-width: 140px; }
 .sl-form .sl-cp { width: 72px; }
 .sl-ev .sl-ic + .sl-ic--h { margin-left: 0; }
+.sl-chip--btn { border: 0; font-family: inherit; cursor: pointer; }
+.sl-chip--btn:hover { box-shadow: 0 0 0 1.5px currentColor inset; }
+.sl-ro-note { margin: 0 0 10px; font-size: 12px; color: var(--ink-3); }
+.sl-ro .sl-ic, .sl-ro .sl-acts .sl-btn, .sl-ro .sl-sug button, .sl-ro .sl-step button { display: none; }
+.sl-ro .sl-flag, .sl-ro .sl-step input { pointer-events: none; }

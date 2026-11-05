@@ -213,3 +213,10 @@
 .sl-flag--oh { margin-left: 6px; }
 .sl-flag--oh.is-on { background: var(--panel-2); color: var(--ink-2); }
 .sl-ro .sl-flag--oh:not(.is-on) { display: none; }
+.sl-rp-tools .sl-seg { margin-right: 4px; }
+.sl-a4__hs { display: flex; gap: 14px; padding-left: 18px; border-left: 1px solid #e2e3dd; }
+.sl-a4__hs span { display: flex; flex-direction: column; font-size: 11px; color: #8f8f85; }
+.sl-a4__hs b { font-size: 17px; color: #16160f; }
+.sl-a4__hs i { font-style: normal; font-weight: 800; font-size: 11px; color: #55554d; }
+.sl-a4__memo { margin: 0; padding-left: 16px; font-size: 10.5px; color: #55554d; line-height: 1.5; }
+@media (max-width: 760px) { .sl-a4__hs { padding-left: 0; border-left: 0; } .sl-a4__top { flex-wrap: wrap; } }

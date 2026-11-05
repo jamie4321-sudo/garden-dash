@@ -85,7 +85,7 @@
 
   /* ---------- 상태 ---------- */
   const now = new Date();
-  const S = { year: now.getFullYear(), half: now.getMonth() < 6 ? 1 : 2, sel: 0, tab: "score", ed: null };
+  const S = { year: now.getFullYear(), half: now.getMonth() < 6 ? 1 : 2, sel: 0, tab: "score", ed: null, rp: "year" };
   const pkey = () => `${S.year}-H${S.half}`;
   function store() { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { return {}; } }
   function rec() {
@@ -414,9 +414,39 @@
       <tr class="sl-tbl__c"><td colspan="5">합계 (영역별 점수 합 ÷ 만점 합 × 반영비율)</td><td class="num">${f2(t)}</td></tr></tbody></table></div>`;
   }
 
+  // 다른 반기의 기록·평가 내역을 잠깐 꺼내 쓰기
+  function withHalf(h, fn) { const keep = S.half; S.half = h; try { return fn(); } finally { S.half = keep; } }
+  const rpTools = () => `<div class="sl-rp-tools"><div class="sl-seg">${[["year", `${S.year} 연간 합산`], ["half", `${S.half === 1 ? "상반기" : "하반기"}만`]].map(([k, t]) => `<button class="${S.rp === k ? "is-on" : ""}" onclick="SLA.rp('${k}')">${t}</button>`).join("")}</div>
+      <button class="btn btn--primary btn--sm" onclick="SLA.print()">PDF로 저장 · 인쇄</button><span class="muted">인센티브·계약 내용은 이 보고서에만 나와요</span></div>`;
+
+  /* 연간 합산 보고서 — 상반기 · 하반기 · 평균 */
+  function yearReportView() {
+    const H = [1, 2].map((h) => withHalf(h, () => { const r = rec(); return { h, r, t: total(r), cats: CATS.map((c) => catScore(c, r)), sc: ITEMS.map((x) => scoreOf(x, r)), n: ITEMS.map((x) => nOf(x, r)) }; }));
+    const avg = (a, b) => (a + b) / 2, t = avg(H[0].t, H[1].t), g = gradeOf(t);
+    const now2 = todayStr(), h2Open = now2 >= `${S.year}-07-01` && now2 < `${S.year}-12-31`;
+    const ded = (x, i, k) => { const n = H[k].n[i]; return n ? `−${n * x.per}점 (${n}${x.unit})` : "—"; };
+    const memo = (x, k) => { const m = H[k].r.memo[x.code]; return m ? esc(m) : ""; };
+    const memos = ITEMS.map((x) => [memo(x, 0), memo(x, 1)]).map((m, i) => m[0] || m[1] ? `<li><b>${ITEMS[i].code}</b> ${m[0] ? `상반기 · ${m[0]}` : ""}${m[0] && m[1] ? " / " : ""}${m[1] ? `하반기 · ${m[1]}` : ""}</li>` : "").join("");
+    return rpTools() + `<div class="sl-a4"><h3>${S.year}년 조경관리 SLA 평가 · 연간 합산</h3>
+        <p class="sl-a4__m">카카오 아지트 · 주식회사 링키지랩 스낵앤가든사업팀 · 상반기·하반기 평균 · 가채점 기준 · ${now2} 작성${h2Open ? " · 하반기는 진행 중(작성일까지 기준)" : ""}</p>
+        <div class="sl-a4__top"><span class="sl-grade sl-grade--lg">${g[0]}</span><div><b>${f2(t)}점</b><p>${esc(g[4])}</p></div>
+          <div class="sl-a4__hs">${H.map((x) => `<span>${x.h === 1 ? "상반기" : "하반기"}<b>${f2(x.t)}</b><i>${gradeOf(x.t)[0]}</i></span>`).join("")}</div>
+          <div class="sl-a4__inc"><span>인센티브 지급률</span><b>${g[3] > 0 ? "+" : ""}${g[3]}%</b><span>${esc(g[5] || "—")}</span></div></div>
+        <table><thead><tr><th>구분</th><th>항목</th><th class="r">만점</th><th class="r">상반기</th><th class="r">하반기</th><th class="r">평균</th><th>감점 (상반기 / 하반기)</th></tr></thead><tbody>
+        ${ITEMS.map((x, i) => `<tr><td>${x.c}. ${CATS[x.c - 1].name}<br><span class="muted">${CATS[x.c - 1].w}%</span></td><td>${x.code} ${x.name}</td><td class="r">${x.max}</td>
+          <td class="r">${H[0].sc[i]}</td><td class="r">${H[1].sc[i]}</td><td class="r"><b>${f2(avg(H[0].sc[i], H[1].sc[i]))}</b></td><td>${ded(x, i, 0)} / ${ded(x, i, 1)}</td></tr>`).join("")}
+        <tr class="sl-a4__sum"><td colspan="3">합계 (반영비율 적용)</td><td class="r">${f2(H[0].t)}</td><td class="r">${f2(H[1].t)}</td><td class="r"><b>${f2(t)}</b></td><td>${g[0]}등급</td></tr>
+        <tr><td colspan="3" class="muted">영역별 (반영비율 점수)</td><td colspan="4" class="muted">${CATS.map((c, k) => `${c.no}) ${f2(H[0].cats[k])} · ${f2(H[1].cats[k])} → ${f2(avg(H[0].cats[k], H[1].cats[k]))}`).join("<br>")}</td></tr></tbody></table>
+        ${memos ? `<p class="sl-a4__h">감점 · 메모</p><ul class="sl-a4__memo">${memos}</ul>` : ""}
+        <p class="sl-a4__h">등급 구간 (연간 평균 기준)</p>
+        <div class="sl-a4__gr">${GRADES.map((x) => `<span class="${x === g ? "is-on" : ""}"><b>${x[0]}</b> ${x[1]}~${x[2]} · ${x[3] > 0 ? "+" : ""}${x[3]}%${x[5] ? " · " + x[5] : ""}</span>`).join("")}</div>
+        <div class="sl-a4__sig"><div>평가 · 카카오 총무 사옥관리</div><div>확인 · 링키지랩 스낵앤가든사업팀</div></div></div>`;
+  }
+
   function reportView() {
+    if (S.rp === "year") return yearReportView();
     const r = rec(), t = total(r), g = gradeOf(t);
-    return `<div class="sl-rp-tools"><button class="btn btn--primary btn--sm" onclick="SLA.print()">PDF로 저장 · 인쇄</button><span class="muted">인센티브·계약 내용은 이 보고서에만 나와요</span></div>
+    return rpTools() + `
       <div class="sl-a4"><h3>${S.year}년 ${S.half === 1 ? "상반기" : "하반기"} 조경관리 SLA 평가</h3>
         <p class="sl-a4__m">카카오 아지트 · 주식회사 링키지랩 스낵앤가든사업팀 · 가채점 기준 · ${todayStr()} 작성</p>
         <div class="sl-a4__top"><span class="sl-grade sl-grade--lg">${g[0]}</span><div><b>${f2(t)}점</b><p>${esc(g[4])}</p></div>
@@ -442,6 +472,7 @@
     mount() { paint(); },
     sel(i) { S.sel = i; S.ed = null; paint(); },
     tab(k) { S.tab = k; S.ed = null; paint(); },
+    rp(k) { S.rp = k; paint(); },
     half(h) { S.half = h; S.ed = null; paint(); },
     year(d) { S.year += d; S.ed = null; paint(); },
     n(code, d) { const r = rec(), it = ITEMS.find((x) => x.code === code); r.n[code] = Math.max(0, Math.min(maxN(it), nOf(it, r) + d)); save(r); paint(); },

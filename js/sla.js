@@ -413,6 +413,18 @@
       <div class="sl-tabs">${[["score", "가채점"], ["table", "기준표"], ["report", "보고서"]].map(([k, t]) => `<button class="${S.tab === k ? "is-on" : ""}" onclick="SLA.tab('${k}')">${t}</button>`).join("")}</div>`;
   };
 
+  /* 제출 자료 — 기준에 '증빙 · 자료 제출 · 자료작성'이 있는 항목 (운영 대시보드 #sla 에서 올린 파일과 같은 목록) */
+  const DOC_RE = /증빙|자료\s*(제출|작성)/;
+  const needDocs = (it) => it.crit.some((c) => DOC_RE.test(c)) || DOC_RE.test(it.note || "");
+  function docsBlock(it, r, J) {
+    if (!needDocs(it)) return "";
+    const list = ((r.docs || {})[it.code]) || [];
+    return `<div class="sl-docs"><div class="sl-docs__h"><b>제출 자료</b><span class="sl-muted">${S.year} ${S.half === 1 ? "상반기" : "하반기"} · ${list.length}개</span></div>
+      ${list.length ? list.map((d, i) => `<div class="sl-doc"><a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.name)} ↗</a><span class="sl-muted">${d.date ? md(d.date) : ""}</span>${J ? `<button class="sl-ic" onclick="SLA.delDoc(${i})" title="지우기">×</button>` : ""}</div>`).join("")
+        : `<p class="sl-empty">아직 등록한 자료가 없어요</p>`}
+      ${J ? `<div class="sl-docs__b"><button class="sl-btn sl-btn--ink" onclick="SLA.addDoc()">＋ 자료 등록 (링크)</button><span class="sl-muted">파일 올리기는 운영 대시보드 SLA에서 · 같은 목록이에요</span></div>` : ""}</div>`;
+  }
+
   function scoreView() {
     const J = isJamie(); if (!J) S.ed = null;
     const r = rec(), it = ITEMS[S.sel], ev = evx(it, r), t = total(r), g = gradeOf(t), cat = CATS[it.c - 1], E = S.ed || {};
@@ -445,7 +457,7 @@
             <label class="sl-memo"><span class="sl-lbl">비고</span><input id="slCn" value="${esc(it.note)}" placeholder="비우면 표시 안 해요"></label>
             <div class="sl-row"><span class="sl-lbl">감점 점수</span><input id="slCp" type="number" min="1" max="${it.max}" value="${it.per}" class="sl-cp" aria-label="감점 점수"><span class="sl-muted">점 / ${it.unit}</span></div>
             <div class="sl-form__b"><button class="sl-btn sl-btn--ink" onclick="SLA.saveCrit()">저장</button><button class="sl-btn" onclick="SLA.cancel()">취소</button>${critStore()[it.code] ? `<button class="sl-btn sl-btn--ghost" onclick="SLA.resetCrit()">처음 기준으로 되돌리기</button>` : ""}</div></div>`
-          : `<div class="sl-pre"><div><ul class="sl-crit">${it.crit.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>${it.note ? `<p class="sl-note">비고 · ${esc(it.note)}</p>` : ""}</div><button class="sl-ic sl-ic--t" onclick="SLA.ed('crit')" title="기준 고치기">✎ 고치기</button></div>`}</div></div>
+          : `<div class="sl-pre"><div><ul class="sl-crit">${it.crit.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>${it.note ? `<p class="sl-note">비고 · ${esc(it.note)}</p>` : ""}</div><button class="sl-ic sl-ic--t" onclick="SLA.ed('crit')" title="기준 고치기">✎ 고치기</button></div>`}${docsBlock(it, r, J)}</div></div>
         <div class="sl-fs"><span class="sl-n is-on">2</span><div><h4>이렇게 진행했어요 <small>대시보드 기록 · ${S.year} ${S.half === 1 ? "상반기" : "하반기"}</small></h4>
           <div class="sl-box">${sumH}<div class="sl-evs">${rows}</div>
           <div class="sl-acts">${E.kind === "new" ? "" : `<button class="sl-btn sl-btn--ink" onclick="SLA.ed('new')">＋ 기록 추가</button>`}${ev.hidden ? `<button class="sl-btn sl-btn--ghost" onclick="SLA.unhide()">숨긴 자동 기록 ${ev.hidden}개 다시 보기</button>` : ""}
@@ -571,7 +583,7 @@
     tellParent();
   }
 
-  const EDIT_FNS = ["n", "set", "ed", "saveRow", "delRow", "hide", "flag", "unhide", "offh", "fb", "saveSum", "resetSum", "savePre", "resetPre", "memo", "saveFix", "resetFix", "saveCrit", "resetCrit", "fed", "saveFocus"];
+  const EDIT_FNS = ["n", "set", "ed", "saveRow", "delRow", "hide", "flag", "unhide", "offh", "fb", "saveSum", "resetSum", "savePre", "resetPre", "memo", "saveFix", "resetFix", "saveCrit", "resetCrit", "fed", "saveFocus", "addDoc", "delDoc"];
   window.SLA = {
     html() { return `<section class="view sl"><div id="slHead">${head()}</div><div id="slBody"></div></section>`; },
     mount() { paint(); pull(); },
@@ -663,6 +675,15 @@
     },
     resetPre() { const r = rec(); if (r.pre) delete r.pre[ITEMS[S.sel].code]; save(r); S.ed = null; paint(); },
     memo(code, v) { const r = rec(); r.memo[code] = v; save(r); },
+    addDoc() {
+      const url = (prompt("자료 링크를 붙여 넣어 주세요 (구글 드라이브 · 아지트 등)") || "").trim(); if (!/^https?:\/\//.test(url)) return;
+      const name = (prompt("자료 이름", "제출 자료") || "제출 자료").trim();
+      const r = rec(), code = ITEMS[S.sel].code; r.docs = r.docs || {}; (r.docs[code] = r.docs[code] || []).push({ id: "", name, url, date: todayStr() }); save(r); paint();
+    },
+    delDoc(i) {
+      const r = rec(), code = ITEMS[S.sel].code, list = (r.docs || {})[code] || [], d = list[i]; if (!d || !confirm(`'${d.name}' 자료를 목록에서 지울까요?`)) return;
+      list.splice(i, 1); save(r); paint();
+    },
     print() {
       document.body.classList.add("sl-printing");
       const off = () => { document.body.classList.remove("sl-printing"); window.removeEventListener("afterprint", off); };

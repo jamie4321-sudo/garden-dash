@@ -91,7 +91,9 @@
 
   /* ---------- 진행 내역 (대시보드 연동) ----------
      각 항목: { sum: 한 줄 요약, good: 잘 지킨 점, rows: [[날짜, 내용, 상태칩]], sug: 감점 후보 수, sugWhy, go: 메뉴 } */
-  function evidence(it) {
+  const vokKey = (x) => [d10(x.date), x.building, x.location, x.detail].join("|");
+  function evidence(it, rc) {
+    rc = rc || rec();
     const r = range();
     switch (it.src) {
       case "crew": {
@@ -136,15 +138,21 @@
           rows, sug: open, sugWhy: open ? `개선자료 미완료 점검 ${open}건` : "", go: "safety" };
       }
       case "issues": {
+        // VOK는 요청·민원 전체라 바로 감점 후보가 아님 — '관리 기준 미준수'로 표시한 VOK만 감점 후보
         const is = list("getIssues").filter((x) => inP(x.date));
-        const done = is.filter((x) => x.status === "완료").length, vok = is.filter((x) => x.source === "VOK");
+        const done = is.filter((x) => x.status === "완료").length, vok = is.filter((x) => x.source === "VOK").sort((a, b) => d10(b.date).localeCompare(d10(a.date)));
         const mons = list("getMonthly").filter((m) => inP(m.month));
+        const fl = rc.flag || {}, flagged = vok.filter((x) => fl[vokKey(x)]).length;
         const byM = {};
         is.forEach((x) => { const k = d10(x.date).slice(0, 7); byM[k] = (byM[k] || 0) + 1; });
-        const rows = Object.keys(byM).sort().reverse().map((k) => [`${+k.slice(5)}월`, `식물 이슈 ${byM[k]}건 처리 · VOK ${vok.filter((x) => d10(x.date).startsWith(k)).length}건`,
-          vok.some((x) => d10(x.date).startsWith(k)) ? ["warn", "VOK 있음"] : ["ok", "VOK 없음"]]);
-        return { sum: `식물 이슈 ${is.length}건 · 처리 완료 ${is.length ? Math.round(done / is.length * 100) : 0}% · 내부 의견(VOK) ${vok.length}건 · 월간 리뷰 ${mons.length}회`,
-          good: is.length ? `발견한 이슈 ${is.length}건 중 ${done}건을 처리했어요` : "", rows, sug: vok.length, sugWhy: vok.length ? `관리 기준 관련 VOK ${vok.length}건 (라운딩 의견과 함께 확인)` : "", go: "issues" };
+        const vRows = vok.map((x) => { const k = vokKey(x), on = !!fl[k];
+          return [md(x.date), `VOK · ${esc(x.building)} ${esc(x.location)} · ${esc(x.detail)}`,
+            ["html", `<button class="sl-flag${on ? " is-on" : ""}" onclick="SLA.flag('${encodeURIComponent(k)}')" aria-pressed="${on}" title="눌러서 관리 기준 미준수 여부 바꾸기">${on ? "관리 기준 미준수" : "일반 VOK"}</button>`]]; });
+        const mRows = Object.keys(byM).sort().reverse().map((k) => { const v = vok.filter((x) => d10(x.date).startsWith(k)).length;
+          return [`${+k.slice(5)}월`, `식물 이슈 ${byM[k]}건 처리 · VOK ${v}건`, ["", v ? `VOK ${v}건` : "VOK 없음"]]; });
+        return { sum: `식물 이슈 ${is.length}건 · 처리 완료 ${is.length ? Math.round(done / is.length * 100) : 0}% · VOK ${vok.length}건 중 관리 기준 미준수 ${flagged}건 · 월간 리뷰 ${mons.length}회`,
+          good: is.length ? `발견한 이슈 ${is.length}건 중 ${done}건을 처리했어요` + (vok.length && !flagged ? " · 관리 기준 미준수 VOK는 없어요" : "") : "",
+          rows: vRows.concat(mRows), sug: flagged, sugWhy: flagged ? `관리 기준 미준수로 표시한 VOK ${flagged}건` : "", go: "issues" };
       }
       case "vok": {
         const all = list("getIssues"), vok = all.filter((x) => x.source === "VOK" && inP(x.date)).sort((a, b) => d10(b.date).localeCompare(d10(a.date)));
@@ -201,7 +209,7 @@
   const preOf = (it, r) => ((r.pre || {})[it.code]) || it.pre;
   const KINDS = { ok: "잘 지킴", warn: "확인 필요", bad: "감점 사유" };
   function evx(it, r) {
-    const ev = evidence(it), o = ((r.ev || {})[it.code]) || {}, hide = o.hide || [], add = o.add || [];
+    const ev = evidence(it, r), o = ((r.ev || {})[it.code]) || {}, hide = o.hide || [], add = o.add || [];
     const bad = add.filter((a) => a.k === "bad").length;
     return Object.assign({}, ev, {
       autoSum: ev.sum, autoGood: ev.good || "",
@@ -246,7 +254,7 @@
       `<div class="sl-ev sl-ev--me"><span class="sl-ev__d">${d10(a.d) ? md(a.d) : "—"}</span><span class="sl-ev__t"><em class="sl-me">직접 기록</em>${esc(a.t).replace(/\n/g, "<br>")}</span>
         <span class="sl-ev__r">${chip(a.k || "ok", KINDS[a.k] || KINDS.ok)}<button class="sl-ic" onclick="SLA.ed('row',${i})" aria-label="고치기" title="고치기">✎</button><button class="sl-ic" onclick="SLA.delRow(${i})" aria-label="지우기" title="지우기">✕</button></span></div>`).join("");
     const autoRows = ev.auto.map(({ row: [d, txt, st], i }) => `<div class="sl-ev"><span class="sl-ev__d">${d}</span><span class="sl-ev__t">${txt}</span>
-        <span class="sl-ev__r">${chip(st[0], st[1])}<button class="sl-ic sl-ic--h" onclick="SLA.hide(${i})" aria-label="이 기록 숨기기" title="보고서·가채점에서 빼기">✕</button></span></div>`).join("");
+        <span class="sl-ev__r">${st[0] === "html" ? st[1] : chip(st[0], st[1])}<button class="sl-ic sl-ic--h" onclick="SLA.hide(${i})" aria-label="이 기록 숨기기" title="보고서·가채점에서 빼기">✕</button></span></div>`).join("");
     const newForm = E.kind === "new" ? rowForm({}) : "";
     const rows = addRows || autoRows || newForm ? newForm + addRows + autoRows : `<p class="sl-empty">이 기간 기록이 없어요</p>`;
     const sumH = E.kind === "sum" ? `<div class="sl-form">
@@ -355,12 +363,16 @@
       const r = rec(), o = evOf(r, ITEMS[S.sel].code); (o.add || []).splice(i, 1); save(r); S.ed = null; paint();
     },
     hide(i) {
-      const r = rec(), it = ITEMS[S.sel], row = evidence(it).rows[i]; if (!row) return;
+      const r = rec(), it = ITEMS[S.sel], row = evidence(it, r).rows[i]; if (!row) return;
       const o = evOf(r, it.code); o.hide = (o.hide || []).concat(rowKey(row)); save(r); paint();
+    },
+    flag(k) {
+      k = decodeURIComponent(k); const r = rec(); r.flag = r.flag || {};
+      if (r.flag[k]) delete r.flag[k]; else r.flag[k] = 1; save(r); paint();
     },
     unhide() { const r = rec(), o = evOf(r, ITEMS[S.sel].code); delete o.hide; save(r); paint(); },
     saveSum() {
-      const r = rec(), it = ITEMS[S.sel], o = evOf(r, it.code), s = val("slSs"), g = val("slSg"), auto = evidence(it).good || "";
+      const r = rec(), it = ITEMS[S.sel], o = evOf(r, it.code), s = val("slSs"), g = val("slSg"), auto = evidence(it, r).good || "";
       if (s) o.sum = s; else delete o.sum;
       if (g !== auto) o.good = g; else delete o.good;
       save(r); S.ed = null; paint();

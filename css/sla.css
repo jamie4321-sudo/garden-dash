@@ -197,3 +197,7 @@
   .sl-ev .sl-ev__r { grid-column: 2; justify-self: start; }
 }
 @media (max-width: 1180px) { .sl-pane--list { position: static; } }
+/* 3.1 VOK — 관리 기준 미준수 표시 토글 */
+.sl-flag { border: 1px dashed var(--line); background: var(--panel); color: var(--ink-3); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 11px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.sl-flag:hover { border-color: var(--ink-3); color: var(--ink); }
+.sl-flag.is-on { border: 1px solid transparent; background: color-mix(in srgb, var(--red) 13%, transparent); color: var(--red); }

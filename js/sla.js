@@ -576,8 +576,34 @@
         <div class="sl-a4__sig"><div>평가 · 카카오 총무 사옥관리</div><div>확인 · 링키지랩 스낵앤가든사업팀</div></div></div>`;
   }
 
+  /* 운영 대시보드(linkagelab-ops #sla 조경)가 이 화면과 똑같이 보이도록, 화면에 그린 진행 내역 · 요약 · 가채점 근거를
+     반기별 "view-2026-H2" 로 시트 'sla' 탭에 같이 저장 (계산은 여기 한 곳에서만 → 두 화면이 항상 같음) */
+  let viewT = null;
+  function publishView() {
+    clearTimeout(viewT);
+    viewT = setTimeout(() => {
+      try {
+        const all = store(), changed = [];
+        [1, 2].forEach((h) => withHalf(h, () => {
+          const r = rec(), items = {};
+          ITEMS.forEach((it) => {
+            const ev0 = evidence(it, r), e = evx(it, r);
+            items[it.code] = { sum: e.sum || "", good: e.good || "", sug: ev0.sug || 0, sugWhy: ev0.sugWhy || "", pre: preOf(it, r) || [],
+              rows: e.auto.map((x) => [plain(x.row[0]), x.row[1], [x.row[2] ? x.row[2][0] : "", x.row[2] ? plain(x.row[2][1]) : ""], x.row[4] || "", rowKey(ev0.rows[x.i])]) };
+          });
+          const k = "view-" + pkey();
+          if (JSON.stringify((all[k] || {}).items) !== JSON.stringify(items)) { all[k] = { items }; changed.push(k); }
+        }));
+        if (!changed.length) return;
+        try { localStorage.setItem(KEY, JSON.stringify(all)); } catch (e) {}
+        changed.forEach((k) => { stamp(k); push(k); });
+      } catch (e) {}
+    }, 1500);
+  }
+
   function paint() {
     const el = document.getElementById("slBody"); if (!el) return;
+    publishView();
     el.innerHTML = S.tab === "table" ? tableView() : S.tab === "report" ? reportView() : scoreView();
     const h = document.getElementById("slHead"); if (h) h.innerHTML = head();
     tellParent();

@@ -157,13 +157,19 @@
       case "vok": {
         const all = list("getIssues"), vok = all.filter((x) => x.source === "VOK" && inP(x.date)).sort((a, b) => d10(b.date).localeCompare(d10(a.date)));
         const place = (x) => `${x.building} ${String(x.location || "").replace(/\s+/g, "")}`;
+        const words = (x) => String(x.detail || "").replace(/발생|재발|확인|조치|요청/g, " ").split(/[^0-9A-Za-z가-힣]+/).filter((w) => w.length >= 2);
+        const sameProb = (a, b) => { const wa = words(a), wb = words(b); return !wa.length || !wb.length || wa.some((w) => wb.includes(w)); };
         let same = 0, again = 0;
         const rows = vok.map((x) => {
           const end = d10(x.doneAt), gap = end ? days(x.date, end) : null;
           if (gap === 0) same++;
-          const re = all.some((y) => y !== x && place(y) === place(x) && d10(y.date) > (end || d10(x.date)) && inP(y.date));
-          if (re) again++;
-          return [md(x.date), `${esc(x.building)} ${esc(x.location)} · ${esc(x.detail)}`, re ? ["bad", "같은 자리 재발"] : gap === 0 ? ["ok", "당일 조치"] : gap != null ? ["warn", `${gap}일 뒤 조치`] : ["warn", "처리 중"]];
+          // 재발 = 같은 자리·같은 문제의 앞선 건이 '조치 완료된 다음 날 이후'에 다시 접수된 건.
+          // 최초 발생, 그리고 앞선 건을 처리하는 중(완료 당일 포함)에 들어온 요청은 재발이 아니라 '같은 건 추가 접수'.
+          const before = all.filter((y) => y !== x && place(y) === place(x) && sameProb(y, x) && d10(y.date) < d10(x.date));
+          const prev = before.filter((y) => d10(y.doneAt) && d10(y.doneAt) < d10(x.date)).sort((a, b) => d10(b.doneAt).localeCompare(d10(a.doneAt)))[0];
+          const open = !prev && before.length > 0;
+          if (prev) again++;
+          return [md(x.date), `${esc(x.building)} ${esc(x.location)} · ${esc(x.detail)}`, prev ? ["bad", `재발 · ${md(prev.doneAt)} 조치 후`] : open ? ["warn", "같은 건 추가 접수"] : gap === 0 ? ["ok", "당일 조치"] : gap != null ? ["warn", `${gap}일 뒤 조치`] : ["warn", "처리 중"]];
         });
         return { sum: `VOK ${vok.length}건 · 당일 조치 ${same}건 · 재발 ${again}건`, good: vok.length && same === vok.length ? "VOK를 모두 접수한 날 조치했어요" : "",
           rows, sug: again, sugWhy: again ? `조치 후 같은 자리 재발 ${again}건` : "", go: "issues" };

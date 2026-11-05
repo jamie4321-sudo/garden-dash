@@ -1,0 +1,22 @@
+/* 대시보드 첫머리 — 링키지랩 캐릭터(두두·페피) 인사 (채용 키트와 같은 캐릭터) */
+.dash-hello { position: relative; align-items: flex-end; margin-bottom: 18px; }
+.dash-hello > div { min-width: 0; padding-bottom: 8px; }
+.dash-hello__hi { margin: 10px 0 0; font-size: 14px; color: var(--ink-2); }
+.dash-hello__hi b { color: var(--ink); font-weight: 800; }
+.dash-hello__char {
+  flex: none; display: block; width: 150px; height: auto; margin: -18px 6px -18px 0;
+  transform-origin: 50% 100%; animation: dashHi 3.6s cubic-bezier(.45, 0, .25, 1) infinite;
+}
+:root:not([data-theme="light"]) .dash-hello__char { background: #f6f7f1; border-radius: 28px; padding: 8px; }
+@keyframes dashHi {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  12% { transform: translateY(-4px) rotate(-3deg); }
+  24% { transform: translateY(0) rotate(2deg); }
+  36%, 90% { transform: translateY(0) rotate(0); }
+}
+@media (prefers-reduced-motion: reduce) { .dash-hello__char { animation: none; } }
+@media (max-width: 760px) {
+  .dash-hello { flex-wrap: nowrap; align-items: flex-end; gap: 8px; }
+  .dash-hello__char { width: 96px; margin: -6px 0 -10px; }
+  .dash-hello__hi { font-size: 13px; }
+}

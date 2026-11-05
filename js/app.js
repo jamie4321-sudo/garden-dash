@@ -96,6 +96,21 @@
     const d = new Date();
     return `${d.getMonth() + 1}월 ${d.getDate()}일 ${WX_DOW[d.getDay()]}요일`;
   }
+  // 대시보드 첫머리 — 채용 키트처럼 링키지랩 캐릭터(두두·페피)가 인사
+  function dashHello() {
+    const h = new Date().getHours();
+    const hi = h < 5 ? "늦은 시간까지 수고 많아요" : h < 11 ? "좋은 아침이에요" : h < 14 ? "점심은 맛있게 드셨어요?" : h < 18 ? "오후도 힘내요" : "오늘도 수고 많았어요";
+    let who = "";
+    try { who = localStorage.getItem("garden-entry-who") || ""; } catch (e) {}
+    return `<div class="page-head dash-hello">
+            <div>
+              <p class="eyebrow">Overview · ${dashToday()}</p>
+              <h2>운영 대시보드</h2>
+              <p class="dash-hello__hi">${who ? `<b>${esc(who)}님,</b> ` : ""}${hi} · 오늘도 아지트 가든을 함께 가꿔요</p>
+            </div>
+            <img class="dash-hello__char" src="img/hello-char.webp" alt="링키지랩 캐릭터 두두와 페피가 손을 흔들어요" width="246" height="223">
+          </div>`;
+  }
   function dashNoticeTile() {
     const list = getNotices(), latest = list[0];
     const meta = latest ? `${latest.author ? esc(latest.author) + " · " : ""}${esc(latest.date)}` : "";
@@ -3249,13 +3264,7 @@
       const top = is.top[0], second = is.top[1];
       return `
         <section class="view">
-          <div class="page-head">
-            <div>
-              <p class="eyebrow">Overview · ${dashToday()}</p>
-              <h2>운영 대시보드</h2>
-              <p class="sub">근무 인원 · 장애유형 · 식물 이슈 현황</p>
-            </div>
-          </div>
+          ${dashHello()}
           <div class="dash-bento">
             <div class="bt bt--accent">
               <span class="bt__lbl">근무 인원</span>

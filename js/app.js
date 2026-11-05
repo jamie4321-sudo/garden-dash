@@ -1531,12 +1531,12 @@
   // 로그인 계정명(입장 게이트에서 저장) — 코멘트 작성자 식별
   function currentUser() { try { return (localStorage.getItem("garden-entry-who") || "").trim(); } catch (e) { return ""; } }
   function canComment() { const u = currentUser(); return KAKAO_EDITORS.some((n) => u.indexOf(n) >= 0); }
-  function isAdminUser() { const u = currentUser(); return u === "관리자" || u.indexOf("제이미") >= 0; }
+  function isAdminUser() { const u = currentUser(); return u === "관리자" || u.indexOf("제이미") >= 0 || u.indexOf("링키지랩") >= 0; }
   function authorHue(name) {
     name = name || "";
     if (name.indexOf("카렌") >= 0) return "#ffe600";   // 카카오 옐로우
     if (name.indexOf("조지") >= 0) return "#8ab4ff";   // 스카이
-    if (name.indexOf("제이미") >= 0 || name === "관리자") return "var(--accent)";
+    if (name.indexOf("제이미") >= 0 || name.indexOf("링키지랩") >= 0 || name === "관리자") return "var(--accent)";
     return "#c9a6ff";
   }
   function authorInitial(name) { return (String(name || "?").trim().charAt(0)) || "?"; }
@@ -1572,7 +1572,7 @@
     }));
   }
   // ── 확인 하트: 링키지랩(제이미·엘리)만 코멘트에 "확인" 표식을 남길 수 있음
-  const ACK_USERS = ["제이미", "엘리", "관리자"];
+  const ACK_USERS = ["제이미", "링키지랩", "엘리", "관리자"];
   function canAck() { const u = currentUser(); return ACK_USERS.some((n) => u.indexOf(n) >= 0); }
   function getMonthly() {
     if (_monthly) return _monthly;
@@ -4974,7 +4974,7 @@
 
     // 확인 하트 토글 (제이미·엘리) — 재렌더 없이 해당 버튼만 갱신
     mrHeart(i, ci) {
-      if (!canAck()) { toast("확인 표시는 제이미·엘리만 남길 수 있어요", true); return; }
+      if (!canAck()) { toast("확인 표시는 제이미·링키지랩·엘리만 남길 수 있어요", true); return; }
       const list = getMonthly(); const c = list[i] && list[i].comments && list[i].comments[ci]; if (!c) return;
       c.hearts = Array.isArray(c.hearts) ? c.hearts : [];
       const me = currentUser(); const at = c.hearts.indexOf(me);

@@ -70,6 +70,10 @@ function doGet(e) {
     const folder = DriveApp.getFolderById(SAFETY_MANUAL_FOLDER_ID);
     return json_({ manual: listFilesIn_(folder), folderUrl: folder.getUrl() });
   }
+  // SLA 가채점 · 평가기준 (garden-dash #sla 와 운영 대시보드 linkagelab-ops #sla 조경 탭이 함께 씀)
+  if (e && e.parameter && e.parameter.action === 'sla') {
+    return json_({ sla: readSla_() });
+  }
   // 담당자(입장 비밀번호) 전용 경량 응답
   if (e && e.parameter && e.parameter.action === 'managers') {
     return json_({ managers: readManagers_(SpreadsheetApp.openById(SHEET_ID)) });
@@ -277,6 +281,9 @@ function doPost(e) {
       saveHeatLogs_(body.data, body.deleted || []);
       return json_({ ok: true, saved: 'heatLogs' });
     }
+    if (body.type === 'sla' && body.key) {
+      return json_(saveSla_(body));
+    }
     if (body.type === 'uploadSwapPhoto' && body.data) {
       return json_(uploadSwapPhoto_(body.name, body.data));
     }
@@ -288,6 +295,48 @@ function doPost(e) {
     return json_({ ok: false, error: 'unknown type' });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
+  }
+}
+
+/* ---------- SLA ('sla' 탭: key | json | updatedAt) ----------
+   key = "2026-H2" 처럼 반기별 가채점, "crit" = 평가기준 고치기. updatedAt 이 더 최근일 때만 덮어씀. */
+function slaSheet_() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sh = ss.getSheetByName('sla');
+  if (!sh) {
+    sh = ss.insertSheet('sla');
+    sh.getRange(1, 1, sh.getMaxRows(), 3).setNumberFormat('@');
+    sh.getRange(1, 1, 1, 3).setValues([['key', 'json', 'updatedAt']]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function readSla_() {
+  var sh = slaSheet_(), last = sh.getLastRow(), out = {};
+  if (last < 2) return out;
+  sh.getRange(2, 1, last - 1, 3).getValues().forEach(function (r) {
+    var k = String(r[0] || '').trim();
+    if (k) out[k] = { json: String(r[1] || ''), updatedAt: String(r[2] || '') };
+  });
+  return out;
+}
+function saveSla_(body) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = slaSheet_(), key = String(body.key), json = String(body.json == null ? '' : body.json), at = String(body.updatedAt || new Date().toISOString());
+    var last = sh.getLastRow(), keys = last > 1 ? sh.getRange(2, 1, last - 1, 3).getValues() : [];
+    for (var i = 0; i < keys.length; i++) {
+      if (String(keys[i][0]) === key) {
+        if (String(keys[i][2] || '') > at) return { ok: true, skipped: 'older', key: key };
+        sh.getRange(i + 2, 2, 1, 2).setValues([[json, at]]);
+        return { ok: true, saved: 'sla', key: key };
+      }
+    }
+    sh.appendRow([key, json, at]);
+    return { ok: true, saved: 'sla', key: key };
+  } finally {
+    lock.releaseLock();
   }
 }
 

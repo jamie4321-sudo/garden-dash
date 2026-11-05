@@ -95,7 +95,57 @@
     const all = store(), k = pkey();
     return all[k] || JSON.parse(JSON.stringify(SEED[k] || { n: {}, memo: {} }));
   }
-  function save(r) { const all = store(); all[pkey()] = r; try { localStorage.setItem(KEY, JSON.stringify(all)); } catch (e) {} }
+  function save(r) { const all = store(); all[pkey()] = r; try { localStorage.setItem(KEY, JSON.stringify(all)); } catch (e) {} stamp(pkey()); push(pkey()); }
+
+  /* ---------- 서버 동기화 (2026-11-05) ----------
+     가채점(반기별 "2026-H2" …)과 평가기준 고치기("crit")를 GAS 시트 'sla' 탭에 저장 → 다른 기기 ·
+     운영 대시보드(linkagelab-ops #sla 조경 탭, 이 화면을 ?embed=1 로 넣어 씀)와 같은 기록을 씀.
+     키마다 updatedAt 이 더 최근인 쪽이 이김. */
+  const TS_KEY = "garden-sla-ts";
+  function tsAll() { try { return JSON.parse(localStorage.getItem(TS_KEY) || "{}"); } catch (e) { return {}; } }
+  function setTs(t) { try { localStorage.setItem(TS_KEY, JSON.stringify(t)); } catch (e) {} }
+  function stamp(k) { const t = tsAll(); t[k] = new Date().toISOString(); setTs(t); return t[k]; }
+  const apiUrl = () => (window.CONFIG && window.CONFIG.API_URL || "").trim();
+  const pushT = {};
+  function push(k) {
+    const ts = tsAll()[k] || stamp(k);
+    clearTimeout(pushT[k]);
+    pushT[k] = setTimeout(() => {
+      const u = apiUrl(); if (!u) return;
+      const data = k === "crit" ? critStore() : (store()[k] || null);
+      fetch(u, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ type: "sla", key: k, json: JSON.stringify(data), updatedAt: ts }) }).catch(() => {});
+    }, 600);
+  }
+  function saveCritAll(all) { try { localStorage.setItem(CKEY, JSON.stringify(all)); } catch (e) {} stamp("crit"); push("crit"); }
+  let pulling = false;
+  function pull() {
+    const u = apiUrl(); if (!u || pulling) return;
+    pulling = true;
+    fetch(u + (u.indexOf("?") < 0 ? "?" : "&") + "action=sla&t=" + Date.now()).then((r) => r.json()).then((d) => {
+      const rows = (d && d.sla) || {}, ts = tsAll(); let changed = false;
+      Object.keys(rows).forEach((k) => {
+        const row = rows[k] || {}, su = String(row.updatedAt || ""), lu = String(ts[k] || "");
+        if (su > lu) {
+          let v = null; try { v = JSON.parse(row.json || "null"); } catch (e) {}
+          if (k === "crit") { try { localStorage.setItem(CKEY, JSON.stringify(v || {})); } catch (e) {} applyCrit(); }
+          else { const all = store(); if (v) all[k] = v; else delete all[k]; try { localStorage.setItem(KEY, JSON.stringify(all)); } catch (e) {} }
+          ts[k] = su; changed = true;
+        } else if (lu > su) push(k);
+      });
+      setTs(ts);
+      Object.keys(store()).forEach((k) => { if (!rows[k]) push(k); });
+      if (!rows.crit && Object.keys(critStore()).length) push("crit");
+      if (changed && document.getElementById("slBody") && !S.ed) paint();
+    }).catch(() => {}).then(() => { pulling = false; });
+  }
+  window.addEventListener("focus", () => { if (document.getElementById("slBody")) pull(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && document.getElementById("slBody")) pull(); });
+  // 운영 대시보드 안(iframe)에 있을 때 — 지금 보는 반기 점수 · 등급을 알려 줌
+  function tellParent() {
+    if (window.parent === window) return;
+    try { const r = rec(), t = total(r), g = gradeOf(t); window.parent.postMessage({ type: "gd-sla", year: S.year, half: S.half, total: t, grade: g[0] }, "*"); } catch (e) {}
+  }
   const nOf = (it, r) => Math.max(0, Number((r || rec()).n[it.code]) || 0);
   const scoreOf = (it, r) => Math.max(0, it.max - nOf(it, r) * it.per);
   const catScore = (c, r) => { const l = ITEMS.filter((i) => i.c === c.no); return l.reduce((s, i) => s + scoreOf(i, r), 0) / l.reduce((s, i) => s + i.max, 0) * c.w; };
@@ -501,12 +551,13 @@
     const el = document.getElementById("slBody"); if (!el) return;
     el.innerHTML = S.tab === "table" ? tableView() : S.tab === "report" ? reportView() : scoreView();
     const h = document.getElementById("slHead"); if (h) h.innerHTML = head();
+    tellParent();
   }
 
   const EDIT_FNS = ["n", "set", "ed", "saveRow", "delRow", "hide", "flag", "unhide", "offh", "fb", "saveSum", "resetSum", "savePre", "resetPre", "memo", "saveFix", "resetFix", "saveCrit", "resetCrit", "fed", "saveFocus"];
   window.SLA = {
     html() { return `<section class="view sl"><div id="slHead">${head()}</div><div id="slBody"></div></section>`; },
-    mount() { paint(); },
+    mount() { paint(); pull(); },
     sel(i) { S.sel = i; S.ed = null; paint(); },
     tab(k) { S.tab = k; S.ed = null; paint(); },
     rp(k) { S.rp = k; paint(); },
@@ -561,10 +612,10 @@
       const crit = (el ? el.value : "").split(/\r?\n/).map((x) => x.trim().replace(/^[·•\-]\s*/, "")).filter(Boolean);
       const o = { crit, note: val("slCn"), per: Math.max(1, Math.floor(Number(val("slCp"))) || it._d.per) };
       if (crit.join("|") === it._d.crit.join("|") && o.note === it._d.note && o.per === it._d.per) delete all[it.code]; else all[it.code] = o;
-      try { localStorage.setItem(CKEY, JSON.stringify(all)); } catch (e) {}
+      saveCritAll(all);
       applyCrit(); S.ed = null; paint();
     },
-    resetCrit() { const all = critStore(); delete all[ITEMS[S.sel].code]; try { localStorage.setItem(CKEY, JSON.stringify(all)); } catch (e) {} applyCrit(); S.ed = null; paint(); },
+    resetCrit() { const all = critStore(); delete all[ITEMS[S.sel].code]; saveCritAll(all); applyCrit(); S.ed = null; paint(); },
     fb(k) {
       k = decodeURIComponent(k); const r = rec(); r.fb = r.fb || {};
       if (r.fb[k]) delete r.fb[k]; else r.fb[k] = 1; save(r); paint();

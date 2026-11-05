@@ -13,6 +13,9 @@
   <link rel="stylesheet" href="css/dash-hello.css?v=20261105b" />
   <link rel="stylesheet" href="css/zones.css?v=20261104k" />
   <link rel="stylesheet" href="css/sla.css?v=20261105m" />
+  <script>/* 운영 대시보드(linkagelab-ops #sla)에 넣을 때: ?embed=1 → 메뉴 없이 SLA 화면만 */
+    if (/[?&]embed=1/.test(location.search)) { document.documentElement.classList.add("gd-embed"); if (location.hash !== "#sla") location.hash = "#sla"; }</script>
+  <style>.gd-embed .side, .gd-embed .topbar { display: none !important; } .gd-embed .layout { grid-template-columns: 1fr !important; } .gd-embed body { background: transparent; }</style>
   <link rel="stylesheet" href="css/issue-report.css?v=20261105c" />
 </head>
 <body>
@@ -85,7 +88,7 @@
   <script src="js/config.js?v=20261104k"></script>
   <script src="js/data.js"></script>
   <script src="js/zones.js?v=20261104k"></script>
-  <script src="js/sla.js?v=20261105n"></script>
+  <script src="js/sla.js?v=20261105s"></script>
   <script src="js/gardener.js?v=20261104k"></script>
   <script src="js/issue-report.js?v=20261105c"></script>
   <script src="js/app.js?v=20261105lk"></script>

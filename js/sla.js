@@ -210,9 +210,14 @@
         const place = (x) => `${x.building} ${String(x.location || "").replace(/\s+/g, "")}`;
         const words = (x) => String(x.detail || "").replace(/발생|재발|확인|조치|요청/g, " ").split(/[^0-9A-Za-z가-힣]+/).filter((w) => w.length >= 2);
         const sameProb = (a, b) => { const wa = words(a), wb = words(b); return !wa.length || !wb.length || wa.some((w) => wb.includes(w)); };
-        let same = 0, again = 0;
+        // 영업일 기준 차이: 주말 접수는 다음 평일을 '당일'로 봄 (공휴일은 따로 안 뺌)
+        const wk = (d) => { const w = new Date(d10(d) + "T00:00:00").getDay(); return w === 0 || w === 6; };
+        const biz = (a, b) => { let n = 0; const t = new Date(d10(a) + "T00:00:00"), e = new Date(d10(b) + "T00:00:00");
+          for (t.setDate(t.getDate() + 1); t <= e; t.setDate(t.getDate() + 1)) if (t.getDay() !== 0 && t.getDay() !== 6) n++;
+          return Math.max(0, n - (wk(a) ? 1 : 0)); };
+        let same = 0, again = 0, late = 0;
         const rows = vok.map((x) => {
-          const end = d10(x.doneAt), gap = end ? days(x.date, end) : null;
+          const end = d10(x.doneAt), gap = end ? days(x.date, end) : null, bg = end ? biz(x.date, end) : biz(x.date, periodEnd());
           if (gap === 0) same++;
           // 재발 = 같은 자리·같은 문제의 앞선 건이 '조치 완료된 다음 날 이후'에 다시 접수된 건.
           // 최초 발생, 그리고 앞선 건을 처리하는 중(완료 당일 포함)에 들어온 요청은 재발이 아니라 '같은 건 추가 접수'.
@@ -220,10 +225,13 @@
           const prev = before.filter((y) => d10(y.doneAt) && d10(y.doneAt) < d10(x.date)).sort((a, b) => d10(b.doneAt).localeCompare(d10(a.doneAt)))[0];
           const open = !prev && before.length > 0;
           if (prev) again++;
-          return [md(x.date), `${esc(x.building)} ${esc(x.location)} · ${esc(x.detail)}`, prev ? ["bad", `재발 · ${md(prev.doneAt)} 조치 후`] : open ? ["warn", "같은 건 추가 접수"] : gap === 0 ? ["ok", "당일 조치"] : gap != null ? ["warn", `${gap}일 뒤 조치`] : ["warn", "처리 중"]];
+          // 당일 대응 미준수 = 같은 건 추가 접수가 아닌데 영업일 기준 접수 다음 날 이후에 조치(또는 아직 처리 중)
+          const isLate = !open && bg > 0;
+          if (isLate) late++;
+          return [md(x.date), `${esc(x.building)} ${esc(x.location)} · ${esc(x.detail)}`, prev ? ["bad", `재발 · ${md(prev.doneAt)} 조치 후${isLate ? ` · ${gap}일 뒤 조치` : ""}`] : open ? ["warn", "같은 건 추가 접수"] : gap === 0 || (gap != null && !bg) ? ["ok", gap === 0 ? "당일 조치" : "주말 접수 · 다음 영업일 조치"] : gap != null ? ["bad", `${gap}일 뒤 조치 · 당일 대응 못함`] : bg ? ["bad", "처리 중 · 당일 대응 못함"] : ["warn", "처리 중"]];
         });
-        return { sum: `VOK ${vok.length}건 · 당일 조치 ${same}건 · 재발 ${again}건`, good: vok.length && same === vok.length ? "VOK를 모두 접수한 날 조치했어요" : "",
-          rows, sug: again, sugWhy: again ? `조치 후 같은 자리 재발 ${again}건` : "", go: "issues" };
+        return { sum: `VOK ${vok.length}건 · 당일 조치 ${same}건 · 당일 대응 못함 ${late}건 · 재발 ${again}건`, good: vok.length && !late ? "VOK를 모두 접수한 날(영업일) 대응했어요" : "",
+          rows, sug: again + late, sugWhy: [late ? `최초 대응(당일) 미준수 ${late}건` : "", again ? `조치 후 같은 자리 재발 ${again}건` : ""].filter(Boolean).join(" · "), go: "issues" };
       }
       case "heat": {
         const hs = list("getHeat").filter((h) => inP(h.date));
@@ -377,7 +385,7 @@
       <div class="sl-rs"><span class="sl-lbl">잘 지킨 항목</span><p class="sl-kept"><b>${kept}</b> / ${ITEMS.length}개 항목 감점 없음</p></div>
       <div class="sl-rs"><span class="sl-lbl">영역별</span>${CATS.map((c) => { const v = catScore(c, r); return `<div class="sl-cat"><b>${c.no}. ${c.name}</b><span>${f2(v)} / ${c.w}</span><div class="sl-bar"><i class="${v < c.w ? "is-w" : ""}" style="width:${v / c.w * 100}%"></i></div></div>`; }).join("")}</div>
       <div class="sl-rs"><span class="sl-lbl">다음 등급까지</span><p class="sl-next">${nx ? `${nx[0]}등급(${nx[1]}점)까지 <b>${f2(nx[1] - t)}점</b>` : "가장 높은 등급이에요"}</p></div>`;
-    return `${J ? "" : `<p class="sl-ro-note">🔒 기록·기준·가채점 고치기는 제이미만 할 수 있어요 · 지금은 보기만 돼요</p>`}<div class="sl-3${J ? "" : " sl-ro"}">
+    return `<div class="sl-3${J ? "" : " sl-ro"}">
       <div class="sl-pane sl-pane--list">${listH}</div>
       <div class="sl-pane">${center}</div>
       <div class="sl-pane sl-pane--side">${right}</div></div>`;

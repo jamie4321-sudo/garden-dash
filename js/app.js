@@ -1117,7 +1117,8 @@
     const yr = String(_now.getFullYear());
     const tabs = [["open", "진행 중"], ["recent", "최근 한 달"], ["year", `${yr}년`], ["all", "전체"]];
     if (window.AGI && AGI.on()) tabs.push(["ag", "🌱 가드너 앱"]);
-    return tabs.map(([k, t]) => `<button class="${_issTab === k ? "is-on" : ""}" onclick="GARDEN.issueTab('${k}')">${t}<b>${all.filter((e) => issInTab(e, k)).length}</b></button>`).join("");
+    if (window.IRP) tabs.push(["report", "📄 보고서"]); // 한 장 보고서(js/issue-report.js)
+    return tabs.map(([k, t]) => `<button class="${_issTab === k ? "is-on" : ""}" onclick="GARDEN.issueTab('${k}')">${t}${k === "report" ? "" : `<b>${all.filter((e) => issInTab(e, k)).length}</b>`}</button>`).join("");
   }
 
   function issueDetailModal(i) {
@@ -3666,11 +3667,11 @@
             <div class="ik-bf">${["전체", "A동", "B동", "공용부"].map((b) => `<button class="${_issB === b ? "is-on" : ""}" onclick="GARDEN.issueB('${b}')">${b}</button>`).join("")}</div>
             <input class="searchbox ik-search" placeholder="자리 · 이슈 · 담당자 검색" value="${esc(_issueQuery)}" oninput="GARDEN.issueSearch(this.value)"/>
           </div>
-          <div class="ik-grid">
+          ${_issTab === "report" && window.IRP ? `<div id="irp" data-b="${esc(_issB)}">${IRP.html(_issB)}</div>` : `<div class="ik-grid">
             <div class="ik-list" id="ikList">${list}</div>
             <div id="ikDetail">${issDetailHTML()}</div>
             <div id="ikInfo">${issInfoHTML()}</div>
-          </div>
+          </div>`}
         </section>`;
     },
 

@@ -1,0 +1,86 @@
+/* 식물 이슈 — 한 장 보고서 (js/issue-report.js) */
+.ik:has(#irp) .ik-search { display: none; }
+.irp-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 4px 0 14px; }
+.irp-seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); }
+.irp-seg button { border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 12.5px; font-weight: 700; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.irp-seg button.is-on { background: var(--accent); color: var(--accent-ink); }
+.irp-chk { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
+.irp-tools .btn { margin-left: auto; }
+
+/* 종이 — 다크 화면에서도 흰 종이 */
+.irp-a4 { --pi: #16160f; --pi2: #55554d; --pi3: #8f8f85; --pl: #e2e3dd; --pb: #f3f4ef; --lime: #bff000; --lime-d: #5c7a08; --red: #d23b2f;
+  background: #fff; color: var(--pi); max-width: 900px; margin: 0 auto; padding: 40px 44px 28px; border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.08); font-size: 12px; line-height: 1.5; }
+.irp-hd { border-bottom: 2px solid var(--pi); padding-bottom: 12px; margin-bottom: 16px; }
+.irp-eb { margin: 0; font-size: 10.5px; letter-spacing: .14em; font-weight: 800; color: var(--lime-d); }
+.irp-hd h3 { margin: 2px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -.01em; }
+.irp-m { margin: 4px 0 0; color: var(--pi3); font-size: 11px; }
+
+.irp-kpi { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+.irp-kpi > div { background: var(--pb); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.irp-kpi > div:first-child { background: var(--pi); color: #fff; }
+.irp-kpi > div:first-child span, .irp-kpi > div:first-child em { color: #c9cabf; }
+.irp-kpi span { font-size: 11px; font-weight: 700; color: var(--pi2); }
+.irp-kpi b { font-size: 24px; font-weight: 800; line-height: 1.15; }
+.irp-kpi b small { font-size: 12px; font-weight: 700; margin-left: 2px; }
+.irp-kpi em { font-style: normal; font-size: 10.5px; color: var(--pi3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.irp-sum { border: 1.5px solid var(--pi); border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; }
+.irp-sum ul { margin: 4px 0 0; padding-left: 16px; }
+.irp-sum li { margin: 2px 0; }
+.irp-a4 h4 { margin: 0 0 8px; font-size: 12.5px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.irp-a4 h4 small { font-size: 10.5px; font-weight: 600; color: var(--pi3); display: inline-flex; align-items: center; gap: 4px; }
+.irp-h2 { margin-top: 12px !important; }
+.irp-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.irp-sec { min-width: 0; }
+.irp-2 > .irp-sec, .irp-a4 > .irp-sec { border-top: 1px solid var(--pl); padding-top: 10px; }
+.irp-a4 > .irp-sec { margin-bottom: 14px; }
+.irp-none { margin: 0; color: var(--pi3); font-size: 11.5px; }
+
+.irp-mrow, .irp-crow { display: grid; grid-template-columns: 34px minmax(0, 1fr) 26px; align-items: center; gap: 8px; padding: 3px 0; }
+.irp-crow { grid-template-columns: 82px minmax(0, 1fr) 26px; }
+.irp-mrow span:first-child, .irp-crow span:first-child { font-size: 11px; color: var(--pi2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.irp-mrow b, .irp-crow b { text-align: right; font-size: 11.5px; }
+.irp-stack, .irp-bar { display: flex; height: 10px; border-radius: 99px; background: var(--pb); overflow: hidden; }
+.irp-stack i, .irp-bar i { display: block; height: 100%; }
+.irp-stack i.v { background: var(--pi); }
+.irp-stack i.l, .irp-bar i { background: var(--lime); }
+.irp-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.irp-dot.v { background: var(--pi); } .irp-dot.l { background: var(--lime); }
+.irp-bl { margin: 8px 0 0; font-size: 11px; color: var(--pi2); }
+.irp-kinds { display: flex; flex-wrap: wrap; gap: 4px; }
+.irp-kinds span { font-size: 11px; padding: 3px 9px; border-radius: 99px; background: var(--pb); color: var(--pi2); }
+.irp-kinds b { color: var(--pi); }
+
+.irp-tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+.irp-tbl th { text-align: left; font-weight: 800; padding: 5px 4px; border-bottom: 1.5px solid var(--pi); white-space: nowrap; }
+.irp-tbl td { padding: 5px 4px; border-bottom: 1px solid var(--pl); vertical-align: top; }
+.irp-tbl .r { text-align: right; white-space: nowrap; }
+.irp-tbl .w-d { white-space: nowrap; width: 38px; color: var(--pi2); }
+.irp-tbl .muted { color: var(--pi3); }
+.irp-tbl .nw { white-space: nowrap; }
+.irp-tbl--full td:nth-child(2), .irp-tbl--full td:nth-child(5), .irp-tbl--full td:nth-child(6) { white-space: nowrap; }
+.irp-red { color: var(--red); font-weight: 800; font-size: 10.5px; }
+.irp-st { font-size: 10.5px; color: var(--pi3); white-space: nowrap; }
+.irp-st--open { color: var(--red); font-weight: 800; }
+.irp-ft { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--pl); padding-top: 8px; margin-top: 6px; font-size: 10px; color: var(--pi3); }
+
+@media screen and (max-width: 760px) {
+  .irp-a4 { padding: 22px 16px; }
+  .irp-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .irp-2 { grid-template-columns: 1fr; }
+  .irp-tools .btn { margin-left: 0; }
+  .irp-tbl--full th:nth-child(5), .irp-tbl--full td:nth-child(5), .irp-tbl--full th:nth-child(7), .irp-tbl--full td:nth-child(7) { display: none; }
+}
+
+@page irpA4 { size: A4; margin: 10mm; }
+@media print {
+  body.irp-printing { background: #fff !important; }
+  body.irp-printing .layout { display: block; }
+  body.irp-printing .main { padding: 0 !important; margin: 0 !important; }
+  body.irp-printing .side, body.irp-printing .topbar, body.irp-printing .page-head, body.irp-printing .ik-top, body.irp-printing .irp-tools,
+  body.irp-printing .mnav, body.irp-printing .toast { display: none !important; }
+  body.irp-printing .irp-a4 { page: irpA4; box-shadow: none; max-width: none; padding: 0; border-radius: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body.irp-printing .irp-2, body.irp-printing .irp-kpi, body.irp-printing .irp-sum, body.irp-printing .irp-tbl tr { break-inside: avoid; }
+  body.irp-printing .irp-full { break-before: auto; }
+}

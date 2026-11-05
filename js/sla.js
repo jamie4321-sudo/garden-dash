@@ -219,7 +219,7 @@
         const biz = (a, b) => { let n = 0; const t = new Date(d10(a) + "T00:00:00"), e = new Date(d10(b) + "T00:00:00");
           for (t.setDate(t.getDate() + 1); t <= e; t.setDate(t.getDate() + 1)) if (t.getDay() !== 0 && t.getDay() !== 6) n++;
           return Math.max(0, n - (wk(a) ? 1 : 0)); };
-        let same = 0, again = 0, late = 0, offN = 0;
+        let same = 0, again = 0, late = 0, offN = 0, fbN = 0;
         const rows = vok.map((x) => {
           const end = d10(x.doneAt), gap = end ? days(x.date, end) : null, bg = end ? biz(x.date, end) : biz(x.date, periodEnd());
           if (gap === 0) same++;
@@ -231,16 +231,19 @@
           if (prev) again++;
           // 당일 대응 미준수 = 같은 건 추가 접수가 아닌데 영업일 기준 접수 다음 날 이후에 조치(또는 아직 처리 중)
           // 재발이면서 당일 대응도 못한 건은 재발로 한 번만 셈
-          // 업무 시간 외 접수로 체크한 건(r.offh[키])은 당일 대응 미준수에서 뺌 — 제이미만 체크
-          const ok = vokKey(x), off = !!(rc.offh || {})[ok], rawLate = !open && bg > 0, isLate = rawLate && !off;
+          // 공식 기준: 최초 대응(당일) = '당일 피드백'. 조치 완료가 다음 영업일 이후인 건은
+          // '당일 피드백'(r.fb[키]) 또는 '업무 시간 외 접수'(r.offh[키])로 체크하면 미준수에서 뺌 — 편집 권한자만 체크
+          const ok = vokKey(x), off = !!(rc.offh || {})[ok], fb = !!(rc.fb || {})[ok], rawLate = !open && bg > 0, isLate = rawLate && !off && !fb;
           if (isLate && !prev) late++;
-          if (rawLate && off && !prev) offN++;
-          let st = prev ? ["bad", `재발 · ${md(prev.doneAt)} 조치 후${isLate ? ` · ${gap}일 뒤 조치` : ""}`] : open ? ["warn", "같은 건 추가 접수"] : gap === 0 || (gap != null && !bg) ? ["ok", gap === 0 ? "당일 조치" : "주말 접수 · 다음 영업일 조치"] : off ? ["ok", gap != null ? `업무 시간 외 접수 · ${gap}일 뒤 조치` : "업무 시간 외 접수 · 처리 중"] : gap != null ? ["bad", `${gap}일 뒤 조치 · 당일 대응 못함`] : bg ? ["bad", "처리 중 · 당일 대응 못함"] : ["warn", "처리 중"];
-          if (rawLate) st = ["html", `${chip(st[0], st[1])}<button class="sl-flag sl-flag--oh${off ? " is-on" : ""}" onclick="SLA.offh('${encodeURIComponent(ok)}')" aria-pressed="${off}" title="업무 시간 외에 접수된 건이면 눌러서 당일 대응 판정에서 빼기">${off ? "✓ 업무 시간 외" : "업무 시간 외?"}</button>`];
+          if (rawLate && off && !fb && !prev) offN++;
+          if (rawLate && fb && !prev) fbN++;
+          let st = prev ? ["bad", `재발 · ${md(prev.doneAt)} 조치 후${isLate ? ` · ${gap}일 뒤 조치` : ""}`] : open ? ["warn", "같은 건 추가 접수"] : gap === 0 || (gap != null && !bg) ? ["ok", gap === 0 ? "당일 조치" : "주말 접수 · 다음 영업일 조치"] : fb ? ["ok", gap != null ? `당일 피드백 · ${gap}일 뒤 조치` : "당일 피드백 · 처리 중"] : off ? ["ok", gap != null ? `업무 시간 외 접수 · ${gap}일 뒤 조치` : "업무 시간 외 접수 · 처리 중"] : gap != null ? ["bad", `${gap}일 뒤 조치 · 당일 대응 못함`] : bg ? ["bad", "처리 중 · 당일 대응 못함"] : ["warn", "처리 중"];
+          const ek = encodeURIComponent(ok);
+          if (rawLate) st = ["html", `${chip(st[0], st[1])}<button class="sl-flag sl-flag--oh${fb ? " is-on" : ""}" onclick="SLA.fb('${ek}')" aria-pressed="${fb}" title="접수한 날 피드백(1차 대응)을 했으면 눌러서 당일 대응 미준수에서 빼기">${fb ? "✓ 당일 피드백" : "당일 피드백?"}</button><button class="sl-flag sl-flag--oh${off ? " is-on" : ""}" onclick="SLA.offh('${ek}')" aria-pressed="${off}" title="업무 시간 외에 접수된 건이면 눌러서 당일 대응 판정에서 빼기">${off ? "✓ 업무 시간 외" : "업무 시간 외?"}</button>`];
           return [md(x.date), `${esc(x.building)} ${esc(x.location)} · ${esc(x.detail)}`, st];
         });
         return { sum: `VOK ${vok.length}건 · 당일 조치 ${same}건 · 당일 대응 못함 ${late}건 · 재발 ${again}건`, good: vok.length && !late ? "VOK를 모두 접수한 날(영업일) 대응했어요" : "",
-          rows, sug: again + late, sugWhy: [late ? `최초 대응(당일) 미준수 ${late}건` : "", again ? `조치 후 같은 자리 재발 ${again}건` : ""].filter(Boolean).join(" · ") + (late && again ? " (겹치는 건은 한 번만)" : "") + (offN ? ` · 업무 시간 외 접수 ${offN}건 제외` : ""), go: "issues" };
+          rows, sug: again + late, sugWhy: [late ? `최초 대응(당일) 미준수 ${late}건` : "", again ? `조치 후 같은 자리 재발 ${again}건` : ""].filter(Boolean).join(" · ") + (late && again ? " (겹치는 건은 한 번만)" : "") + (fbN ? ` · 당일 피드백 ${fbN}건 제외` : "") + (offN ? ` · 업무 시간 외 접수 ${offN}건 제외` : ""), go: "issues" };
       }
       case "heat": {
         const hs = list("getHeat").filter((h) => inP(h.date));
@@ -500,7 +503,7 @@
     const h = document.getElementById("slHead"); if (h) h.innerHTML = head();
   }
 
-  const EDIT_FNS = ["n", "set", "ed", "saveRow", "delRow", "hide", "flag", "unhide", "offh", "saveSum", "resetSum", "savePre", "resetPre", "memo", "saveFix", "resetFix", "saveCrit", "resetCrit", "fed", "saveFocus"];
+  const EDIT_FNS = ["n", "set", "ed", "saveRow", "delRow", "hide", "flag", "unhide", "offh", "fb", "saveSum", "resetSum", "savePre", "resetPre", "memo", "saveFix", "resetFix", "saveCrit", "resetCrit", "fed", "saveFocus"];
   window.SLA = {
     html() { return `<section class="view sl"><div id="slHead">${head()}</div><div id="slBody"></div></section>`; },
     mount() { paint(); },
@@ -562,6 +565,10 @@
       applyCrit(); S.ed = null; paint();
     },
     resetCrit() { const all = critStore(); delete all[ITEMS[S.sel].code]; try { localStorage.setItem(CKEY, JSON.stringify(all)); } catch (e) {} applyCrit(); S.ed = null; paint(); },
+    fb(k) {
+      k = decodeURIComponent(k); const r = rec(); r.fb = r.fb || {};
+      if (r.fb[k]) delete r.fb[k]; else r.fb[k] = 1; save(r); paint();
+    },
     offh(k) {
       k = decodeURIComponent(k); const r = rec(); r.offh = r.offh || {};
       if (r.offh[k]) delete r.offh[k]; else r.offh[k] = 1; save(r); paint();

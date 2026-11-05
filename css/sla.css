@@ -220,3 +220,8 @@
 .sl-a4__hs i { font-style: normal; font-weight: 800; font-size: 11px; color: #55554d; }
 .sl-a4__memo { margin: 0; padding-left: 16px; font-size: 10.5px; color: #55554d; line-height: 1.5; }
 @media (max-width: 760px) { .sl-a4__hs { padding-left: 0; border-left: 0; } .sl-a4__top { flex-wrap: wrap; } }
+.sl-a4__fc td.nw, .sl-a4__fc th { white-space: nowrap; }
+.sl-a4__fc td:first-child { width: 42%; }
+.sl-fcf { margin: 0 auto 14px; max-width: 794px; }
+.sl-fcf__r { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
+.sl-fcf__r textarea { grid-column: 1 / -1; }

@@ -32,35 +32,38 @@
   ];
   const ITEMS = [
     { c: 1, code: "1.1", name: "계약된 인력 유지", max: 100, per: 5, unit: "명",
-      crit: ["비장애 채용 기한(2개월 내) 준수 못할 시 (1명)", "장애 채용 기한(3개월 내) 준수 못할 시 (3명)", "결원 발생 시, 대체 지원인력 투입"],
+      crit: ["비장애 크루 채용기간 미준수 (1인, 2개월 내) *링키지랩 정규직 가드너(매니저) 기준", "장애 크루 채용기간 미준수 (1인, 3개월 내) *링키지랩 정규직 가드너 기준", "결원 발생 시 대체 지원 인력 투입 *업무영향 : 납기 지연, 작업 미흡, VOK 대응 미흡 등"],
       note: "고용시장 특성 고려", pre: ["채용 기한 준수"], src: "crew" },
     { c: 2, code: "2.1", name: "4대 법정교육 진행", max: 50, per: 5, unit: "명",
-      crit: ["반기별 근무 인원의 교육 미이수 시", "교육 진행 여부 증빙자료 미제출 시"],
+      crit: ["반기 근무 인원 교육 미이수 *상반기 종료 전 교육 증빙자료 요구 필요"],
       note: "성희롱 예방 · 직장 내 괴롭힘 예방 · 장애인 인식개선 · 개인정보보호 교육", pre: ["법정의무교육 입사 시 이수 완료 → 증빙자료 · 교육스탬 확인 필요"], src: "training" },
     { c: 2, code: "2.2", name: "산업안전 보건협의체 운영", max: 50, per: 5, unit: "건",
-      crit: ["산업안전보건협의체 정기회의 미참여 시", "자료 제출 및 현장 적용 미준수 시"],
+      crit: ["산업안전보건협의체 정기회의 미참여 *정당한 사유라면 면책", "자료 제출 및 현장 적용 미준수 *링키지랩의 자료 제출 여부, 권고사항 적용 여부 확인 필요"],
       note: "", pre: ["안전TF 주관 정기 미팅 참석 완료, 관련 자료 제출 기한 준수"], src: "safety" },
     { c: 3, code: "3.1", name: "조경관리 품질 유지", max: 50, per: 3, unit: "건",
-      crit: ["월간 관리 스케줄 이행 여부(보고 기준)", "관리 기준 미준수로 내부 의견(VOK) 발생 시"],
+      crit: ["월간 관리 스케줄 이행 여부(보고 기준) *관리 담당자 라운딩 과정에서의 식별내용 포함", "관리 기준 미준수로 내부 의견(VOK) 발생 *관리 부서, 크루, 주변 제보 포함"],
       note: "관리 담당자 라운딩 의견 포함", pre: ["관리 스케줄 이행 완료", "관리 기준 준수"], src: "issues" },
     { c: 3, code: "3.2", name: "VOK 대응", max: 50, per: 3, unit: "건",
-      crit: ["요청 접수 기준 최초 대응(당일) 미준수 시", "조치 완료 후, 동일 문제(민원) 재발 시"],
+      crit: ["요청 접수 기준 최초 대응(당일) 미준수 *당일 피드백 기준", "조치 완료 후, 동일 문제(민원) 재발 *영업시간 기준"],
       note: "영업시간 기준 · 관리 담당자 라운딩 의견 포함", pre: ["요청 접수 기준 업무 시간 내 대응 완료"], src: "vok" },
     { c: 4, code: "4.1", name: "작업환경 안전 관리", max: 50, per: 5, unit: "건",
-      crit: ["작업 보호구(마스크, 보호안경 등) 미착용 식별 시", "안전수칙 위반(약품 사용, 폭염 야외작업, 기타 장비 사용작업)"],
+      crit: ["작업 보호구(마스크, 보호안경 등) 미착용 식별 *관리 담당자 라운딩, 주변 제보, 관련 서류 내 사진대지 내 식별 시", "안전수칙 위반(약품 사용, 폭염 야외작업, 기타 장비사용 작업) *MSDS, 폭염 작업매뉴얼, 기타 장비안전 매뉴얼 근거"],
       note: "관리 담당자 라운딩 의견 포함 · 폭염, 온도 기준 포함", pre: ["작업 보호구 상시 착용", "안전 수칙 위반 없음"], src: "heat" },
     { c: 4, code: "4.2", name: "사고 대응", max: 50, per: 10, unit: "건",
-      crit: ["장비, 환경 요인으로 병원 치료 이상 발생 시", "사고 미보고, 보고 지연"],
+      crit: ["장비, 환경 요인으로 병원 치료 이상 발생 *입원/통원 상세 사유 명확히 확인 필요", "사고 미보고, 보고 지연 *미보고(당일 기준), 보고 지연(1시간 내외)"],
       note: "", pre: ["병원 치료 이상 발생 0건", "사고 미보고, 보고 지연 없음"], src: "incident" },
     { c: 5, code: "5.1", name: "운영 리포트 관리", max: 50, per: 5, unit: "건",
-      crit: ["분기별 화단 제안, 설치, 철수 미진행 시", "계획 대비 설치 품질, 유지기간 기준 미준수 시"],
+      crit: ["분기별 화단 제안, 설치, 철수 미진행 *월별 리포트 제안 기준", "계획 대비 설치 품질, 유지기간 미준수 *조경 품질, 식물 조성(유지)기간 사전 소통 및 명시적 합의 필요 · 사전 합의가 없었거나 불가항력 사유는 면책"],
       note: "계획 기준 - 품질, 유지기간 기준", pre: ["분기별 화단 제안, 설치, 철수", "1분기(1월~3월): 소진업서스 300포트 입고 삭제 → 1분기 화단 x -5감점", "2분기(4월~6월): 1층 정문방향(4종 식재)"], src: "ops" },
     { c: 5, code: "5.2", name: "조경 부자재 관리", max: 50, per: 3, unit: "건",
-      crit: ["식물 부자재, 소모품 관리 미흡으로 작업지연, 품질저하 발생 시", "장비 관리 미흡으로 작업 영향, 비용 손실 발생 시", "개선 가이드 제시 후 동일 문제 재발 시"],
+      crit: ["식물 부자재, 소모품 관리 미흡으로 작업 지연, 품질 저하 발생 *관리 담당자 라운딩, 주변 제보, 리포트 내 사진대지 내 식별 시", "장비 관리 미흡으로 작업 영향, 비용손실 발생 *작업 영향 : 인적 사고 발생 시 4.2 사고대응 동시 감점", "개선 가이드 제시 후 동일 문제 재발 *관리 담당자 라운딩, 주변 제보, 리포트 내 사진대지 내 식별 시"],
       note: "관리 담당자 라운딩 의견 포함 - 재발 기준", pre: ["식물 부자재, 소모품 관리 미흡으로 작업지연, 품질 저하 없음", "장비 관리 미흡으로 작업 영향, 비용 손실 없음"], src: "supply" },
   ];
   // 2026 상반기는 보내 주신 표의 소계를 처음 값으로 (1.1 95 · 3.1 44 · 3.2 44)
-  const SEED = { "2026-H1": { n: { "1.1": 1, "3.1": 2, "3.2": 2 }, memo: {} } };
+  const SEED = { "2026-H1": { n: { "1.1": 1, "3.1": 2, "3.2": 2 }, memo: {
+    "1.1": "공식 평가표: 2월 '결원 발생 시 대체 지원 인력 투입' 1건 감점",
+    "3.1": "공식 평가표: 5월 1건 · 6월 1건 '관리 기준 미준수로 내부 의견(VOK) 발생'",
+    "3.2": "공식 평가표: 6월 2건 '조치 완료 후 동일 문제(민원) 재발'" } } };
   // 자동 기록 기본 고침값 (Jamie 확인 내용) — 기간 · 항목 · 날짜 · 내용 앞부분으로 찾아서 적용
   const DEF_FIX = [
     { p: "2026-H2", code: "1.1", d: "6/26", start: "헨리 퇴사", fix: { c: "중증장애인턴 TO 전환", k: "info" } },
@@ -414,10 +417,39 @@
       <tr class="sl-tbl__c"><td colspan="5">합계 (영역별 점수 합 ÷ 만점 합 × 반영비율)</td><td class="num">${f2(t)}</td></tr></tbody></table></div>`;
   }
 
+  // 카카오 담당자 하반기 운영 중점 요청 (2026) — 이행 내용·상태는 하반기 기록 r.focus[i] = { st, t }
+  const FOCUS = {
+    2026: [
+      { t: "조경 가드너 크루 케어", d: "근무여건·컨디션 수시 체크, 직무교육·성장, 채용모델(국가인턴 → 정규직 전환) 체계화 · 옥외·고소·폭염 등 작업 안전 최우선", rel: "1.1 · 2.1 · 4.1" },
+      { t: "판교 아지트 조경백서", d: "층별 조경 조성 현황(식물 종류·수량·관리포인트), 사진·도면 형태로 구축 · 26년 11월 한", rel: "5.1" },
+      { t: "주요 스팟 플랜테리어 개선", d: "기존 사례: 1층 AGIT-FOREST · 5층 옥외테라스 화단 / 금년 목표: A동 3층 로비 · 5층 아지타운", rel: "5.1" },
+      { t: "카카오크루 VOK 대응 개선", d: "선제적 예방·대응 · VOK 발생 시 신속 대응(선조치), 원인 분석·개선점 도출(후분석)", rel: "3.1 · 3.2" },
+    ],
+  };
+  const FST = { "": "작성 전", plan: "예정", doing: "진행 중", done: "완료" };
+  const focusRec = () => withHalf(2, () => rec());
+  function focusBlock() {
+    const F = FOCUS[S.year]; if (!F) return "";
+    const fr = (focusRec().focus) || [];
+    return `<p class="sl-a4__h">하반기 운영 중점 · 카카오 담당자 요청 → 이행</p>
+      <table class="sl-a4__fc"><thead><tr><th>요청</th><th>관련 SLA</th><th>상태</th><th>이행 내용</th></tr></thead><tbody>
+      ${F.map((f, i) => { const o = fr[i] || {}; return `<tr><td><b>${i + 1}. ${esc(f.t)}</b><br><span class="muted">${esc(f.d)}</span></td><td class="nw">${f.rel}</td><td class="nw">${FST[o.st || ""]}</td><td>${o.t ? esc(o.t).replace(/\n/g, "<br>") : `<span class="muted">—</span>`}</td></tr>`; }).join("")}</tbody></table>`;
+  }
+  function focusForm() {
+    const F = FOCUS[S.year]; if (!F || !isJamie()) return "";
+    if (!S.fed) return `<button class="sl-btn" onclick="SLA.fed(1)">✎ 하반기 운영 중점 이행 쓰기</button>`;
+    const fr = (focusRec().focus) || [];
+    return `<div class="sl-form sl-fcf"><span class="sl-lbl">하반기 운영 중점 · 이행 내용 (보고서에 나와요)</span>
+      ${F.map((f, i) => { const o = fr[i] || {}; return `<div class="sl-fcf__r"><b>${i + 1}. ${esc(f.t)}</b>
+        <select id="slFs${i}" aria-label="상태">${Object.keys(FST).map((k) => `<option value="${k}"${(o.st || "") === k ? " selected" : ""}>${FST[k]}</option>`).join("")}</select>
+        <textarea id="slFt${i}" rows="2" placeholder="예) 11/19 법정교육 · 폭염기 체감온도 기록 운영">${esc(o.t || "")}</textarea></div>`; }).join("")}
+      <div class="sl-form__b"><button class="sl-btn sl-btn--ink" onclick="SLA.saveFocus()">저장</button><button class="sl-btn" onclick="SLA.fed(0)">닫기</button></div></div>`;
+  }
+
   // 다른 반기의 기록·평가 내역을 잠깐 꺼내 쓰기
   function withHalf(h, fn) { const keep = S.half; S.half = h; try { return fn(); } finally { S.half = keep; } }
   const rpTools = () => `<div class="sl-rp-tools"><div class="sl-seg">${[["year", `${S.year} 연간 합산`], ["half", `${S.half === 1 ? "상반기" : "하반기"}만`]].map(([k, t]) => `<button class="${S.rp === k ? "is-on" : ""}" onclick="SLA.rp('${k}')">${t}</button>`).join("")}</div>
-      <button class="btn btn--primary btn--sm" onclick="SLA.print()">PDF로 저장 · 인쇄</button><span class="muted">인센티브·계약 내용은 이 보고서에만 나와요</span></div>`;
+      <button class="btn btn--primary btn--sm" onclick="SLA.print()">PDF로 저장 · 인쇄</button><span class="muted">인센티브·계약 내용은 이 보고서에만 나와요</span>${S.fed ? "" : focusForm()}</div>${S.fed ? focusForm() : ""}`;
 
   /* 연간 합산 보고서 — 상반기 · 하반기 · 평균 */
   function yearReportView() {
@@ -438,6 +470,7 @@
         <tr class="sl-a4__sum"><td colspan="3">합계 (반영비율 적용)</td><td class="r">${f2(H[0].t)}</td><td class="r">${f2(H[1].t)}</td><td class="r"><b>${f2(t)}</b></td><td>${g[0]}등급</td></tr>
         <tr><td colspan="3" class="muted">영역별 (반영비율 점수)</td><td colspan="4" class="muted">${CATS.map((c, k) => `${c.no}) ${f2(H[0].cats[k])} · ${f2(H[1].cats[k])} → ${f2(avg(H[0].cats[k], H[1].cats[k]))}`).join("<br>")}</td></tr></tbody></table>
         ${memos ? `<p class="sl-a4__h">감점 · 메모</p><ul class="sl-a4__memo">${memos}</ul>` : ""}
+        ${focusBlock()}
         <p class="sl-a4__h">등급 구간 (연간 평균 기준)</p>
         <div class="sl-a4__gr">${GRADES.map((x) => `<span class="${x === g ? "is-on" : ""}"><b>${x[0]}</b> ${x[1]}~${x[2]} · ${x[3] > 0 ? "+" : ""}${x[3]}%${x[5] ? " · " + x[5] : ""}</span>`).join("")}</div>
         <div class="sl-a4__sig"><div>평가 · 카카오 총무 사옥관리</div><div>확인 · 링키지랩 스낵앤가든사업팀</div></div></div>`;
@@ -455,6 +488,7 @@
         ${ITEMS.map((x) => `<tr><td>${x.c}. ${CATS[x.c - 1].name}<br><span class="muted">${CATS[x.c - 1].w}%</span></td><td>${x.code} ${x.name}</td><td>${(() => { const e = evx(x, r); return e.sum + e.add.map((a) => `<br>· ${d10(a.d) ? md(a.d) + " " : ""}${esc(a.t)}`).join(""); })()}</td><td class="r">${x.max}</td><td class="r"><b>${scoreOf(x, r)}</b></td>
           <td>${nOf(x, r) ? `−${nOf(x, r) * x.per}점 (${nOf(x, r)}${x.unit})` : "감점 없음"}${r.memo[x.code] ? `<br>${esc(r.memo[x.code])}` : ""}</td></tr>`).join("")}
         <tr class="sl-a4__sum"><td colspan="4">합계 (반영비율 적용) · ${CATS.map((c) => `${c.no}) ${f2(catScore(c, r))}`).join(" · ")}</td><td class="r"><b>${f2(t)}</b></td><td>${g[0]}등급</td></tr></tbody></table>
+        ${S.half === 2 ? focusBlock() : ""}
         <p class="sl-a4__h">등급 구간</p>
         <div class="sl-a4__gr">${GRADES.map((x) => `<span class="${x === g ? "is-on" : ""}"><b>${x[0]}</b> ${x[1]}~${x[2]} · ${x[3] > 0 ? "+" : ""}${x[3]}%${x[5] ? " · " + x[5] : ""}</span>`).join("")}</div>
         <div class="sl-a4__sig"><div>평가 · 카카오 총무 사옥관리</div><div>확인 · 링키지랩 스낵앤가든사업팀</div></div></div>`;
@@ -466,13 +500,19 @@
     const h = document.getElementById("slHead"); if (h) h.innerHTML = head();
   }
 
-  const EDIT_FNS = ["n", "set", "ed", "saveRow", "delRow", "hide", "flag", "unhide", "offh", "saveSum", "resetSum", "savePre", "resetPre", "memo", "saveFix", "resetFix", "saveCrit", "resetCrit"];
+  const EDIT_FNS = ["n", "set", "ed", "saveRow", "delRow", "hide", "flag", "unhide", "offh", "saveSum", "resetSum", "savePre", "resetPre", "memo", "saveFix", "resetFix", "saveCrit", "resetCrit", "fed", "saveFocus"];
   window.SLA = {
     html() { return `<section class="view sl"><div id="slHead">${head()}</div><div id="slBody"></div></section>`; },
     mount() { paint(); },
     sel(i) { S.sel = i; S.ed = null; paint(); },
     tab(k) { S.tab = k; S.ed = null; paint(); },
     rp(k) { S.rp = k; paint(); },
+    fed(on) { S.fed = !!on; paint(); },
+    saveFocus() {
+      const F = FOCUS[S.year] || [];
+      withHalf(2, () => { const r = rec(); r.focus = F.map((f, i) => ({ st: val("slFs" + i), t: (document.getElementById("slFt" + i) || {}).value || "" })); save(r); });
+      S.fed = false; paint();
+    },
     half(h) { S.half = h; S.ed = null; paint(); },
     year(d) { S.year += d; S.ed = null; paint(); },
     n(code, d) { const r = rec(), it = ITEMS.find((x) => x.code === code); r.n[code] = Math.max(0, Math.min(maxN(it), nOf(it, r) + d)); save(r); paint(); },

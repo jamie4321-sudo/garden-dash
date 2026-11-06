@@ -3819,7 +3819,7 @@
     settlement: "OPERATION / SETTLEMENT",
     issues: "CREW / PLANT ISSUES",
     plants: "CREW / PLANT CHECK",
-    zones: "CREW / ZONES",
+    zones: "CREW / ZONE STATUS",
     floors: "CREW / FLOOR STATUS",
     safety: "CREW / SAFETY & HEALTH",
     schedule: "OPERATION / SCHEDULE",

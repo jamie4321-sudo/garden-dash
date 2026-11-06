@@ -1,9 +1,10 @@
 /* =========================================================
-   GARDEN — 관리 구역 (#zones)
-   건물 단면도 + 식물 수종 TOP 10 · 클린 카드
+   GARDEN — 관리 현황 (#zones)
+   1안 한 장 요약 · 식물 현황(층별) · 수량 지도(접힘) · 클린 카드
    ========================================================= */
 :root {
   --zn-h1: #1f2610; --zn-h2: #34430f; --zn-h3: #5a760c; --zn-h4: #8fbf10;
+  --zn-am: var(--amber); --zn-pm: var(--blue); --zn-ex: var(--violet);
   --zn-ease: cubic-bezier(.23, 1, .32, 1);
 }
 :root[data-theme="light"] {
@@ -12,24 +13,68 @@
 
 .zn-muted { color: var(--ink-3); font-size: 12.5px; margin: 0; }
 .zn-card { background: var(--card-bg); border: 1px solid var(--line-soft); border-radius: var(--r-lg); }
-
-/* 연결 상태 줄 */
-.zn-live { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-2); margin: -10px 0 18px; }
-.zn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
-.zn-dot.is-on { background: var(--green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 20%, transparent); }
-.zn-dot.is-off { background: var(--amber); }
-.zn-link { color: var(--accent-text); font-weight: 700; text-decoration: none; }
-.zn-link:hover { text-decoration: underline; }
-.zn-new { color: var(--green); }
-
-/* 블록 */
-.zn-block { padding: 22px 24px; margin-bottom: 16px; }
-.zn-block--sp { padding: 6px 0 0; }
-.zn-bh { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-.zn-bh h3 { margin: 0; font-size: 17px; font-weight: 800; letter-spacing: -.3px; }
 .zn-empty { padding: 34px; text-align: center; color: var(--ink-3); font-size: 13px; }
+.zn .page-head .seg { display: inline-flex; gap: 4px; }
+.zn-bh { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.zn-bh h3 { margin: 0; font-size: 16px; font-weight: 800; letter-spacing: -.3px; }
+.zn-lk { border: 0; background: none; padding: 0; font: inherit; font-size: 13px; font-weight: 800; color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.zn-dot2 { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.zn-dot2.am { background: var(--zn-am); } .zn-dot2.pm { background: var(--zn-pm); } .zn-dot2.ex { background: var(--zn-ex); }
+.zn b, .zn small, .zn dd { font-variant-numeric: tabular-nums; }
 
-/* 건물 단면도 */
+/* 큰 문장 + 숫자 4칸 */
+.zh { padding: 28px 30px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 28px; align-items: end; margin-bottom: 14px; }
+.zh-title { margin: 0; font-size: 30px; line-height: 1.28; font-weight: 800; letter-spacing: -.8px; }
+.zh-title em { font-style: normal; background: linear-gradient(transparent 62%, var(--accent) 62%); color: inherit; }
+:root:not([data-theme="light"]) .zh-title em { background: none; color: var(--accent); }
+.zh-sub { margin: 10px 0 0; color: var(--ink-2); font-size: 13.5px; }
+.zh-k { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.zh-k div { background: var(--panel-2); border-radius: 14px; padding: 12px 14px; }
+.zh-k b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -.5px; }
+.zh-k span { font-size: 11.5px; color: var(--ink-3); font-weight: 700; }
+
+/* 오전 / 오후 순회 */
+.zr-g { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.zr { padding: 20px 22px; }
+.zr-t { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: var(--ink-3); }
+.zr h4 { margin: 6px 0 2px; font-size: 21px; font-weight: 800; letter-spacing: -.4px; }
+.zr-w { font-size: 13px; color: var(--ink-2); margin: 0 0 12px; }
+.zr ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.zr li { display: flex; gap: 8px; color: var(--ink-2); }
+.zr li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--ink-3); margin-top: 8px; flex: none; }
+.zr-st { display: flex; gap: 22px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.zr-st b { display: block; font-size: 19px; font-weight: 800; }
+.zr-st span { font-size: 11px; color: var(--ink-3); font-weight: 700; }
+
+/* 동별 카드 */
+.zb-g { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.zb { padding: 18px 20px; }
+.zb h4 { margin: 0; font-size: 16px; font-weight: 800; }
+.zb .zn-muted { margin: 2px 0 12px; font-size: 12px; }
+.zb .zn-muted b { color: var(--ink); }
+.zb-bar { height: 8px; border-radius: 99px; background: var(--panel-2); overflow: hidden; display: flex; }
+.zb-bar i { display: block; height: 100%; }
+.zb-bar .am { background: var(--zn-am); } .zb-bar .pm { background: var(--zn-pm); } .zb-bar .ex { background: var(--zn-ex); }
+.zb dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; margin: 12px 0 0; font-size: 12.5px; }
+.zb dt { color: var(--ink-2); }
+.zb dd { margin: 0; font-weight: 800; text-align: right; }
+.zb-leg { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-3); margin: 10px 2px 14px; }
+.zb-leg span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* 지금 살펴보는 것 */
+.zc { padding: 18px 22px; }
+.zc-g { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.zc-g div { border: 1px solid var(--line-soft); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.zc-g b { font-size: 21px; font-weight: 800; }
+.zc-g p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-2); font-weight: 700; }
+.zc-g small { display: block; color: var(--ink-3); font-size: 11px; margin-top: 4px; line-height: 1.45; word-break: break-all; }
+
+/* 수량 지도 열기 */
+.zn-maptg { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 18px 2px 0; }
+.zn-map { margin-top: 12px; padding: 20px 22px; animation: znIn .3s var(--zn-ease); }
+@keyframes znIn { from { opacity: 0; transform: translateY(6px); } }
+
+/* 건물 단면도 (수량 지도) */
 .zn-sec { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .zn-col h4 { margin: 0 0 8px; font-size: 11.5px; font-weight: 800; color: var(--ink-3); letter-spacing: 1.2px; }
 .zn-fl { display: grid; grid-template-columns: 42px 1fr; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line-soft); }
@@ -38,43 +83,57 @@
 .zn-z {
   border: 2px solid transparent; border-radius: 7px; padding: 3px 7px; font: inherit; font-size: 11px; font-weight: 700;
   line-height: 1.2; text-align: left; cursor: pointer; color: var(--ink); background: var(--panel-2);
-  transition: opacity .25s, border-color .25s, transform .2s var(--zn-ease);
+  transition: border-color .25s, transform .2s var(--zn-ease);
 }
-.zn-z:hover { transform: translateY(-1px); }
+.zn-z:hover { transform: translateY(-1px); border-color: var(--ink-3); }
 .zn-z:active { transform: scale(.97); }
-.zn-z small { display: block; font-size: 10px; font-weight: 700; opacity: .72; font-variant-numeric: tabular-nums; }
+.zn-z small { display: block; font-size: 10px; font-weight: 700; opacity: .72; }
 .zn-h1 { background: var(--zn-h1); }
 .zn-h2 { background: var(--zn-h2); }
 .zn-h3 { background: var(--zn-h3); }
 .zn-h4 { background: var(--zn-h4); color: var(--accent-ink); }
-.zn-sec.is-hl .zn-z { opacity: .16; }
-.zn-sec.is-hl .zn-z.is-hit { opacity: 1; border-color: var(--ink); }
-
 .zn-legend { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-3); margin-top: 14px; }
 .zn-legend i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
 
-.zn-hl {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px;
-  padding: 10px 14px; margin-bottom: 14px; border-radius: var(--r); background: var(--panel-2);
-}
-.zn-hl b { font-size: 15px; font-weight: 800; }
-.zn-hl .btn { margin-left: auto; }
-
-/* 식물 수종 — 칩 + 검색 (고르면 위 단면도에 표시) */
-.zn-chipbar { display: flex; flex-direction: column; gap: 12px; }
+/* 식물 현황 (층별) */
+.pv-top { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.pv-top .seg { display: inline-flex; gap: 4px; }
+.pv-top .btn small { opacity: .65; margin-left: 3px; font-weight: 700; }
 .zn-srch {
-  align-self: flex-start; width: 280px; max-width: 100%; border: 1px solid var(--line); background: var(--panel);
-  border-radius: 999px; padding: 9px 16px; font: inherit; font-size: 13px; color: var(--ink);
+  width: 260px; max-width: 100%; border: 1px solid var(--line); background: var(--panel);
+  border-radius: 999px; padding: 8px 15px; font: inherit; font-size: 13px; color: var(--ink);
 }
 .zn-srch:focus { outline: none; border-color: var(--ink-3); }
+.pv-list { overflow: hidden; }
+.pv-row { display: grid; grid-template-columns: 64px 196px minmax(0, 1fr) 20px; gap: 14px; align-items: center; padding: 13px 20px; border-top: 1px solid var(--line-soft); cursor: pointer; transition: background .15s; }
+.pv-list > .pv-row:first-child { border-top: 0; }
+.pv-row:hover { background: var(--panel-2); }
+.pv-fl { font-size: 17px; font-weight: 800; letter-spacing: -.3px; }
+.pv-meta { font-size: 12px; color: var(--ink-2); line-height: 1.4; }
+.pv-meta b { font-size: 14px; color: var(--ink); }
+.pv-ar { color: var(--ink-3); font-size: 18px; transition: transform .25s var(--zn-ease); }
+.pv-row.is-open .pv-ar { transform: rotate(90deg); }
+.pv-dt { padding: 4px 20px 14px 98px; background: var(--panel-2); border-top: 1px solid var(--line-soft); }
+.pv-z { display: grid; grid-template-columns: 150px 84px minmax(0, 1fr); gap: 12px; padding: 9px 0; border-top: 1px dashed var(--line); font-size: 12.5px; align-items: start; }
+.pv-z:first-child { border-top: 0; }
+.pv-zn { border: 0; background: none; padding: 0; font: inherit; font-weight: 800; color: var(--ink); text-align: left; cursor: pointer; }
+.pv-zn:hover { text-decoration: underline; }
+.pv-zq { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font-weight: 700; }
+.zn-t { font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; }
+.zn-t.am { background: color-mix(in srgb, var(--zn-am) 18%, transparent); color: var(--zn-am); }
+.zn-t.pm { background: color-mix(in srgb, var(--zn-pm) 16%, transparent); color: var(--zn-pm); }
+.zn-t.ex { background: color-mix(in srgb, var(--zn-ex) 16%, transparent); color: var(--zn-ex); }
+.zn mark { background: var(--accent); color: var(--accent-ink); border-radius: 4px; padding: 0 2px; }
+
+/* 태그 */
 .zn-tags { display: flex; gap: 5px; flex-wrap: wrap; }
 .zn-tag {
   display: inline-flex; align-items: center; gap: 4px; border: 0; cursor: pointer; font: inherit;
   font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--panel-2); color: var(--ink-2);
 }
-.zn-tag em { font-style: normal; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.zn-tag.is-on { background: var(--accent); color: var(--accent-ink); }
-.zn-tag.is-on em { color: var(--accent-ink); opacity: .7; }
+.pv-dt .zn-tag { background: var(--card-bg); }
+.zn-tag:hover { color: var(--ink); }
+.zn-tag--more { cursor: default; color: var(--ink-3); }
 .zn-warn { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber); cursor: default; }
 
 /* 구역 상세 시트 */
@@ -91,13 +150,22 @@
 .zn-ds h6 { margin: 0 0 8px; font-size: 11.5px; font-weight: 800; color: var(--ink-3); letter-spacing: 1px; }
 .zn-dg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .zn-dg div { background: var(--panel-2); border-radius: 10px; padding: 10px 12px; }
-.zn-dg b { display: block; font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.zn-dg b { display: block; font-size: 20px; font-weight: 800; }
 .zn-dg span { font-size: 11.5px; color: var(--ink-3); font-weight: 700; }
 
 @media (max-width: 900px) {
-  .zn-sec { grid-template-columns: 1fr; }
-  .zn-block { padding: 16px; }
+  .zh { grid-template-columns: 1fr; padding: 20px; gap: 18px; }
+  .zh-title { font-size: 23px; }
+  .zr-g, .zb-g, .zn-sec { grid-template-columns: 1fr; }
+  .zc-g { grid-template-columns: 1fr 1fr; }
+  .pv-row { grid-template-columns: 52px minmax(0, 1fr) 20px; padding: 12px 16px; }
+  .pv-row .zn-tags { grid-column: 1 / -1; }
+  .pv-dt { padding: 4px 16px 12px; }
+  .pv-z { grid-template-columns: 1fr auto; }
+  .pv-z .zn-tags { grid-column: 1 / -1; }
+  .zn-map { padding: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .zn-z, .zn-t, .zn-drawer, .zn-scrim { transition: none; }
+  .zn-z, .zn-drawer, .zn-scrim, .pv-ar { transition: none; }
+  .zn-map { animation: none; }
 }

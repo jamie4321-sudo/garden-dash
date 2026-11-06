@@ -93,6 +93,58 @@
   const sn = (k) => { const v = Object.entries(SUM).find(([a]) => a.replace(/\s/g, "").includes(k)); return v ? v[1] : ""; };
   const strip = (s) => String(s || "").replace(/^\s*\d+\s*개\s*:?\s*/, "").trim();
 
+  /* ---------- 구역 특징별 관리 중점 ---------- */
+  const KINDS = {
+    desk:  { n: "업무 층 수납장", ic: "🗄️", f: "업무 방해 없이", pts: ["출근 전 시간(오전 7시~)에 층별로 돌아 업무 시간 방해를 줄여요", "수납장 플랜트박스 물 마름·누수·속화분을 칸마다 확인해요", "층마다 같은 수종으로 맞춰 통일된 모습을 유지해요"] },
+    oasis: { n: "오아시스·미팅룸", ic: "🪴", f: "쉬는 공간 연출", pts: ["크루가 쉬고 모이는 곳이라 잎 먼지·마른 잎을 바로 정리해요", "대형·특대 화분의 수형과 기울어짐을 다듬어요", "미팅룸은 회의가 없는 시간에 조용히 들어가요"] },
+    exec:  { n: "임원 공간", ic: "🔑", f: "일정 맞춤·정돈", pts: ["방문 일정을 미리 맞추고 들어가요", "실내·외 화분을 가장 정돈된 모습으로 유지해요", "외부 식재는 계절에 맞춰 손봐요"] },
+    cafe:  { n: "카페", ic: "☕", f: "위생·청결", pts: ["음식을 먹는 공간이라 날벌레·흙 날림이 없게 겉흙을 관리해요", "물받침에 고인 물이 없도록 바로 비워요", "손님이 몰리는 시간을 피해 잎을 닦고 정리해요"] },
+    food:  { n: "지하 식당 (춘식도락)", ic: "🍽️", f: "위생 최우선", pts: ["식사 시간이 끝난 오후에 들어가 관리해요", "뿌리파리 같은 해충·곰팡이가 생기지 않게 미리 막아요", "흙 날림·물기 없이 주변까지 깨끗하게 정리해요"] },
+    lobby: { n: "로비·공용 홀", ic: "🏛️", f: "첫인상·안전", pts: ["방문객이 가장 먼저 보는 곳이라 대형 식재를 최상으로 유지해요", "바닥 플랜트박스 주변 물기·흙을 치워 다니는 길을 안전하게 해요", "조화는 먼지를 털어 늘 깨끗하게 둬요"] },
+    out:   { n: "외부 정원·테라스", ic: "🌳", f: "계절·날씨 대응", pts: ["폭염·한파·장마에 맞춰 물 주기와 보호 조치를 바꿔요", "계절 식재를 바꾸고 가지치기·낙엽 정리를 해요", "바람·비에 쓰러지거나 넘친 화분이 없는지 확인해요"] },
+    farm:  { n: "아지뜰 (텃밭)", ic: "🥬", f: "작물 키우기", pts: ["농작물 자라는 상태와 수확 시기를 확인해요", "실내 화분과 함께 물을 챙겨요"] },
+    small: { n: "부서·소규모 공간", ic: "🏷️", f: "맞춤 방문", pts: ["부서 공간은 담당자와 시간을 맞춰 들어가요", "소형·일반 화분 상태를 하나씩 확인해요"] },
+  };
+  const K_ORDER = ["desk", "oasis", "lobby", "cafe", "food", "out", "exec", "farm", "small"];
+  function kindOf(z) {
+    const n = z.z;
+    if (/춘식도락/.test(n)) return "food";
+    if (/아지뜰/.test(n)) return "farm";
+    if (/톡테라스/.test(n)) return "small";
+    if (/카페/.test(n) && !/북카페/.test(n)) return "cafe";
+    if (/의장실|대표실|집무실/.test(n)) return "exec";
+    if (/외부|테라스|정원/.test(n)) return "out";
+    if (/오아시스/.test(n)) return "oasis";
+    if (/\b(RW|RE|JW|JE)\b|KAKAO/.test(n)) return "desk";
+    if (z.b === "공용부" || /좌석|창가/.test(n)) return "lobby";
+    return "small";
+  }
+  const zName = (z) => (z.b === "공용부" ? (z.fl == null ? "" : "공용 ") : z.b.replace("동", "") + " ") + (z.fl == null ? z.z : flLabel(z.fl) + (z.sub && z.sub !== "공용 홀" ? " " + short(z.sub) : ""));
+  function kindsHTML() {
+    const cards = K_ORDER.map((k) => {
+      const zs = Z.filter((z) => kindOf(z) === k); if (!zs.length) return "";
+      const K = KINDS[k], times = [...new Set(zs.map(tKey))];
+      let where;
+      if (k === "desk") {
+        where = BS.filter((b) => zs.some((z) => z.b === b)).map((b) => {
+          const f = [...new Set(zs.filter((z) => z.b === b).map((z) => z.fl))].sort((a, c) => a - c);
+          return `${b} ${flLabel(f[0])}–${flLabel(f[f.length - 1])}`;
+        }).join(" · ") + " · RW·RE·JW·JE";
+      } else if (k === "oasis") {
+        where = BS.filter((b) => zs.some((z) => z.b === b)).map((b) => `${b} ${zs.filter((z) => z.b === b).length}곳`).join(" · ") + " · R·J 오아시스";
+      } else {
+        const ns = zs.map(zName);
+        where = ns.slice(0, 5).join(" · ") + (ns.length > 5 ? ` 외 ${ns.length - 5}곳` : "");
+      }
+      return `<article class="zn-card zk">
+        <div class="zk-h"><span class="zk-ic" aria-hidden="true">${K.ic}</span><div><h4>${K.n}</h4><p>${zs.length}구역 · ${fmt(sum(zs, tot))}개</p></div><span class="zk-f">${K.f}</span></div>
+        <ul>${K.pts.map((t) => `<li>${t}</li>`).join("")}</ul>
+        <div class="zk-w"><span>${esc(where)}</span><span class="zk-t">${times.map((t) => `<span class="zn-t ${T_CLS[t]}">${T_TXT[t]}</span>`).join("")}</span></div>
+      </article>`;
+    }).join("");
+    return `<div class="zn-bh zk-bh"><h3>구역마다 이렇게 관리해요</h3><p class="zn-muted">공간의 쓰임에 맞춰 관리 중점을 달리해요</p></div><div class="zk-g">${cards}</div>`;
+  }
+
   function kpi() {
     const sumSz = (k) => sum(Z, (z) => cnt(z, k));
     const pick = (key, k) => firstNum(sn(key)) || (k ? sumSz(k) : 0);
@@ -154,6 +206,7 @@
           <div><b>${fmt(K.garden)}</b><span>정원 (실내·외)</span></div>
         </div>
       </div>
+      ${kindsHTML()}
       <div class="zr-g">
         ${rounds("오전", "업무 층 순회", ["출근 시간 전후로 층마다 수납장 상태·물 확인", "오아시스·미팅룸 대형 화분 잎 정리", "순회 중 발견한 문제는 바로 식물 이슈로 기록"])}
         ${rounds("오후", "공용부·정원 관리", ["사람이 많은 공용 공간은 점심 이후 관리", "외부 정원·테라스 식재 상태 확인", "대형 바닥 플랜트박스 정리"])}
@@ -162,8 +215,7 @@
       <p class="zb-leg"><span><i class="zn-dot2 am"></i>오전</span><span><i class="zn-dot2 pm"></i>오후</span><span><i class="zn-dot2 ex"></i>별도 일정 (의장실·대표실·테라스 등)</span></p>
       <div class="zn-card zc"><div class="zn-bh"><h3>지금 살펴보고 있는 것</h3><p class="zn-muted">관리구역 시트 요약·비고 기준</p></div>
         <div class="zc-g">${chk.map(([n, t, d]) => `<div><b>${n}</b><p>${esc(t)}</p><small>${esc(d)}</small></div>`).join("")}</div></div>
-      <div class="zn-maptg"><button class="zn-lk" onclick="ZONES.map()">${showMap ? "구역별 수량 지도 접기 ▴" : "구역별 수량 지도 보기 ▾"}</button><span class="zn-muted">진할수록 수량이 많은 구역 · 구역을 누르면 자세히</span></div>
-      ${showMap ? mapHTML() : ""}`;
+`;
   }
 
   /* 구역별 수량 지도 (기존 건물 단면도) */
@@ -175,14 +227,36 @@
         return `<button class="zn-z zn-h${h}" onclick="ZONES.open(${z.id})" title="${esc(zLabel(z))}">${esc(short(zLabel(z)))}<small>${v}</small></button>`;
       }).join("")}</div></div>`).join("")}</div>`;
     return `<div class="zn-card zn-block zn-map">
+      <div class="zn-bh"><h3>구역별 수량 지도</h3><p class="zn-muted">진할수록 수량이 많은 구역 · 구역을 누르면 자세히</p>
+        <button class="zn-mapx" onclick="ZONES.map()" aria-label="지도 닫기">✕</button></div>
       <div class="zn-sec">${BS.map(col).join("")}</div>
       <div class="zn-legend">관리 수량 <span><i class="zn-h1"></i>적음</span><span><i class="zn-h2"></i></span><span><i class="zn-h3"></i></span><span><i class="zn-h4"></i>많음</span></div>
     </div>`;
   }
 
   /* ---------- 식물 현황 (층별) ---------- */
+  /* 미끄러지는 스위치 (선택 표시가 옆으로 미끄러짐) */
+  function swHTML(id, items, cur, fn) {
+    const i = Math.max(0, items.findIndex((x) => x[0] === cur));
+    return `<div class="zn-sw" id="${id}" role="tablist" style="--n:${items.length};--i:${i}"><span class="zn-sw__thumb" aria-hidden="true"></span>${
+      items.map(([k, l], j) => `<button role="tab" aria-selected="${j === i}" class="${j === i ? "is-on" : ""}" onclick="${fn}('${k}')">${l}</button>`).join("")}</div>`;
+  }
+  function swSet(id, i) {
+    const el = document.getElementById(id); if (!el) return;
+    el.style.setProperty("--i", i);
+    [...el.querySelectorAll("button")].forEach((b, j) => { b.classList.toggle("is-on", j === i); b.setAttribute("aria-selected", j === i); });
+  }
+
   function plantsHTML() {
     if (!Z.length) return emptyHTML();
+    return `<div class="pv-top">
+        ${swHTML("znBsw", BS.map((b) => [b, `${b} <small>${fmt(sum(Z.filter((z) => z.b === b), tot))}</small>`]), pb, "ZONES.b")}
+        <label class="zn-srch"><span aria-hidden="true">⌕</span><input id="znSrch" type="search" placeholder="식물 이름 찾기 (예: 몬스테라)" value="${esc(query)}" oninput="ZONES.find(this.value)" /></label>
+        <span class="zn-muted">층을 누르면 구역별 식물이 펼쳐져요 · 전체 ${species(Z)}종</span>
+      </div>
+      <div class="zn-card pv-list" id="znPv">${pvListHTML()}</div>`;
+  }
+  function pvListHTML() {
     const q = query.trim();
     const hl = (p) => (q && p.includes(q) ? `<mark>${esc(p)}</mark>` : esc(p));
     const chip = (p) => `<button class="zn-tag" onclick="event.stopPropagation();ZONES.find('${esc(p)}')">${hl(p)}</button>`;
@@ -201,15 +275,16 @@
           <span class="pv-ar">›</span>
         </div>
         ${open ? `<div class="pv-dt">${zs.map((z) => `<div class="pv-z"><button class="pv-zn" onclick="ZONES.open(${z.id})">${esc(zLabel(z))}</button>
-          <span class="pv-zq">${tot(z)}개 <span class="zn-t ${T_CLS[tKey(z)]}">${tKey(z)}</span></span>
+          <span class="pv-zq">${tot(z)}개 <span class="zn-t ${T_CLS[tKey(z)]}">${tKey(z)}</span><span class="zn-kd" title="${esc(KINDS[kindOf(z)].n)}">${KINDS[kindOf(z)].f}</span></span>
           <span class="zn-tags">${plantsOf(z).map(chip).join("") || `<span class="zn-muted">식물 미기재</span>`}${z.note ? `<span class="zn-tag zn-warn">${esc(z.note)}</span>` : ""}</span></div>`).join("")}</div>` : ""}`;
     }).join("");
-    return `<div class="pv-top">
-        <div class="seg">${BS.map((b) => `<button class="btn btn--sm${pb === b ? " btn--primary" : ""}" onclick="ZONES.b('${b}')">${b} <small>${fmt(sum(Z.filter((z) => z.b === b), tot))}</small></button>`).join("")}</div>
-        <input class="zn-srch" id="znSrch" type="search" placeholder="식물 이름 찾기 (예: 몬스테라)" value="${esc(query)}" oninput="ZONES.find(this.value)" />
-        <span class="zn-muted">층을 누르면 구역별 식물이 펼쳐져요 · 전체 ${species(Z)}종</span>
-      </div>
-      <div class="zn-card pv-list">${rows || `<div class="zn-empty">‘${esc(q)}’ 이(가) 있는 층이 ${pb}에 없어요${otherB(q)}</div>`}</div>`;
+    return rows || `<div class="zn-empty">‘${esc(q)}’ 이(가) 있는 층이 ${pb}에 없어요${otherB(q)}</div>`;
+  }
+  function paintPv() {
+    const el = document.getElementById("znPv");
+    if (!el) return paint();
+    el.innerHTML = pvListHTML();
+    swSet("znBsw", BS.indexOf(pb));
   }
   function otherB(q) {
     if (!q) return "";
@@ -221,16 +296,15 @@
     return `<div class="zn-card zn-empty">${state === "error" ? "관리구역 시트를 불러오지 못했어요 · 시트 공유가 ‘링크가 있는 모든 사용자 보기’인지 확인해 주세요 <button class=\"btn btn--sm\" onclick=\"ZONES.load(true)\">다시 시도</button>" : "불러오는 중…"}</div>`;
   }
 
-  function bodyHTML() { return tab === "plants" ? plantsHTML() : statusHTML(); }
+  const TABS = [["status", "관리 현황"], ["plants", "식물 현황"]];
+  function bodyHTML() { return (showMap && Z.length ? mapHTML() : "") + (tab === "plants" ? plantsHTML() : statusHTML()); }
   function paint() {
     const el = document.getElementById("znBody"); if (!el) return;
     el.innerHTML = bodyHTML();
-    const sg = document.getElementById("znTabs");
-    if (sg) sg.innerHTML = tabsHTML();
   }
-  function tabsHTML() {
-    return [["status", "관리 현황"], ["plants", "식물 현황"]].map(([k, l]) =>
-      `<button class="btn btn--sm${tab === k ? " btn--primary" : ""}" onclick="ZONES.tab('${k}')">${l}</button>`).join("");
+  function mapTgHTML() {
+    return `<button class="zn-tg" id="znMapTg" role="switch" aria-checked="${showMap}" onclick="ZONES.map()">
+      <span class="zn-tg__ic" aria-hidden="true">▦</span>구역별 수량 지도<span class="zn-tg__tr" aria-hidden="true"><i></i></span></button>`;
   }
 
   function drawerHTML(z) {
@@ -239,6 +313,7 @@
     return `<button class="zn-x" onclick="ZONES.close()" aria-label="닫기">✕</button>
       <p class="eyebrow">${esc(z.b)} · ${esc(T_TXT[tKey(z)])}</p>
       <h3>${esc(z.fl == null ? z.z : flLabel(z.fl) + " " + z.sub)}</h3>
+      <div class="zn-ds zn-dk"><h6>관리 중점 · ${esc(KINDS[kindOf(z)].n)}</h6><b>${KINDS[kindOf(z)].ic} ${KINDS[kindOf(z)].f}</b><ul>${KINDS[kindOf(z)].pts.map((t) => `<li>${t}</li>`).join("")}</ul></div>
       <div class="zn-ds"><h6>관리 수량 · 총 ${tot(z)}개</h6><div class="zn-dg">${box || `<div><b>—</b><span>미기재</span></div>`}</div></div>
       ${z.pvP.length ? `<div class="zn-ds"><h6>수납장 식물</h6>${tags(z.pvP)}</div>` : ""}
       ${z.pbP.length ? `<div class="zn-ds"><h6>공용부 식물 · ${z.pbP.length}종</h6>${tags(z.pbP)}</div>` : ""}
@@ -270,7 +345,7 @@
       return `<section class="view zn">
         <div class="page-head">
           <div><p class="eyebrow">Crew · 관리 현황</p><h2>관리 현황</h2></div>
-          <div class="seg" id="znTabs">${tabsHTML()}</div>
+          <div class="zn-ctl">${mapTgHTML()}${swHTML("znTabs", TABS, tab, "ZONES.tab")}</div>
         </div>
         <div id="znBody">${bodyHTML()}</div>
         <div class="zn-scrim" onclick="ZONES.close()"></div>
@@ -287,10 +362,14 @@
       timer = setInterval(() => { if (document.getElementById("znBody")) load(); else clearInterval(timer); }, REFRESH_MS);
     },
     load,
-    tab(t) { tab = t; paint(); },
-    map() { showMap = !showMap; paint(); },
-    b(x) { pb = x; openFl = null; paint(); },
-    fl(k) { openFl = openFl === k ? null : k; paint(); },
+    tab(t) { if (tab === t) return; tab = t; swSet("znTabs", TABS.findIndex((x) => x[0] === t)); paint(); },
+    map() {
+      showMap = !showMap;
+      const tg = document.getElementById("znMapTg"); if (tg) tg.setAttribute("aria-checked", showMap);
+      paint();
+    },
+    b(x) { if (pb === x) return; pb = x; openFl = null; paintPv(); },
+    fl(k) { openFl = openFl === k ? null : k; paintPv(); },
     find(v) {
       query = v || "";
       // 찾는 식물이 지금 동에 없으면 있는 동으로 옮김
@@ -299,10 +378,9 @@
         const nb = BS.find((b) => Z.some((z) => z.b === b && plantsOf(z).some((p) => p.includes(q))));
         if (nb) { pb = nb; openFl = null; }
       }
-      paint();
       const s = document.getElementById("znSrch");
-      if (s && document.activeElement !== s) { s.focus(); }
-      if (s) s.setSelectionRange(s.value.length, s.value.length);
+      if (s && s.value !== query) s.value = query;
+      paintPv();
     },
     open(id) {
       const d = document.getElementById("znDrawer"); if (!d || !Z[id]) return;

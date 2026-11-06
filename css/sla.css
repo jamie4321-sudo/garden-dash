@@ -257,3 +257,7 @@
 .sl-doc:first-of-type { border-top: 0; }
 .sl-doc a { color: var(--ink); font-weight: 700; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sl-docs__b { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; font-size: 12px; }
+
+/* 4.1 근거 · 안전 작업 매뉴얼 (산업안전보건 메뉴와 같은 목록) */
+.sl-man .sl-doc { grid-template-columns: minmax(0, 1fr) auto auto; }
+.sl-man__t { font-size: 11px; font-weight: 700; color: var(--ink-2); background: var(--panel); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }

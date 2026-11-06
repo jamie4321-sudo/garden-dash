@@ -47,8 +47,8 @@
       crit: ["요청 접수 기준 최초 대응(당일) 미준수 *당일 피드백 기준", "조치 완료 후, 동일 문제(민원) 재발 *영업시간 기준"],
       note: "영업시간 기준 · 관리 담당자 라운딩 의견 포함", pre: ["요청 접수 기준 업무 시간 내 대응 완료"], src: "vok" },
     { c: 4, code: "4.1", name: "작업환경 안전 관리", max: 50, per: 5, unit: "건",
-      crit: ["작업 보호구(마스크, 보호안경 등) 미착용 식별 *관리 담당자 라운딩, 주변 제보, 관련 서류 내 사진대지 내 식별 시", "안전수칙 위반(약품 사용, 폭염 야외작업, 기타 장비사용 작업) *MSDS, 폭염 작업매뉴얼, 기타 장비안전 매뉴얼 근거"],
-      note: "관리 담당자 라운딩 의견 포함 · 폭염, 온도 기준 포함", pre: ["작업 보호구 상시 착용", "안전 수칙 위반 없음"], src: "heat" },
+      crit: ["작업 보호구(마스크, 보호안경 등) 미착용 식별 *관리 담당자 라운딩, 주변 제보, 관련 서류 내 사진대지 내 식별 시", "안전수칙 위반(약품 사용, 폭염 야외작업, 기타 장비사용 작업) *산업안전보건 메뉴의 안전 작업 매뉴얼 근거(옥외 조경관리 안전작업 · 폭염 · 한랭 · 사다리 · 전기 · 화재)"],
+      note: "관리 담당자 라운딩 의견 포함 · 폭염, 온도 기준 포함", pre: ["작업 보호구 상시 착용 — 옥외 조경관리 안전작업 매뉴얼 기준", "안전 수칙 위반 없음 — 산업안전보건 안전 작업 매뉴얼 기준"], src: "heat", man: true },
     { c: 4, code: "4.2", name: "사고 대응", max: 50, per: 10, unit: "건",
       crit: ["장비, 환경 요인으로 병원 치료 이상 발생 *입원/통원 상세 사유 명확히 확인 필요", "사고 미보고, 보고 지연 *미보고(당일 기준), 보고 지연(1시간 내외)"],
       note: "", pre: ["병원 치료 이상 발생 0건", "사고 미보고, 보고 지연 없음"], src: "incident" },
@@ -425,6 +425,35 @@
       ${J ? `<div class="sl-docs__b"><button class="sl-btn sl-btn--ink" onclick="SLA.addDoc()">＋ 자료 등록 (링크)</button><span class="sl-muted">파일 올리기는 운영 대시보드 SLA에서 · 같은 목록이에요</span></div>` : ""}</div>`;
   }
 
+  /* 근거 매뉴얼 — 산업안전보건 메뉴 '안전매뉴얼'(드라이브 폴더)과 같은 목록을 읽어, 작업환경 기준에 맞는 것만 근거로 보여 줌 */
+  const MAN_TAGS = [
+    [/옥외|조경|안전작업/, "작업 전반 · 보호구", 0], [/폭염|온열/, "폭염 야외작업", 1], [/한파|한랭/, "한랭 작업", 2],
+    [/사다리|장비|예초|전정/, "장비 사용", 3], [/콘센트|전원|전기/, "전기 안전", 4], [/소화기|화재/, "화재 대비", 5], [/장마|우천|호우/, "우천 작업", 6],
+  ];
+  let MAN = null, manLoading = false;
+  function loadManuals() {
+    if (MAN || manLoading) return;
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim(); if (!url) { MAN = { files: [], folder: "" }; return; }
+    manLoading = true;
+    fetch(url + "?action=safety&cb=" + Date.now()).then((r) => r.json()).then((j) => {
+      MAN = { files: Array.isArray(j.manual) ? j.manual : [], folder: (window.CONFIG && window.CONFIG.SAFETY_FOLDER_URL) || j.folderUrl || "" };
+    }).catch(() => { MAN = { files: [], folder: "", err: true }; }).then(() => { manLoading = false; paint(); });
+  }
+  const manName = (n) => String(n || "").replace(/의 사본$/, "").replace(/\.(pdf|png|jpe?g|docx?|hwp|xlsx?)(의 사본)?$/i, "").replace(/^\d{4}\s+/, "").trim();
+  function manList() {
+    return ((MAN && MAN.files) || []).map((f) => { const t = MAN_TAGS.find((x) => x[0].test(f.name)); return t ? { f, tag: t[1], o: t[2] } : null; })
+      .filter(Boolean).sort((a, b) => a.o - b.o || String(b.f.updated || "").localeCompare(String(a.f.updated || "")));
+  }
+  function manBlock(it) {
+    if (!it.man) return "";
+    if (!MAN) { loadManuals(); return `<div class="sl-docs sl-man"><div class="sl-docs__h"><b>근거 · 안전 작업 매뉴얼</b><span class="sl-muted">산업안전보건에서 불러오는 중…</span></div></div>`; }
+    const L = manList();
+    return `<div class="sl-docs sl-man"><div class="sl-docs__h"><b>근거 · 안전 작업 매뉴얼</b><span class="sl-muted">산업안전보건 메뉴 · ${L.length}개</span></div>
+      ${L.length ? L.map((x) => `<div class="sl-doc"><a href="${esc(x.f.view || "#")}" target="_blank" rel="noopener" title="${esc(x.f.name)}">${esc(manName(x.f.name))} ↗</a><span class="sl-man__t">${esc(x.tag)}</span><span class="sl-muted">${x.f.updated ? md(x.f.updated) : ""}</span></div>`).join("")
+        : `<p class="sl-empty">${MAN.err ? "매뉴얼 목록을 불러오지 못했어요" : "산업안전보건에 등록된 작업 매뉴얼이 없어요"}</p>`}
+      <div class="sl-docs__b"><button class="sl-btn" onclick="GD.go('safety')">산업안전보건에서 보기 →</button><span class="sl-muted">보호구 미착용 · 안전수칙 위반은 이 매뉴얼 기준으로 판단해요</span></div></div>`;
+  }
+
   function scoreView() {
     const J = isJamie(); if (!J) S.ed = null;
     const r = rec(), it = ITEMS[S.sel], ev = evx(it, r), t = total(r), g = gradeOf(t), cat = CATS[it.c - 1], E = S.ed || {};
@@ -457,7 +486,7 @@
             <label class="sl-memo"><span class="sl-lbl">비고</span><input id="slCn" value="${esc(it.note)}" placeholder="비우면 표시 안 해요"></label>
             <div class="sl-row"><span class="sl-lbl">감점 점수</span><input id="slCp" type="number" min="1" max="${it.max}" value="${it.per}" class="sl-cp" aria-label="감점 점수"><span class="sl-muted">점 / ${it.unit}</span></div>
             <div class="sl-form__b"><button class="sl-btn sl-btn--ink" onclick="SLA.saveCrit()">저장</button><button class="sl-btn" onclick="SLA.cancel()">취소</button>${critStore()[it.code] ? `<button class="sl-btn sl-btn--ghost" onclick="SLA.resetCrit()">처음 기준으로 되돌리기</button>` : ""}</div></div>`
-          : `<div class="sl-pre"><div><ul class="sl-crit">${it.crit.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>${it.note ? `<p class="sl-note">비고 · ${esc(it.note)}</p>` : ""}</div><button class="sl-ic sl-ic--t" onclick="SLA.ed('crit')" title="기준 고치기">✎ 고치기</button></div>`}${docsBlock(it, r, J)}</div></div>
+          : `<div class="sl-pre"><div><ul class="sl-crit">${it.crit.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>${it.note ? `<p class="sl-note">비고 · ${esc(it.note)}</p>` : ""}</div><button class="sl-ic sl-ic--t" onclick="SLA.ed('crit')" title="기준 고치기">✎ 고치기</button></div>`}${manBlock(it)}${docsBlock(it, r, J)}</div></div>
         <div class="sl-fs"><span class="sl-n is-on">2</span><div><h4>이렇게 진행했어요 <small>대시보드 기록 · ${S.year} ${S.half === 1 ? "상반기" : "하반기"}</small></h4>
           <div class="sl-box">${sumH}<div class="sl-evs">${rows}</div>
           <div class="sl-acts">${E.kind === "new" ? "" : `<button class="sl-btn sl-btn--ink" onclick="SLA.ed('new')">＋ 기록 추가</button>`}${ev.hidden ? `<button class="sl-btn sl-btn--ghost" onclick="SLA.unhide()">숨긴 자동 기록 ${ev.hidden}개 다시 보기</button>` : ""}

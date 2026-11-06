@@ -121,6 +121,7 @@
   }
   const zName = (z) => (z.b === "공용부" ? (z.fl == null ? "" : "공용 ") : z.b.replace("동", "") + " ") + (z.fl == null ? z.z : flLabel(z.fl) + (z.sub && z.sub !== "공용 홀" ? " " + short(z.sub) : ""));
   function kindsHTML() {
+    const MAXK = Math.max(...K_ORDER.map((x) => sum(Z.filter((z) => kindOf(z) === x), tot)), 1);
     const cards = K_ORDER.map((k) => {
       const zs = Z.filter((z) => kindOf(z) === k); if (!zs.length) return "";
       const K = KINDS[k], times = [...new Set(zs.map(tKey))];
@@ -136,13 +137,16 @@
         const ns = zs.map(zName);
         where = ns.slice(0, 5).join(" · ") + (ns.length > 5 ? ` 외 ${ns.length - 5}곳` : "");
       }
-      return `<article class="zn-card zk">
-        <div class="zk-h"><span class="zk-ic" aria-hidden="true">${K.ic}</span><div><h4>${K.n}</h4><p>${zs.length}구역 · ${fmt(sum(zs, tot))}개</p></div><span class="zk-f">${K.f}</span></div>
-        <ul>${K.pts.map((t) => `<li>${t}</li>`).join("")}</ul>
-        <div class="zk-w"><span>${esc(where)}</span><span class="zk-t">${times.map((t) => `<span class="zn-t ${T_CLS[t]}">${T_TXT[t]}</span>`).join("")}</span></div>
-      </article>`;
+      const no = String(K_ORDER.filter((x) => Z.some((z) => kindOf(z) === x)).indexOf(k) + 1).padStart(2, "0");
+      return `<div class="ze-row">
+        <span class="ze-no">${no}</span>
+        <div class="ze-nm"><b>${K.n}</b><span>${K.f} · ${esc(where)}</span></div>
+        <div class="ze-pt">${K.pts[0]}<div class="ze-ch">${times.map((t) => `<span class="zn-t ${T_CLS[t]}">${T_TXT[t]}</span>`).join("")}</div></div>
+        <div class="ze-bar"><i style="width:${Math.max(2, sum(zs, tot) / MAXK * 100)}%"></i></div>
+        <div class="ze-q"><b>${fmt(sum(zs, tot))}</b><small>${zs.length}구역</small></div>
+      </div>`;
     }).join("");
-    return `<div class="zn-bh zk-bh"><h3>구역마다 이렇게 관리해요</h3><p class="zn-muted">공간의 쓰임에 맞춰 관리 중점을 달리해요</p></div><div class="zk-g">${cards}</div>`;
+    return `<div class="zn-card ze-list"><div class="ze-lh"><h3>공간마다 이렇게 관리해요</h3><p class="zn-muted">공간의 쓰임에 맞춰 관리 중점을 달리해요 · 막대 = 관리 수량</p></div>${cards}</div>`;
   }
 
   function kpi() {
@@ -196,10 +200,12 @@
       [memo.length, "구역 메모", memo.map((z) => `${z.b} ${z.z} · ${z.note}`).join(" / ") || "없음"],
     ].filter(Boolean);
     return `
-      <div class="zn-card zh">
-        <div><h3 class="zh-title">카카오 아지트 <em>${fmt(K.total)}개</em> 식물을<br>하루 두 번 돌아보며 관리하고 있어요</h3>
-          <p class="zh-sub">A동·B동·공용부 ${Z.length}개 구역 · ${sp}종 · 오전엔 업무 층, 오후엔 카페·로비·정원</p></div>
-        <div class="zh-k">
+      <div class="zn-card ze-hero">
+        <div class="ze-l"><div class="ze-eye">AGIT GARDEN · ZONE STATUS</div>
+          <div class="ze-big">${fmt(K.total)}<small>개</small></div>
+          <h3 class="ze-h">카카오 아지트 <em>${fmt(K.total)}개</em> 식물을 관리하고 있어요</h3>
+          <p class="ze-sub">A동·B동·공용부 ${Z.length}개 구역 · ${sp}종 · 오전엔 업무 층, 오후엔 카페·로비·정원</p></div>
+        <div class="ze-k">
           <div><b>${fmt(K.box)}</b><span>수납장 플랜트박스</span></div>
           <div><b>${fmt(K.big)}</b><span>대형·특대 화분</span></div>
           <div><b>${fmt(K.small)}</b><span>소형·일반 화분</span></div>
@@ -313,7 +319,7 @@
     return `<button class="zn-x" onclick="ZONES.close()" aria-label="닫기">✕</button>
       <p class="eyebrow">${esc(z.b)} · ${esc(T_TXT[tKey(z)])}</p>
       <h3>${esc(z.fl == null ? z.z : flLabel(z.fl) + " " + z.sub)}</h3>
-      <div class="zn-ds zn-dk"><h6>관리 중점 · ${esc(KINDS[kindOf(z)].n)}</h6><b>${KINDS[kindOf(z)].ic} ${KINDS[kindOf(z)].f}</b><ul>${KINDS[kindOf(z)].pts.map((t) => `<li>${t}</li>`).join("")}</ul></div>
+      <div class="zn-ds zn-dk"><h6>관리 중점 · ${esc(KINDS[kindOf(z)].n)}</h6><b>${KINDS[kindOf(z)].f}</b><ul>${KINDS[kindOf(z)].pts.map((t) => `<li>${t}</li>`).join("")}</ul></div>
       <div class="zn-ds"><h6>관리 수량 · 총 ${tot(z)}개</h6><div class="zn-dg">${box || `<div><b>—</b><span>미기재</span></div>`}</div></div>
       ${z.pvP.length ? `<div class="zn-ds"><h6>수납장 식물</h6>${tags(z.pvP)}</div>` : ""}
       ${z.pbP.length ? `<div class="zn-ds"><h6>공용부 식물 · ${z.pbP.length}종</h6>${tags(z.pbP)}</div>` : ""}

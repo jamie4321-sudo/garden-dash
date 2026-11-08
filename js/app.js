@@ -1530,7 +1530,9 @@
 
   // 로그인 계정명(입장 게이트에서 저장) — 코멘트 작성자 식별
   function currentUser() { try { return (localStorage.getItem("garden-entry-who") || "").trim(); } catch (e) { return ""; } }
-  function canComment() { const u = currentUser(); return KAKAO_EDITORS.some((n) => u.indexOf(n) >= 0); }
+  // 코멘트: 카카오 담당자(조지·카렌) + 관리자(제이미·링키지랩)가 같은 화면으로 남김
+  function canComment() { const u = currentUser(); return KAKAO_EDITORS.some((n) => u.indexOf(n) >= 0) || isAdminUser(); }
+  function isKakaoName(n) { n = String(n || ""); return !n || n === "카카오" || KAKAO_EDITORS.some((k) => n.indexOf(k) >= 0); }
   function isAdminUser() { const u = currentUser(); return u === "관리자" || u.indexOf("제이미") >= 0 || u.indexOf("링키지랩") >= 0; }
   function authorHue(name) {
     name = name || "";
@@ -1738,7 +1740,7 @@
       const mine = !!c.author && c.author === me, canDel = mine || isAdminUser();
       if (mine && _mbCmEdit === i + ":" + ci) {
         return `<div class="mb-cbox is-edit">
-          <div class="mb-cbox__top"><span class="mb-who">${esc(c.author)}</span><span class="mb-cbox__t">코멘트 수정</span></div>
+          <div class="mb-cbox__top"><span class="mb-who${isKakaoName(c.author) ? "" : " is-lk"}">${esc(c.author)}</span><span class="mb-cbox__t">코멘트 수정</span></div>
           <textarea class="mb-cbox__ta" id="mb_ce_${i}_${ci}" rows="${Math.min(14, Math.max(4, Math.ceil(String(c.text).length / 34) + String(c.text).split(String.fromCharCode(10)).length))}"
             onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();GARDEN.mbCmEditSave(${i},${ci})}else if(event.key==='Escape'){GARDEN.mbCmEditCancel()}">${esc(c.text)}</textarea>
           <div class="mb-cbox__bot"><span class="mb-cbox__hint">줄바꿈 Shift + Enter · 저장 Enter</span><span class="mb-sp"></span>
@@ -1748,22 +1750,22 @@
       }
       return `<blockquote class="mb-q">
         <div class="mb-q__t">${esc(c.text)}</div>
-        <footer><span class="mb-who">${esc(c.author) || "카카오"}</span>${c.at ? `<span class="mb-at">${esc(meetShort(c.at) || c.at)}</span>` : ""}${heartBtn(c, i, ci)}
+        <footer><span class="mb-who${isKakaoName(c.author) ? "" : " is-lk"}">${esc(c.author) || "카카오"}</span>${c.at ? `<span class="mb-at">${esc(meetShort(c.at) || c.at)}</span>` : ""}${heartBtn(c, i, ci)}
           ${mine ? `<button class="mb-q__a" onclick="GARDEN.mbCmEdit(${i},${ci})">수정</button>` : ""}
           ${canDel ? `<button class="mb-q__a is-del" onclick="GARDEN.mrCommentDel(${i},${ci})">삭제</button>` : ""}</footer>
       </blockquote>`;
     }).join("")}</div>` : `<p class="mb-empty">아직 코멘트가 없어요.</p>`;
     let composer;
-    if (!canComment()) composer = `<p class="mb-lock">카카오 담당자(${KAKAO_EDITORS.join(" · ")})로 로그인하면 코멘트를 남길 수 있어요.</p>`;
+    if (!canComment()) composer = `<p class="mb-lock">카카오 담당자(${KAKAO_EDITORS.join(" · ")})와 관리자가 로그인하면 코멘트를 남길 수 있어요.</p>`;
     else if (_mbCmpOpen === i) composer = `<div class="mb-cbox">
-        <div class="mb-cbox__top"><span class="mb-who">${esc(me)}</span><span class="mb-cbox__t">${mo}월 리뷰 코멘트</span></div>
+        <div class="mb-cbox__top"><span class="mb-who${isKakaoName(me) ? "" : " is-lk"}">${esc(me)}</span><span class="mb-cbox__t">${mo}월 리뷰 코멘트</span></div>
         <textarea class="mb-cbox__ta" id="mr_cin_${i}" rows="4" placeholder="${mo}월 운영 리뷰에 대한 코멘트를 적어 주세요"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();GARDEN.mbCmtSend(${i})}else if(event.key==='Escape'){GARDEN.mbCmpClose()}"></textarea>
         <div class="mb-cbox__bot"><span class="mb-cbox__hint">줄바꿈 Shift + Enter · 보내기 Enter</span><span class="mb-sp"></span>
           <button class="mb-btn" onclick="GARDEN.mbCmpClose()">취소</button>
           <button class="mb-go" onclick="GARDEN.mbCmtSend(${i})" aria-label="코멘트 보내기">${MB_IC_GO}</button></div>
       </div>`;
-    else composer = `<button type="button" class="mb-cclosed" onclick="GARDEN.mbCmpOpen(${i})"><span class="mb-who">${esc(me)}</span><span class="mb-cclosed__ph">${mo}월 리뷰에 코멘트 남기기…</span><span class="mb-go is-sm" aria-hidden="true">${MB_IC_GO}</span></button>`;
+    else composer = `<button type="button" class="mb-cclosed" onclick="GARDEN.mbCmpOpen(${i})"><span class="mb-who${isKakaoName(me) ? "" : " is-lk"}">${esc(me)}</span><span class="mb-cclosed__ph">${mo}월 리뷰에 코멘트 남기기…</span><span class="mb-go is-sm" aria-hidden="true">${MB_IC_GO}</span></button>`;
     return `<h4 class="mb-lbl"><span class="mb-kk">kakao</span>코멘트 ${cm.length}</h4>${list}${composer}`;
   }
   function mbIssues(x, i) {
@@ -1778,6 +1780,7 @@
   }
   const MB_IC_RP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>';
   const MB_IC_DOC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>';
+  const MB_IC_MM = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
   const MB_IC_PDF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>';
   function mbCard(x, i) {
     const p = ymParts(x.month);
@@ -1791,7 +1794,7 @@
           <div class="mb-acts">
             ${x.docUrl ? `<a class="mb-btn" href="${esc(x.docUrl)}" target="_blank" rel="noopener" title="이 달 리뷰 자료 열기">${MB_IC_DOC}리뷰 자료</a>` : isAdminUser() ? `<button class="mb-btn is-dash" onclick="GARDEN.mbDoc(${i})" title="이 달 리뷰 자료(드라이브 파일·폴더) 링크 넣기">${MB_IC_DOC}리뷰 자료 연결</button>` : ""}
             ${x.docUrl && isAdminUser() ? `<button class="mb-ic" title="리뷰 자료 링크 바꾸기" onclick="GARDEN.mbDoc(${i})">🔗</button>` : ""}
-            ${minutesBtn(x, i)}
+            <button class="mb-btn" onclick="GARDEN.mmOpen(${i})" title="회의록 스튜디오 열기">${MB_IC_MM}회의록${(x.minutes || []).length ? `<span class="mb-btn__n">${(x.minutes || []).length}</span>` : ""}</button>
             <button class="mb-btn is-ink" onclick="GARDEN.mbReport(${i})">${MB_IC_RP}월간 리포트</button>
             <button class="mb-ic" title="리뷰 정보 수정 (월·미팅일·참석자)" onclick="GARDEN.monthlyEditOpen(${i})">✎</button>
             <button class="mb-ic" title="이 리뷰 삭제" onclick="GARDEN.mrDelete(${i})">✕</button>
@@ -3592,7 +3595,7 @@
           </div>
           <div class="mr-who">
             <span class="mr-who__dot" style="--hue:${authorHue(meN)}"></span>
-            ${meN ? `<b>${esc(meN)}</b> 계정으로 접속 중 · ${canComment() ? "코멘트 작성 가능" : "코멘트는 카카오 담당자(" + KAKAO_EDITORS.join(" · ") + ")만 남길 수 있어요"}` : "로그인 계정 정보 없음"}
+            ${meN ? `<b>${esc(meN)}</b> 계정으로 접속 중 · ${canComment() ? "코멘트 작성 가능" : "코멘트는 카카오 담당자(" + KAKAO_EDITORS.join(" · ") + ")와 관리자만 남길 수 있어요"}` : "로그인 계정 정보 없음"}
           </div>
           ${body}
         </section>`;
@@ -5129,7 +5132,7 @@
     },
     // 코멘트 등록 (카카오 담당자만)
     mrCommentAdd(i) {
-      if (!canComment()) { toast("카카오 담당자만 코멘트를 남길 수 있어요", true); return; }
+      if (!canComment()) { toast("카카오 담당자와 관리자만 코멘트를 남길 수 있어요", true); return; }
       const inp = document.getElementById("mr_cin_" + i); if (!inp) return;
       const text = (inp.value || "").trim(); if (!text) { inp.focus(); return; }
       const list = getMonthly(); if (!list[i]) return;

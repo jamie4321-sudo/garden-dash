@@ -17,7 +17,7 @@
     if (/[?&]embed=1/.test(location.search)) { document.documentElement.classList.add("gd-embed"); if (location.hash !== "#sla") location.hash = "#sla"; }</script>
   <style>.gd-embed .side, .gd-embed .topbar { display: none !important; } .gd-embed .layout { grid-template-columns: 1fr !important; } .gd-embed body { background: transparent; }</style>
   <link rel="stylesheet" href="css/issue-report.css?v=20261105c" />
-  <link rel="stylesheet" href="css/monthly-board.css?v=20261108b" />
+  <link rel="stylesheet" href="css/monthly-board.css?v=20261108d" />
 </head>
 <body>
   <div class="layout">
@@ -37,6 +37,7 @@
 
         <p class="nav__label">CREW</p>
         <a class="nav__item" data-view="crew" href="#crew">크루 로스터</a>
+        <a class="nav__item" data-view="schedule" href="#schedule">업무스케줄</a>
         <a class="nav__item" data-view="training" href="#training">크루 교육 관리</a>
         <a class="nav__item" data-view="issues" href="#issues">식물 이슈 관리</a>
         <a class="nav__item" data-view="settlement" href="#settlement">운영 정산 관리</a>
@@ -47,8 +48,6 @@
         <a class="nav__item" data-view="swaps" href="#swaps">교체 현황</a>
 
         <p class="nav__label">OPERATION</p>
-        <a class="nav__item" data-view="schedule" href="#schedule">업무스케줄</a>
-        <a class="nav__item" data-view="report" href="#report">월간리포트</a>
         <a class="nav__item" data-view="monthly" href="#monthly">월간 리뷰 보드</a>
         <a class="nav__item" data-view="sla" href="#sla">SLA</a>
 
@@ -91,6 +90,6 @@
   <script src="js/sla.js?v=20261106m"></script>
   <script src="js/gardener.js?v=20261104k"></script>
   <script src="js/issue-report.js?v=20261105c"></script>
-  <script src="js/app.js?v=20261108mc"></script>
+  <script src="js/app.js?v=20261108me"></script>
 </body>
 </html>

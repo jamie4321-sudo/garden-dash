@@ -82,13 +82,14 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=20261108n"></script>
+  <script src="js/config.js?v=20261108o"></script>
+  <script>/* Supabase(config.supabase.url)를 켰을 때만 supabase-js 를 받음 — 꺼져 있으면 첫 화면을 막지 않게 생략 */
+    if (window.CONFIG && CONFIG.supabase && CONFIG.supabase.url && CONFIG.supabase.anonKey) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
   <script src="js/data.js"></script>
   <script src="js/zones.js?v=20261108a"></script>
   <script src="js/sla.js?v=20261108b"></script>
   <script src="js/gardener.js?v=20261104k"></script>
   <script src="js/issue-report.js?v=20261105c"></script>
-  <script src="js/app.js?v=20261108n"></script>
+  <script src="js/app.js?v=20261108o"></script>
 </body>
 </html>

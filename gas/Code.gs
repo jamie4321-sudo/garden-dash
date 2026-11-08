@@ -87,6 +87,14 @@ function doGet(e) {
     return json_({ managers: readManagers_(SpreadsheetApp.openById(SHEET_ID)) });
   }
 
+  // 전체 응답 캐시(2분) — 시트 15개 넘게 읽느라 7~9초 걸리던 것을 캐시 적중 시 1~2초로.
+  // 화면에서 저장(doPost)하면 바로 지움 · 시트를 직접 고친 건 최대 2분 뒤 반영 · ?fresh=1 이면 캐시 무시
+  var allCache = CacheService.getScriptCache();
+  if (!(e && e.parameter && e.parameter.fresh === '1')) {
+    var allHit = allCache.get(ALL_CACHE_KEY_);
+    if (allHit) return ContentService.createTextOutput(allHit).setMimeType(ContentService.MimeType.JSON);
+  }
+
   const ss = SpreadsheetApp.openById(SHEET_ID);
   const out = {};
 
@@ -221,10 +229,14 @@ function doGet(e) {
     return r;
   });
 
+  var allPayload = JSON.stringify(out);
+  // CacheService 값 상한 100KB — 넘으면 캐시 생략(오류 없이)
+  try { if (allPayload.length < 95000) allCache.put(ALL_CACHE_KEY_, allPayload, 120); } catch (err) {}
   return ContentService
-    .createTextOutput(JSON.stringify(out))
+    .createTextOutput(allPayload)
     .setMimeType(ContentService.MimeType.JSON);
 }
+var ALL_CACHE_KEY_ = 'all_v1';
 
 /**
  * 웹 앱 POST — 화면 편집 내용을 시트에 저장(쓰기)
@@ -232,6 +244,7 @@ function doGet(e) {
  * (GitHub Pages 등 브라우저에서 no-cors 로 호출 → text/plain 본문)
  */
 function doPost(e) {
+  try { CacheService.getScriptCache().remove(ALL_CACHE_KEY_); } catch (errC) {} // 저장하면 전체 응답 캐시 비움
   try {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (body.type === 'weekBoard' && body.data) {

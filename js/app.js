@@ -3584,6 +3584,7 @@
       const meN = currentUser();
       const body = cur
         ? `<div class="mb-lay">${mbTimeline(cur)}<div class="mb-main" id="mbMain">${mbCard(cur.x, cur.i)}</div></div>`
+        : _booting ? sproutLoader("월간 리뷰 불러오는 중")
         : `<div class="mr-empty">
              <span class="mr-empty__mark">01</span>
              <p>첫 월간 리뷰를 시작해 보세요.</p>
@@ -5294,12 +5295,32 @@
   } catch (e) { applyTheme("light"); }
 
   /* ---------- data source: Apps Script API → fallback mock ---------- */
+  // 시트 전체 응답(약 60KB)을 이 기기에 저장해 두고, 다음 방문 땐 저장본으로 즉시 그린 뒤
+  // 뒤에서 새로 받아 바뀐 게 있을 때만 다시 그림 (stale-while-revalidate) — GAS 응답이 7~9초라서
+  const API_CACHE_KEY = "garden-api-cache";
+  let _apiCacheStr = "";
   function loadRemote() {
     const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
     if (!url) return; // API 미설정 → 목 데이터 유지
+    try {
+      const c = localStorage.getItem(API_CACHE_KEY);
+      if (c) { const j = JSON.parse(c); if (j && typeof j === "object") { _apiCacheStr = c; applyRemote(j); } }
+    } catch (e) { _apiCacheStr = ""; }
     fetch(url, { redirect: "follow" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((json) => {
+      .then((r) => (r.ok ? r.text() : Promise.reject(r.status)))
+      .then((txt) => {
+        if (_apiCacheStr && txt === _apiCacheStr) { _booting = false; return; } // 저장본과 같음 → 다시 그리지 않음
+        const json = JSON.parse(txt);
+        if (json && typeof json === "object") { try { localStorage.setItem(API_CACHE_KEY, txt); } catch (e) {} _apiCacheStr = txt; }
+        applyRemote(json);
+      })
+      .catch((err) => {
+        _booting = false;
+        console.warn("[GARDEN] API 로드 실패, " + (_apiCacheStr ? "저장본" : "목 데이터") + " 사용:", err);
+        if (!_apiCacheStr) render(currentView());       // 스켈레톤 해제 (빈 상태/목 데이터 표시)
+      });
+  }
+  function applyRemote(json) {
         _booting = false;
         if (json && typeof json === "object") {
           // 빈 값(빈 배열/빈 문자열)은 무시 → 백엔드 미설정 시 목 데이터 보존
@@ -5351,16 +5372,13 @@
           // 월간리포트도 시트가 항상 최신 소스(여러 이력 누적)
           _monthly = null;
           try { localStorage.removeItem(MR_KEY); } catch (e) {}
-          render(currentView());    // 다시 렌더
+          // 새 데이터가 늦게 도착했을 때 사용자가 입력 중이면 화면을 갈아엎지 않음(데이터만 바꿔 두고 다음 동작 때 반영)
+          const ae = document.activeElement;
+          const typing = ae && app.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && ae.type !== "button";
+          if (!typing) render(currentView());    // 다시 렌더
         } else {
           render(currentView());    // 스켈레톤 해제
         }
-      })
-      .catch((err) => {
-        _booting = false;
-        console.warn("[GARDEN] API 로드 실패, 목 데이터 사용:", err);
-        render(currentView());       // 스켈레톤 해제 (빈 상태/목 데이터 표시)
-      });
   }
 
   /* ---------- data source: Supabase (이관된 화면만) ---------- */

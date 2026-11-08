@@ -1792,7 +1792,7 @@
         <div class="mb-hd">
           <label class="mb-att"><span>참석</span><input type="text" value="${esc(x.attendees)}" placeholder="참석자 입력" data-i="${i}" onblur="GARDEN.mrField(this,'attendees')"/></label>
           <div class="mb-acts">
-            ${x.docUrl ? `<a class="mb-btn" href="${esc(x.docUrl)}" target="_blank" rel="noopener" title="이 달 리뷰 자료 열기">${MB_IC_DOC}리뷰 자료</a>` : isAdminUser() ? `<button class="mb-btn is-dash" onclick="GARDEN.mbDoc(${i})" title="이 달 리뷰 자료(드라이브 파일·폴더) 링크 넣기">${MB_IC_DOC}리뷰 자료 연결</button>` : ""}
+            ${x.docUrl ? `<a class="mb-btn" href="${esc(x.docUrl)}" target="_blank" rel="noopener" title="${+p.mo}월 리뷰 자료 열기">${MB_IC_DOC}${+p.mo}월 리뷰 자료</a>` : isAdminUser() ? `<button class="mb-btn is-dash" onclick="GARDEN.mbDoc(${i})" title="이 달 리뷰 자료(드라이브 파일·폴더) 링크 넣기">${MB_IC_DOC}${+p.mo}월 리뷰 자료 연결</button>` : ""}
             ${x.docUrl && isAdminUser() ? `<button class="mb-ic" title="리뷰 자료 링크 바꾸기" onclick="GARDEN.mbDoc(${i})">🔗</button>` : ""}
             <button class="mb-btn" onclick="GARDEN.mmOpen(${i})" title="회의록 스튜디오 열기">${MB_IC_MM}회의록${(x.minutes || []).length ? `<span class="mb-btn__n">${(x.minutes || []).length}</span>` : ""}</button>
             <button class="mb-btn is-ink" onclick="GARDEN.mbReport(${i})">${MB_IC_RP}월간 리포트</button>

@@ -23,7 +23,7 @@ const SAFETY_MANUAL_FOLDER_ID = '1PanMWvGIrZccCtg4f9PqhtHZSfz4FWfm';
 /* ---------- 탭 헤더 정의 (데모 데이터 없음 — 헤더만) ---------- */
 const SEED = {
   meta:      [['key', 'value']],
-  crew:      [['name', 'role', 'store', 'status', 'since', 'disability', 'tags', 'left', 'memo']],
+  crew:      [['name', 'role', 'store', 'status', 'since', 'disability', 'tags', 'left', 'memo', 'good', 'talk', 'spot']],
   board:     [['area', 'color', 'mon', 'tue', 'wed', 'thu', 'fri']],
   boardMeta: [['key', 'value']],
 };
@@ -418,12 +418,13 @@ function saveCrewTab_(arr) {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sh = ss.getSheetByName('crew') || ss.insertSheet('crew');
     sh.clear();
-    var head = ['name', 'role', 'store', 'status', 'since', 'disability', 'tags', 'left', 'memo'];
+    var head = ['name', 'role', 'store', 'status', 'since', 'disability', 'tags', 'left', 'memo', 'good', 'talk', 'spot']; // good·talk·spot = 크루 특징(잘하는 일·소통 방법·주로 맡는 곳)
     var rows = [head];
     (arr || []).forEach(function (c) {
       var tags = Array.isArray(c.tags) ? c.tags.join(',') : (c.tags || '');
       rows.push([c.name || '', c.role || '', c.store || '', c.status || 'active',
-        c.since || '', c.disability || '', tags, c.left || '', c.memo || '']);
+        c.since || '', c.disability || '', tags, c.left || '', c.memo || '',
+        c.good || '', c.talk || '', c.spot || '']);
     });
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, head.length).setValues(rows);

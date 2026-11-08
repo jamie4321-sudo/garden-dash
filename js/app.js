@@ -2210,7 +2210,6 @@
         <div>
           <p class="mr-eyebrow">AGIT GARDEN<span>·</span>MONTHLY REPORT</p>
           <h2 class="rp-title">${r.y}년 ${r.m}월 운영 리포트</h2>
-          <p class="mr-lead">식물 이슈 · 운영 정산 · 산업안전 기록을 월 단위로 자동 집계합니다. 각 메뉴에 입력한 내용이 그대로 반영돼요.</p>
         </div>
         <div class="rp-head__r">
           <div class="rp-mnav">
@@ -3270,8 +3269,7 @@
     return `
       <section class="view">
         <div class="page-head">
-          <div><p class="eyebrow">Crew · 안전</p><h2>체감온도기록</h2>
-            <p class="sub">온도·습도를 넣으면 체감온도가 자동 계산돼요 · 주말·공휴일은 자동으로 빠져요</p></div>
+          <div><p class="eyebrow">Crew · 안전</p><h2>체감온도기록</h2></div>
         </div>
         <div class="ht-entry">
           <button type="button" class="fbtn fbtn--care fbtn--big" onclick="GARDEN.heatFlowOpen()">${FB_HEAT}<span class="ft"><b>체감온도 기록하기</b><small>온도계 숫자만 넣으면 끝 · 체감온도 자동 계산</small></span>${FB_ARROW}</button>
@@ -3329,8 +3327,7 @@
   }
   const stDay = (s) => { if (!s) return "—"; const [y, m, d] = s.split("-"); return `${y}. ${+m}. ${+d}.`; };
   function settingsViewHTML() {
-    const head = `<div class="page-head"><div><p class="eyebrow">System · 설정</p><h2>관리자 설정</h2>
-      <p class="sub">아이디와 비밀번호를 정해 계정을 만들고 권한을 줘요. 관리자만 이 화면을 볼 수 있어요.</p></div></div>`;
+    const head = `<div class="page-head"><div><p class="eyebrow">System · 설정</p><h2>관리자 설정</h2></div></div>`;
     if (!isAdminRole() && !_adminOK) {
       return `<section class="view">${head}
         <div class="dash-card st-lock"><h3>관리자만 볼 수 있어요</h3>
@@ -3533,8 +3530,7 @@
       return `
         <section class="view">
           <div class="page-head">
-            <div><p class="eyebrow">Operation</p><h2>월간 스케줄</h2>
-              <p class="sub">매주 반복 · 월–금 상시 스케줄 · 관리 위치 동일</p></div>
+            <div><p class="eyebrow">Operation</p><h2>월간 스케줄</h2></div>
             <div class="seg">
               <button class="btn btn--sm" onclick="GARDEN.wbReset()">초기화</button>
               <button class="btn btn--primary btn--sm" onclick="GARDEN.wbAddArea()">＋ 영역 추가</button>
@@ -3562,8 +3558,7 @@
       return `
         <section class="view">
           <div class="page-head">
-            <div><p class="eyebrow">Operation</p><h2>매출 리포트</h2>
-              <p class="sub">매장별 · 추이 분석</p></div>
+            <div><p class="eyebrow">Operation</p><h2>매출 리포트</h2></div>
           </div>
           <div class="dash-grid">${bars(D.storeSales)}${spark(D.weekTrend)}</div>
         </section>`;
@@ -3585,17 +3580,12 @@
             <div class="mr-top__l">
               <p class="mr-eyebrow">KAKAO<span>×</span>LINKAGELAB · MONTHLY REVIEW</p>
               <h2 class="mr-title">월간 리뷰 보드</h2>
-              <p class="mr-lead">달마다 운영 리뷰와 카카오 코멘트를 남겨요. 숫자와 PDF는 월간 리포트 버튼에서 열어요.</p>
             </div>
             <div class="mr-top__r">
               <a class="mr-drive" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">
                 <span class="mr-drive__ic">↗</span><span class="mr-drive__t">리뷰 자료 드라이브</span></a>
               <button class="mr-new" onclick="GARDEN.monthlyAddOpen()"><span>＋</span> 리뷰 열기</button>
             </div>
-          </div>
-          <div class="mr-who">
-            <span class="mr-who__dot" style="--hue:${authorHue(meN)}"></span>
-            ${meN ? `<b>${esc(meN)}</b> 계정으로 접속 중 · ${canComment() ? "코멘트 작성 가능" : "코멘트는 카카오 담당자(" + KAKAO_EDITORS.join(" · ") + ")와 관리자만 남길 수 있어요"}` : "로그인 계정 정보 없음"}
           </div>
           ${body}
         </section>`;
@@ -3613,7 +3603,7 @@
           <div class="gg-layout">
             <div class="gg-main">
               <div class="gg-head">
-                <div><h1>아지트 식물 교체</h1><p>링키지랩 가드너가 관리하는 아지트 식물의 교체 전후 기록이에요.</p></div>
+                <div><h1>아지트 식물 교체</h1></div>
                 <button type="button" class="gg-rec" onclick="GARDEN.swapFlowOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>교체 기록하기</button>
               </div>
               ${swSummary(all)}
@@ -3657,8 +3647,7 @@
       return `
         <section class="view">
           <div class="page-head">
-            <div><p class="eyebrow">Crew · 식물 관리</p><h2>식물 상태 점검</h2>
-              <p class="sub">구역별 체크리스트로 점검하고 이슈를 기록합니다 · 2개월 주기 (2·4·7·10·12월)</p></div>
+            <div><p class="eyebrow">Crew · 식물 관리</p><h2>식물 상태 점검</h2></div>
             <div class="seg">
               ${_plantAdmin
                 ? `<span class="plant-admin-badge">관리자</span><button class="btn btn--sm" onclick="GARDEN.plantReset()">초기화</button><button class="btn btn--sm" onclick="GARDEN.plantAdminExit()">관리자 해제</button>`
@@ -3689,8 +3678,7 @@
       return `
         <section class="view">
           <div class="page-head">
-            <div><p class="eyebrow">Crew · 시설</p><h2>각층 현황</h2>
-              <p class="sub">층별 현장 사진을 구글 드라이브에서 불러옵니다 · 담당자 업로드 즉시 반영</p></div>
+            <div><p class="eyebrow">Crew · 시설</p><h2>각층 현황</h2></div>
             <div class="seg">
               <a class="btn btn--sm" href="https://drive.google.com/drive/folders/${FLOOR_PARENT}" target="_blank" rel="noopener">🔗 드라이브 열기</a>
               <button class="btn btn--primary btn--sm" onclick="GARDEN.loadFloors(true)">↻ 새로고침</button>
@@ -3730,8 +3718,7 @@
       return `
         <section class="view">
           <div class="page-head">
-            <div><p class="eyebrow">Crew · 안전</p><h2>산업안전보건</h2>
-              <p class="sub">정기회의 · 정기 안전점검 · 안전매뉴얼</p></div>
+            <div><p class="eyebrow">Crew · 안전</p><h2>산업안전보건</h2></div>
             <div class="seg" style="margin-left:auto;flex-wrap:wrap">
               <a class="btn btn--sm sf-quick" id="safetyFolderBtn" href="${folderUrl || "#"}"
                  target="_blank" rel="noopener"${folderUrl ? "" : ' style="display:none"'}>📁 안전매뉴얼 폴더</a>
@@ -3844,8 +3831,7 @@
       return `
         <section class="view">
           <div class="page-head">
-            <div><p class="eyebrow">Crew · 교육</p><h2>크루 교육 관리</h2>
-              <p class="sub">4대 법정의무교육 이수 현황</p></div>
+            <div><p class="eyebrow">Crew · 교육</p><h2>크루 교육 관리</h2></div>
             <div class="seg">
               ${EDU_DRIVE_URL ? `<a class="btn btn--sm" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">🔗 이수증 확인</a>` : ""}
               ${(window.CONFIG && window.CONFIG.CREW_SIGN_URL) ? `<a class="btn btn--sm sf-quick" href="${window.CONFIG.CREW_SIGN_URL}" target="_blank" rel="noopener">✍️ 크루 서명받기</a>` : ""}
@@ -3889,8 +3875,7 @@
       return `
         <section class="view stl">
           <div class="page-head">
-            <div><p class="eyebrow">Operation</p><h2>운영 정산 관리</h2>
-              <p class="sub">비용 집행 내역과 명세서를 관리합니다 · 행을 누르면 상세가 열립니다</p></div>
+            <div><p class="eyebrow">Operation</p><h2>운영 정산 관리</h2></div>
             <div class="seg">
               ${SETTLE_DRIVE_URL ? `<a class="btn btn--sm" href="${SETTLE_DRIVE_URL}" target="_blank" rel="noopener">🔗 명세서 폴더</a>` : ""}
               <button class="btn btn--sm" onclick="GARDEN.settleCsv()">CSV 내보내기</button>

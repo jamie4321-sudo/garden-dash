@@ -204,7 +204,7 @@
         <div class="ze-l"><div class="ze-eye">AGIT GARDEN · ZONE STATUS</div>
           <div class="ze-big">${fmt(K.total)}<small>개</small></div>
           <h3 class="ze-h">카카오 아지트 <em>${fmt(K.total)}개</em> 식물을 관리하고 있어요</h3>
-          <p class="ze-sub">A동·B동·공용부 ${Z.length}개 구역 · ${sp}종 · 오전엔 업무 층, 오후엔 카페·로비·정원</p></div>
+          <p class="ze-sub">A동·B동·공용부 ${Z.length}개 구역 · ${sp}종</p></div>
         <div class="ze-k">
           <div><b>${fmt(K.box)}</b><span>수납장 플랜트박스</span></div>
           <div><b>${fmt(K.big)}</b><span>대형·특대 화분</span></div>

@@ -404,8 +404,7 @@
   const head = () => {
     const halves = [[1, "상반기"], [2, "하반기"]];
     return `<div class="page-head">
-      <div><p class="eyebrow">Operation · SLA</p><h2>조경관리 SLA</h2>
-        <p class="sub">카카오 아지트 · 우리가 서비스를 얼마나 잘 했는지 — 대시보드 기록으로 확인하고 가채점해요</p></div>
+      <div><p class="eyebrow">Operation · SLA</p><h2>조경관리 SLA</h2></div>
       <div class="sl-head-r">
         <div class="sl-seg"><button onclick="SLA.year(-1)" aria-label="이전 해">‹</button><b>${S.year}</b><button onclick="SLA.year(1)" aria-label="다음 해">›</button></div>
         <div class="sl-seg">${halves.map(([h, t]) => `<button class="${S.half === h ? "is-on" : ""}" onclick="SLA.half(${h})">${t}</button>`).join("")}</div>

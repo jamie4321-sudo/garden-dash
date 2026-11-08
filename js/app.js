@@ -2906,7 +2906,7 @@
         temp: x.temp === "" || x.temp == null ? "" : Number(x.temp),
         hum: x.hum === "" || x.hum == null ? "" : Number(x.hum),
         wind: x.wind === "" || x.wind == null ? "" : Number(x.wind),
-        by: x.by || "", action: x.action || "", memo: x.memo || "", created: Number(x.created) || 0,
+        by: x.by || "", action: x.action || "", memo: x.memo || "", created: Number(x.created) || 0, photo: String(x.photo || ""),
       };
       r.feel = htFeel(r.date, r.temp, r.hum, r.wind);
       return r;
@@ -2937,6 +2937,26 @@
     }, 600);
   }
   function reHeat() { if (currentView() === "heat") app.innerHTML = views.heat(); }
+  // 아지트 가드너 앱에서 넣은 기록도 같은 시트(heatLogs)에 들어와요 → 이 화면을 보는 동안 열 때 한 번 + 1분마다 시트를 다시 읽어요
+  let _htPullAt = 0, _htPulling = false;
+  function htPull(force) {
+    const url = (window.CONFIG && window.CONFIG.API_URL || "").trim();
+    if (!url || _htPulling || (!force && Date.now() - _htPullAt < 20000)) return;
+    _htPulling = true; _htPullAt = Date.now();
+    fetch(url + (url.indexOf("?") >= 0 ? "&" : "?") + "action=heat&t=" + Date.now(), { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j || !Array.isArray(j.heatLogs)) return;
+        const before = JSON.stringify((_heat || []).map((x) => x.id + x.temp + x.hum + x.time).sort());
+        D.heatLogs = j.heatLogs; _heat = null;
+        const after = JSON.stringify(getHeat().map((x) => x.id + x.temp + x.hum + x.time).sort());
+        const busy = document.querySelector(".gmodal") || (document.getElementById("htFlow") && !document.getElementById("htFlow").hidden);
+        if (before !== after && !busy) reHeat();
+      })
+      .catch(() => {})
+      .finally(() => { _htPulling = false; });
+  }
+  setInterval(() => { if (currentView() === "heat" && document.visibilityState === "visible") htPull(true); }, 60 * 1000);
 
   /* ── 공휴일 — 관공서 공휴일(대체공휴일·임시공휴일 포함) ──
      온라인: Nager.Date 공개 API(대한민국 공휴일) → 이 기기에 저장
@@ -3048,7 +3068,7 @@
         return `<tr><td>${htDayLabel(x.date)}</td><td>${esc(x.time) || "—"}</td><td>${esc(x.place)}${x.zone ? ` · ${esc(x.zone)}` : ""}</td>
           <td class="num">${htNum(x.temp, "℃")}</td><td class="num">${htNum(x.hum, "%")}</td>${r.summer ? "" : `<td class="num">${htNum(x.wind, "m/s")}</td>`}
           <td class="num"><b>${x.feel == null ? "—" : x.feel + "℃"}</b></td><td><span class="ht-tag ht-lv--${lv[2]}">${lv[0]}</span></td>
-          <td>${esc(x.by) || "—"}</td><td>${esc([x.action, x.memo].filter(Boolean).join(" · ")) || "—"}</td>
+          <td>${esc(x.by) || "—"}${x.photo && !forPrint ? ` <a class="ht-photo" href="${esc(x.photo.split(String.fromCharCode(10))[0])}" target="_blank" rel="noopener" title="온도계 사진 보기">사진</a>` : ""}</td><td>${esc([x.action, x.memo].filter(Boolean).join(" · ")) || "—"}</td>
           ${forPrint ? "" : `<td><button class="btn btn--sm" onclick="GARDEN.heatEdit(${i})">수정</button></td>`}</tr>`;
       }).join("")}</tbody></table></div>`;
   }
@@ -3689,7 +3709,7 @@
         </section>`;
     },
 
-    heat() { return heatViewHTML(); },
+    heat() { setTimeout(() => htPull(false), 0); return heatViewHTML(); },
     sla() { return window.SLA ? SLA.html() : ""; },
     settings() { return settingsViewHTML(); },
     safety() {

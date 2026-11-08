@@ -74,6 +74,14 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.action === 'sla') {
     return json_({ sla: readSla_() });
   }
+  // 체감온도기록 전용 경량 응답 (아지트 가드너 앱 · 대시보드 1분 새로고침이 함께 씀)
+  if (e && e.parameter && e.parameter.action === 'heat') {
+    return json_({ heatLogs: rows_(SpreadsheetApp.openById(SHEET_ID), 'heatLogs').map(function (r) {
+      r.date = dateStr_(r.date);
+      if (r.time instanceof Date) r.time = Utilities.formatDate(r.time, Session.getScriptTimeZone(), 'HH:mm');
+      return r;
+    }) });
+  }
   // 담당자(입장 비밀번호) 전용 경량 응답
   if (e && e.parameter && e.parameter.action === 'managers') {
     return json_({ managers: readManagers_(SpreadsheetApp.openById(SHEET_ID)) });
@@ -518,7 +526,7 @@ function saveHeatLogs_(arr, deleted) {
   try {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sh = ss.getSheetByName('heatLogs') || ss.insertSheet('heatLogs');
-    var head = ['id', 'date', 'time', 'place', 'zone', 'temp', 'hum', 'wind', 'feel', 'by', 'action', 'memo', 'created'];
+    var head = ['id', 'date', 'time', 'place', 'zone', 'temp', 'hum', 'wind', 'feel', 'by', 'action', 'memo', 'created', 'photo'];
     var byId = {}, order = [];
     rows_(ss, 'heatLogs').forEach(function (r) {
       var id = String(r.id || ''); if (!id) return;

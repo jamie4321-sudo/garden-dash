@@ -157,3 +157,7 @@
 /* 산업안전보건 머리 · 체감온도기록 버튼 (리뷰 자료 버튼과 같은 결) */
 .sf-heat { display: inline-flex; align-items: center; gap: 6px; }
 .sf-heat svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 체감온도기록 표 · 가드너 앱에서 올린 온도계 사진 */
+.ht-photo { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; background: var(--panel-2); color: var(--accent-text); font-size: 11.5px; font-weight: 800; text-decoration: none; margin-left: 4px; }
+.ht-photo:hover { background: var(--accent); color: var(--accent-ink, #16160f); }

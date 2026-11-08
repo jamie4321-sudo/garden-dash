@@ -3514,7 +3514,6 @@
       const outY = list.filter((c) => c.status === "out" && String(c.left || "").startsWith(String(year))).length;
       const MO = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
       const seg = _crewSeg;
-      const nLeave = working.filter(({ c }) => c.status === "leave").length;
 
       const tile = ({ c, i }, k) => {
         const a = cmAnniv(c);
@@ -3545,8 +3544,7 @@
             <button class="btn btn--primary btn--sm" onclick="GARDEN.crewAddOpen()">＋ 크루 등록</button>
           </div>
           <div class="cm-iss"><span>VOL.${year} · ${MO[_now.getMonth()]} ISSUE</span><i></i><span>AGIT GARDEN CREW</span></div>
-          <h3 class="cm-hl">지금 정원을 가꾸는 <em>${active.length}명</em></h3>
-          <p class="cm-dek">카카오 아지트 조경을 맡은 링키지랩 가든 크루예요.${nLeave ? ` 휴직 중인 크루 ${nLeave}명도 함께예요.` : ""}</p>
+          <h3 class="cm-hl">아지트 가든을 가꾸는 <em>가드너</em></h3>
           <div class="cm-st">
             <div><small>장애 크루</small><b>${disN}<span>명</span></b><em>재직자의 ${active.length ? Math.round((disN / active.length) * 100) : 0}%</em></div>
             <div><small>평균 근속</small><b>${avg}<span>개월</span></b><em>${Math.floor(avg / 12) ? Math.floor(avg / 12) + "년 " : ""}${avg % 12}개월 · 재직자 기준</em></div>

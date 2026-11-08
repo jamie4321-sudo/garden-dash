@@ -3521,9 +3521,9 @@
         const q = [c.name, c.role, c.store, c.disability, tg.join(" "), c.memo].join(" ").toLowerCase();
         return `<article class="cm-tile" data-q="${esc(q)}" onclick="GARDEN.crewPop(${i})" tabindex="0" onkeydown="if(event.key==='Enter')GARDEN.crewPop(${i})">
           <div class="cm-tile__tp"><span>No.${String(k + 1).padStart(2, "0")}</span><span>${esc(c.role || "")}</span></div>
-          <div class="cm-tile__big"><b>${cmMonths(c)}</b><small>MONTHS WITH US</small></div>
           <h4>${esc(c.name)}</h4>
           <div class="cm-tile__chips">${c.status === "leave" ? `<span class="cm-chip cm-chip--leave">휴직</span>` : ""}${c.disability ? `<span class="cm-chip">${esc(c.disability)}</span>` : ""}${tg.map((t) => `<span class="cm-chip">${esc(t)}</span>`).join("")}${c.memo ? `<span class="cm-mdot">메모</span>` : ""}</div>
+          <div class="cm-tile__big"><b>${cmMonths(c)}</b><small>MONTHS<br>WITH US</small></div>
           ${a ? `<div class="cm-tile__anv"><div><span>입사 ${a.n}주년 · ${a.d.getMonth() + 1}/${a.d.getDate()}</span><b>${a.left === 0 ? "오늘" : "D-" + a.left}</b></div><i><em style="width:${a.pct}%"></em></i></div>` : ""}
         </article>`;
       };

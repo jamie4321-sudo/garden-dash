@@ -27,11 +27,12 @@
 .cm-tile:hover, .cm-tile:focus-visible { transform: translateY(-4px); box-shadow: inset 0 0 0 1.5px var(--accent), 0 18px 34px -22px rgba(20,22,10,.45); }
 .cm-tile:active { transform: translateY(-1px) scale(.99); }
 .cm-tile__tp { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; font-weight: 900; letter-spacing: .1em; color: var(--ink-3); }
-.cm-tile__big { margin-top: 14px; }
-.cm-tile__big b { display: block; font-size: 128px; font-weight: 900; letter-spacing: -.07em; line-height: .85; color: transparent; -webkit-text-stroke: 2px var(--ink); font-variant-numeric: tabular-nums; transition: color .25s; }
+/* 1안: 이름 위 크게 · 근속 숫자는 아래 한 줄(외곽선) */
+.cm-tile h4 { margin: 18px 0 0; font-size: 56px; font-weight: 900; letter-spacing: -.05em; line-height: 1; overflow-wrap: anywhere; }
+.cm-tile__big { margin-top: auto; padding-top: 16px; display: flex; align-items: flex-end; gap: 10px; }
+.cm-tile__big b { font-size: 76px; font-weight: 900; letter-spacing: -.06em; line-height: .8; color: transparent; -webkit-text-stroke: 2px var(--ink); font-variant-numeric: tabular-nums; transition: color .25s; }
 .cm-tile:hover .cm-tile__big b, .cm-tile:focus-visible .cm-tile__big b { color: var(--accent); }
-.cm-tile__big small { display: block; margin-top: 10px; font-size: 11px; font-weight: 900; letter-spacing: .18em; color: var(--ink-3); }
-.cm-tile h4 { margin: auto 0 0; padding-top: 18px; font-size: 44px; font-weight: 900; letter-spacing: -.05em; line-height: 1; }
+.cm-tile__big small { font-size: 11px; font-weight: 900; letter-spacing: .18em; line-height: 1.4; color: var(--ink-3); padding-bottom: 1px; }
 .cm-tile__chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 12px; align-items: center; }
 .cm-chip { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--panel-2); font-size: 12px; font-weight: 800; color: var(--ink-2); white-space: nowrap; }
 .cm-chip--leave { background: var(--ink); color: var(--panel); }
@@ -130,7 +131,7 @@
 @media (max-width: 560px) {
   .cm-grid { grid-template-columns: 1fr; }
   .cm-tile { min-height: 300px; }
-  .cm-tile__big b { font-size: 96px; }
+  .cm-tile h4 { font-size: 46px; }
   .cm-st b { font-size: 30px; }
   .cm-st > div { padding: 12px 10px; }
   .cm-credits { grid-template-columns: 1fr; }

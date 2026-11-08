@@ -192,6 +192,7 @@ function doGet(e) {
       meetingDate: dateStr_(r.meetingDate),
       attendees: r.attendees || '',
       issues: r.issues || '',
+      docUrl: String(r.docUrl || ''),
       comments: comments,
       minutes: minutes,
     };
@@ -661,12 +662,12 @@ function saveMonthlyReports_(arr) {
     var ss = SpreadsheetApp.openById(SHEET_ID);
     var sh = ss.getSheetByName('monthlyReports') || ss.insertSheet('monthlyReports');
     sh.clear();
-    var head = ['month', 'meetingDate', 'attendees', 'issues', 'commentsJson', 'minutesJson'];
+    var head = ['month', 'meetingDate', 'attendees', 'issues', 'commentsJson', 'minutesJson', 'docUrl'];
     var rows = [head];
     (arr || []).forEach(function (x) {
       var comments = (x && x.comments && x.comments.length) ? JSON.stringify(x.comments) : '';
       var minutes = (x && x.minutes && x.minutes.length) ? JSON.stringify(x.minutes) : '';
-      rows.push([x.month || '', x.meetingDate || '', x.attendees || '', x.issues || '', comments, minutes]);
+      rows.push([x.month || '', x.meetingDate || '', x.attendees || '', x.issues || '', comments, minutes, x.docUrl || '']);
     });
     sh.getRange(1, 1, sh.getMaxRows(), head.length).setNumberFormat('@');
     sh.getRange(1, 1, rows.length, head.length).setValues(rows);

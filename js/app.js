@@ -1558,7 +1558,7 @@
       minutes = normalizeMinutes(minutes);
       return {
         month: x.month || "", meetingDate: x.meetingDate || "", attendees: x.attendees || "",
-        issues: x.issues || "", comments, minutes,
+        issues: x.issues || "", docUrl: x.docUrl || "", comments, minutes,
       };
     });
   }
@@ -1704,6 +1704,128 @@
         </div>
       </div>
     </article>`;
+  }
+
+  /* ===== 월간 리뷰 보드 v2 (2026-11-08) — 왼쪽 세로 타임라인 + 고른 달 카드 · 월간 리포트 팝업(안에 리뷰+리포트 PDF) ===== */
+  let _mbSel = "", _mbIssEdit = -1;
+  function mbList() { return getMonthly().map((x, i) => ({ x, i })).sort((a, b) => (a.x.month < b.x.month ? 1 : a.x.month > b.x.month ? -1 : 0)); }
+  function mbCur() {
+    const L = mbList(); if (!L.length) return null;
+    return L.find((o) => o.x.month === _mbSel) || L[0];
+  }
+  function mbIssItems(t) { return String(t || "").split(/\n+|\s+,\s*/).map((v) => v.trim()).filter(Boolean); }
+  function mbNextYm(ym) { const m = String(ym).match(/^(\d{4})-(\d{2})$/); if (!m) return ""; const t = rpShift(+m[1], +m[2], 1); return rpYm(t.y, t.m); }
+  function mbTimeline(cur) {
+    const L = mbList(); if (!L.length) return "";
+    const nxP = ymParts(mbNextYm(L[0].x.month));
+    let yr = nxP.yr;
+    let html = '<nav class="mb-tl" aria-label="리뷰 월 선택"><div class="mb-tl__yr">' + yr + '</div><div class="mb-tl__ln">';
+    html += `<button type="button" class="mb-tl__it is-next" onclick="GARDEN.monthlyAddOpen()" title="다음 달 리뷰 열기"><b>${+nxP.mo}월</b><small>리뷰 열기</small></button>`;
+    L.forEach(({ x }) => {
+      const p = ymParts(x.month);
+      if (p.yr !== yr) { yr = p.yr; html += '</div><div class="mb-tl__yr">' + yr + '</div><div class="mb-tl__ln">'; }
+      const n = (x.comments || []).length, on = cur && cur.x.month === x.month;
+      html += `<button type="button" class="mb-tl__it${n ? " is-done" : ""}${on ? " is-on" : ""}" onclick="GARDEN.mbSel('${esc(x.month)}')"${on ? ' aria-current="true"' : ""}>`
+        + `<b>${+p.mo}월</b><small>${x.meetingDate ? "미팅 " + esc(meetShort(x.meetingDate)) : "미팅 미정"}</small>${n ? `<span class="mb-tl__n">${n}</span>` : ""}</button>`;
+    });
+    return html + "</div></nav>";
+  }
+  const MB_IC_GO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  let _mbCmpOpen = -1, _mbCmEdit = "";
+  function mbFeedback(x, i) {
+    const cm = x.comments || [], me = currentUser(), mo = +ymParts(x.month).mo;
+    const list = cm.length ? `<div class="mb-fb">${cm.map((c, ci) => {
+      const mine = !!c.author && c.author === me, canDel = mine || isAdminUser();
+      if (mine && _mbCmEdit === i + ":" + ci) {
+        return `<div class="mb-cbox is-edit">
+          <div class="mb-cbox__top"><span class="mb-who">${esc(c.author)}</span><span class="mb-cbox__t">코멘트 수정</span></div>
+          <textarea class="mb-cbox__ta" id="mb_ce_${i}_${ci}" rows="${Math.min(14, Math.max(4, Math.ceil(String(c.text).length / 34) + String(c.text).split(String.fromCharCode(10)).length))}"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();GARDEN.mbCmEditSave(${i},${ci})}else if(event.key==='Escape'){GARDEN.mbCmEditCancel()}">${esc(c.text)}</textarea>
+          <div class="mb-cbox__bot"><span class="mb-cbox__hint">줄바꿈 Shift + Enter · 저장 Enter</span><span class="mb-sp"></span>
+            <button class="mb-btn" onclick="GARDEN.mbCmEditCancel()">취소</button>
+            <button class="mb-go" onclick="GARDEN.mbCmEditSave(${i},${ci})" aria-label="수정 저장">${MB_IC_GO}</button></div>
+        </div>`;
+      }
+      return `<blockquote class="mb-q">
+        <div class="mb-q__t">${esc(c.text)}</div>
+        <footer><span class="mb-who">${esc(c.author) || "카카오"}</span>${c.at ? `<span class="mb-at">${esc(meetShort(c.at) || c.at)}</span>` : ""}${heartBtn(c, i, ci)}
+          ${mine ? `<button class="mb-q__a" onclick="GARDEN.mbCmEdit(${i},${ci})">수정</button>` : ""}
+          ${canDel ? `<button class="mb-q__a is-del" onclick="GARDEN.mrCommentDel(${i},${ci})">삭제</button>` : ""}</footer>
+      </blockquote>`;
+    }).join("")}</div>` : `<p class="mb-empty">아직 코멘트가 없어요.</p>`;
+    let composer;
+    if (!canComment()) composer = `<p class="mb-lock">카카오 담당자(${KAKAO_EDITORS.join(" · ")})로 로그인하면 코멘트를 남길 수 있어요.</p>`;
+    else if (_mbCmpOpen === i) composer = `<div class="mb-cbox">
+        <div class="mb-cbox__top"><span class="mb-who">${esc(me)}</span><span class="mb-cbox__t">${mo}월 리뷰 코멘트</span></div>
+        <textarea class="mb-cbox__ta" id="mr_cin_${i}" rows="4" placeholder="${mo}월 운영 리뷰에 대한 코멘트를 적어 주세요"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();GARDEN.mbCmtSend(${i})}else if(event.key==='Escape'){GARDEN.mbCmpClose()}"></textarea>
+        <div class="mb-cbox__bot"><span class="mb-cbox__hint">줄바꿈 Shift + Enter · 보내기 Enter</span><span class="mb-sp"></span>
+          <button class="mb-btn" onclick="GARDEN.mbCmpClose()">취소</button>
+          <button class="mb-go" onclick="GARDEN.mbCmtSend(${i})" aria-label="코멘트 보내기">${MB_IC_GO}</button></div>
+      </div>`;
+    else composer = `<button type="button" class="mb-cclosed" onclick="GARDEN.mbCmpOpen(${i})"><span class="mb-who">${esc(me)}</span><span class="mb-cclosed__ph">${mo}월 리뷰에 코멘트 남기기…</span><span class="mb-go is-sm" aria-hidden="true">${MB_IC_GO}</span></button>`;
+    return `<h4 class="mb-lbl"><span class="mb-kk">kakao</span>코멘트 ${cm.length}</h4>${list}${composer}`;
+  }
+  function mbIssues(x, i) {
+    if (_mbIssEdit === i) {
+      return `<h4 class="mb-lbl">운영 리뷰</h4>
+        <textarea class="mb-iss__ta" id="mb_iss_${i}" rows="5" placeholder="한 줄에 하나씩 적어 주세요">${esc(mbIssItems(x.issues).join("\n"))}</textarea>
+        <div class="mb-iss__acts"><button class="mb-btn" onclick="GARDEN.mbIssCancel()">취소</button><button class="mb-btn is-ink" onclick="GARDEN.mbIssSave(${i})">저장</button></div>`;
+    }
+    const items = mbIssItems(x.issues);
+    return `<h4 class="mb-lbl">운영 리뷰<button class="mb-lbl__ed" onclick="GARDEN.mbIssEdit(${i})">수정</button></h4>
+      ${items.length ? `<ol class="mb-iss">${items.map((t) => `<li>${esc(t)}</li>`).join("")}</ol>` : `<p class="mb-empty">운영 리뷰를 적어 주세요. <button class="mb-link" onclick="GARDEN.mbIssEdit(${i})">쓰기</button></p>`}`;
+  }
+  const MB_IC_RP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>';
+  const MB_IC_DOC = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>';
+  const MB_IC_PDF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M6 14h12v7H6z"/></svg>';
+  function mbCard(x, i) {
+    const p = ymParts(x.month);
+    return `<article class="mb-card">
+      <div class="mb-rail"><b>${p.mo}</b><small>${p.yr}</small>
+        <label class="mb-chip" title="미팅일 바꾸기" onclick="const d=this.querySelector('input');if(d&&d.showPicker){try{d.showPicker()}catch(e){}}"><span>미팅</span><b>${x.meetingDate ? esc(meetShort(x.meetingDate)) : "날짜"}</b>
+          <input type="date" value="${esc(x.meetingDate)}" data-i="${i}" onchange="GARDEN.mrField(this,'meetingDate');GARDEN.mbRedrawNav()"/></label></div>
+      <div class="mb-body">
+        <div class="mb-hd">
+          <label class="mb-att"><span>참석</span><input type="text" value="${esc(x.attendees)}" placeholder="참석자 입력" data-i="${i}" onblur="GARDEN.mrField(this,'attendees')"/></label>
+          <div class="mb-acts">
+            ${x.docUrl ? `<a class="mb-btn" href="${esc(x.docUrl)}" target="_blank" rel="noopener" title="이 달 리뷰 자료 열기">${MB_IC_DOC}리뷰 자료</a>` : isAdminUser() ? `<button class="mb-btn is-dash" onclick="GARDEN.mbDoc(${i})" title="이 달 리뷰 자료(드라이브 파일·폴더) 링크 넣기">${MB_IC_DOC}리뷰 자료 연결</button>` : ""}
+            ${x.docUrl && isAdminUser() ? `<button class="mb-ic" title="리뷰 자료 링크 바꾸기" onclick="GARDEN.mbDoc(${i})">🔗</button>` : ""}
+            ${minutesBtn(x, i)}
+            <button class="mb-btn is-ink" onclick="GARDEN.mbReport(${i})">${MB_IC_RP}월간 리포트</button>
+            <button class="mb-ic" title="리뷰 정보 수정 (월·미팅일·참석자)" onclick="GARDEN.monthlyEditOpen(${i})">✎</button>
+            <button class="mb-ic" title="이 리뷰 삭제" onclick="GARDEN.mrDelete(${i})">✕</button>
+          </div>
+        </div>
+        <div class="mb-cols"><div class="mb-col">${mbIssues(x, i)}</div><div class="mb-col">${mbFeedback(x, i)}</div></div>
+      </div>
+    </article>`;
+  }
+  function mbYm(x) { const p = ymParts(x.month); return { y: +p.yr, m: +p.mo }; }
+  function mbReportBody(r) {
+    const prev = r.issPrev.length, d = r.iss.length - prev;
+    const kpi = (l, v, u, s2) => `<div><span>${l}</span><b>${v}<small>${u}</small></b><i>${s2}</i></div>`;
+    return `<div class="mb-kpi">
+        ${kpi("식물 이슈", r.iss.length, "건", d ? `<em class="${d > 0 ? "is-up" : "is-down"}">${d > 0 ? "▲" : "▼"} ${Math.abs(d)}</em> 전월 ${prev}건` : "전월과 같음")}
+        ${kpi("완료율", r.iss.length ? r.rate : "—", r.iss.length ? "%" : "", `${r.done.length}건 완료`)}
+        ${kpi("카카오 민원", r.vok, "건", "VOK")}
+        ${kpi("운영 비용", r.cost ? wonShort(r.cost) : "0", r.cost ? "" : "원", `안전 사고 ${r.inc.length}건 · 회의 ${r.meet.length}회`)}
+      </div>
+      <div class="rp-sheet-wrap">${rpSheetHTML(r)}</div>
+      <div class="mb-sum"><b>${r.m}월 코멘트 <small>자동 산출</small></b><ul>${rpSummaryLines(r).map((l) => `<li>${esc(l)}</li>`).join("")}</ul></div>`;
+  }
+  function mbReviewA4(x) {
+    const p = ymParts(x.month), items = mbIssItems(x.issues), cm = x.comments || [];
+    return `<section class="mb-a4">
+      <p class="mb-a4__eb">AGIT GARDEN / MONTHLY REVIEW</p>
+      <h1 class="mb-a4__ttl">${p.yr}년 ${+p.mo}월 월간 리뷰</h1>
+      <p class="mb-a4__meta">${x.meetingDate ? `<span>미팅 <b>${esc(x.meetingDate)}</b></span>` : ""}${x.attendees ? `<span>참석 <b>${esc(x.attendees)}</b></span>` : ""}</p>
+      <h2 class="mb-a4__h"><i>01</i>운영 리뷰</h2>
+      ${items.length ? `<ol class="mb-iss">${items.map((t) => `<li>${esc(t)}</li>`).join("")}</ol>` : `<p class="mb-empty">기록 없음</p>`}
+      <h2 class="mb-a4__h"><i>02</i><span class="mb-kk">kakao</span>코멘트</h2>
+      ${cm.length ? `<div class="mb-fb">${cm.map((c) => `<blockquote class="mb-q"><div class="mb-q__t">${esc(c.text)}</div><footer><span class="mb-who">${esc(c.author) || "카카오"}</span>${c.at ? `<span class="mb-at">${esc(c.at)}</span>` : ""}</footer></blockquote>`).join("")}</div>` : `<p class="mb-empty">코멘트 없음</p>`}
+      <p class="mb-a4__foot">AGIT GARDEN · 링키지랩 · 다음 쪽: ${+p.mo}월 운영 리포트</p>
+    </section>`;
   }
 
   /* ===== 회의록 스튜디오 — 녹취 텍스트 → 스마트 정리 ===== */
@@ -3445,22 +3567,22 @@
     },
 
     monthly() {
-      const list = monthlyOrder();
-      const posts = list.length
-        ? list.map(({ x, i }, idx) => monthlyPost(x, i, idx)).join("")
+      const cur = mbCur();
+      const meN = currentUser();
+      const body = cur
+        ? `<div class="mb-lay">${mbTimeline(cur)}<div class="mb-main" id="mbMain">${mbCard(cur.x, cur.i)}</div></div>`
         : `<div class="mr-empty">
              <span class="mr-empty__mark">01</span>
              <p>첫 월간 리뷰를 시작해 보세요.</p>
-             <span class="mr-empty__sub">＋ 리뷰 열기 로 이번 달 스레드를 만들면 이슈·코멘트를 바로 남길 수 있어요.</span>
+             <span class="mr-empty__sub">＋ 리뷰 열기 로 이번 달 리뷰를 만들면 운영 리뷰와 카카오 코멘트를 바로 남길 수 있어요.</span>
            </div>`;
-      const meN = currentUser();
       return `
-        <section class="view mr-view">
+        <section class="view mr-view mb-view">
           <div class="mr-top">
             <div class="mr-top__l">
               <p class="mr-eyebrow">KAKAO<span>×</span>LINKAGELAB · MONTHLY REVIEW</p>
               <h2 class="mr-title">월간 리뷰 보드</h2>
-              <p class="mr-lead">한 달에 하나의 스레드. 미팅·이슈를 남기면 담당자가 코멘트가 있다면 기록합니다.</p>
+              <p class="mr-lead">달마다 운영 리뷰와 카카오 코멘트를 남겨요. 숫자와 PDF는 월간 리포트 버튼에서 열어요.</p>
             </div>
             <div class="mr-top__r">
               <a class="mr-drive" href="${MONTHLY_DRIVE_URL}" target="_blank" rel="noopener">
@@ -3470,9 +3592,9 @@
           </div>
           <div class="mr-who">
             <span class="mr-who__dot" style="--hue:${authorHue(meN)}"></span>
-            ${meN ? `<b>${esc(meN)}</b> 계정으로 접속 중 · ${canComment() ? "코멘트 작성 가능" : "코멘트는 카카오 담당자(" + KAKAO_EDITORS.join(" · ") + ")만 가능"}` : "로그인 계정 정보 없음"}
+            ${meN ? `<b>${esc(meN)}</b> 계정으로 접속 중 · ${canComment() ? "코멘트 작성 가능" : "코멘트는 카카오 담당자(" + KAKAO_EDITORS.join(" · ") + ")만 남길 수 있어요"}` : "로그인 계정 정보 없음"}
           </div>
-          <div class="mr-board">${posts}</div>
+          ${body}
         </section>`;
     },
 
@@ -4902,6 +5024,74 @@
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(txt).then(ok).catch(() => window.prompt("아래 내용을 복사하세요", txt));
       } else window.prompt("아래 내용을 복사하세요", txt);
+    },
+    /* --- 월간 리뷰 보드 v2 --- */
+    mbSel(ym) { _mbSel = ym; _mbIssEdit = -1; _mbCmpOpen = -1; _mbCmEdit = ""; reMonthly(); },
+    mbRedrawNav() { setTimeout(reMonthly, 0); },
+    mbIssEdit(i) { _mbIssEdit = i; reMonthly(); const t = document.getElementById("mb_iss_" + i); if (t) t.focus(); },
+    mbIssCancel() { _mbIssEdit = -1; reMonthly(); },
+    mbIssSave(i) {
+      const t = document.getElementById("mb_iss_" + i), list = getMonthly(); if (!t || !list[i]) return;
+      list[i].issues = t.value.split(/\n+/).map((v) => v.trim()).filter(Boolean).join("\n");
+      saveMonthly(); _mbIssEdit = -1; reMonthly(); toast("운영 리뷰 저장됨 ✓");
+    },
+    mbReport(i) {
+      const x = getMonthly()[i]; if (!x) return;
+      const { y, m } = mbYm(x); const r = rpData(y, m);
+      const old = document.getElementById("mbRpModal"); if (old) old.remove();
+      document.body.insertAdjacentHTML("beforeend", `<div class="gmodal" id="mbRpModal">
+        <div class="gmodal__bd" onclick="GARDEN.mbReportClose()"></div>
+        <div class="gmodal__card gmodal__card--wide mb-rp">
+          <div class="gmodal__head"><h3>${y}년 ${m}월 월간 리포트</h3>
+            <button class="mb-btn is-lime" onclick="GARDEN.mbPdf(${i})">${MB_IC_PDF}PDF 저장 · 리뷰+리포트</button>
+            <button class="gmodal__x" onclick="GARDEN.mbReportClose()">×</button></div>
+          <div class="mb-rp__b">${mbReportBody(r)}</div>
+        </div></div>`);
+    },
+    mbDoc(i) {
+      const list = getMonthly(); if (!list[i] || !isAdminUser()) return;
+      const p = ymParts(list[i].month);
+      const v = window.prompt(`${p.yr}년 ${+p.mo}월 리뷰 자료 링크를 붙여 넣어 주세요 (드라이브 파일·폴더 주소)\n비우면 연결을 지워요.`, list[i].docUrl || "");
+      if (v === null) return;
+      const u = v.trim();
+      if (u && !/^https?:\/\//i.test(u)) { toast("https:// 로 시작하는 주소를 넣어 주세요", true); return; }
+      list[i].docUrl = u; saveMonthly(); reMonthly(); toast(u ? "리뷰 자료 연결됨 ✓" : "리뷰 자료 연결 해제됨");
+    },
+    mbCmpOpen(i) { _mbCmpOpen = i; _mbCmEdit = ""; reMonthly(); const t = document.getElementById("mr_cin_" + i); if (t) t.focus(); },
+    mbCmpClose() { _mbCmpOpen = -1; reMonthly(); },
+    mbCmtSend(i) {
+      const t = document.getElementById("mr_cin_" + i);
+      if (!t || !t.value.trim()) { if (t) t.focus(); return; }
+      _mbCmpOpen = -1; this.mrCommentAdd(i);
+    },
+    mbCmEdit(i, ci) {
+      const c = getMonthly()[i] && getMonthly()[i].comments[ci]; if (!c) return;
+      if (!(c.author && c.author === currentUser())) { toast("남긴 사람만 수정할 수 있어요", true); return; }
+      _mbCmEdit = i + ":" + ci; _mbCmpOpen = -1; reMonthly();
+      const t = document.getElementById(`mb_ce_${i}_${ci}`); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); }
+    },
+    mbCmEditCancel() { _mbCmEdit = ""; reMonthly(); },
+    mbCmEditSave(i, ci) {
+      const list = getMonthly(), c = list[i] && list[i].comments && list[i].comments[ci]; if (!c) return;
+      if (!(c.author && c.author === currentUser())) { toast("남긴 사람만 수정할 수 있어요", true); return; }
+      const t = document.getElementById(`mb_ce_${i}_${ci}`); if (!t) return;
+      const v = t.value.replace(/\r/g, "").trim(); if (!v) { toast("내용이 비었어요. 지우려면 삭제를 눌러 주세요", true); t.focus(); return; }
+      _mbCmEdit = "";
+      if (v !== c.text) { c.text = v; saveMonthly(); toast("코멘트 수정됨 ✓"); }
+      reMonthly();
+    },
+    mbReportClose() { const m = document.getElementById("mbRpModal"); if (m) m.remove(); },
+    mbPdf(i) {
+      const x = getMonthly()[i]; if (!x) return;
+      const { y, m } = mbYm(x); const r = rpData(y, m);
+      const old = document.getElementById("mbPrint"); if (old) old.remove();
+      const tmp = document.getElementById("rpA4"); if (tmp) tmp.id = "rpA4_off";
+      document.body.insertAdjacentHTML("beforeend", `<div id="mbPrint" aria-hidden="true">${mbReviewA4(x)}${rpA4HTML(r)}</div>`);
+      rpA4Fit();
+      const done = () => { document.body.classList.remove("mb-printing"); const pk = document.getElementById("mbPrint"); if (pk) pk.remove(); const t2 = document.getElementById("rpA4_off"); if (t2) t2.id = "rpA4"; window.removeEventListener("afterprint", done); };
+      document.body.classList.add("mb-printing");
+      window.addEventListener("afterprint", done);
+      setTimeout(() => window.print(), 60);
     },
     monthlyAddOpen() {
       if (document.getElementById("monthlyModal")) return;

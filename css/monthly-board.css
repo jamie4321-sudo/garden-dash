@@ -153,3 +153,7 @@
   .mb-cols { grid-template-columns: 1fr; }
   .mb-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* 산업안전보건 머리 · 체감온도기록 버튼 (리뷰 자료 버튼과 같은 결) */
+.sf-heat { display: inline-flex; align-items: center; gap: 6px; }
+.sf-heat svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

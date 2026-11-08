@@ -3269,7 +3269,8 @@
     return `
       <section class="view">
         <div class="page-head">
-          <div><p class="eyebrow">Crew · 안전</p><h2>체감온도기록</h2></div>
+          <div><p class="eyebrow">Crew · 안전 · 산업안전보건</p><h2>체감온도기록</h2></div>
+          <a class="btn btn--sm ht-back" href="#safety" style="margin-left:auto">← 산업안전보건</a>
         </div>
         <div class="ht-entry">
           <button type="button" class="fbtn fbtn--care fbtn--big" onclick="GARDEN.heatFlowOpen()">${FB_HEAT}<span class="ft"><b>체감온도 기록하기</b><small>온도계 숫자만 넣으면 끝 · 체감온도 자동 계산</small></span>${FB_ARROW}</button>
@@ -3720,9 +3721,10 @@
           <div class="page-head">
             <div><p class="eyebrow">Crew · 안전</p><h2>산업안전보건</h2></div>
             <div class="seg" style="margin-left:auto;flex-wrap:wrap">
+              <a class="btn btn--sm sf-quick sf-heat" href="#heat" title="체감온도기록 열기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"/><path d="M12 9v6"/></svg>체감온도기록</a>
               <a class="btn btn--sm sf-quick" id="safetyFolderBtn" href="${folderUrl || "#"}"
                  target="_blank" rel="noopener"${folderUrl ? "" : ' style="display:none"'}>📁 안전매뉴얼 폴더</a>
-              ${signUrl ? `<a class="btn btn--sm sf-quick" href="${signUrl}" target="_blank" rel="noopener">✍️ 크루 서명받기</a>` : ""}
+              ${signUrl ? `<a class="btn btn--sm sf-quick" href="${signUrl}" target="_blank" rel="noopener">✍️ 교육 서명 받기</a>` : ""}
               <button class="btn btn--primary btn--sm" onclick="GARDEN.loadSafetyFiles(true)">↻ 새로고침</button>
             </div>
           </div>
@@ -3834,7 +3836,7 @@
             <div><p class="eyebrow">Crew · 교육</p><h2>크루 교육 관리</h2></div>
             <div class="seg">
               ${EDU_DRIVE_URL ? `<a class="btn btn--sm" href="${EDU_DRIVE_URL}" target="_blank" rel="noopener">🔗 이수증 확인</a>` : ""}
-              ${(window.CONFIG && window.CONFIG.CREW_SIGN_URL) ? `<a class="btn btn--sm sf-quick" href="${window.CONFIG.CREW_SIGN_URL}" target="_blank" rel="noopener">✍️ 크루 서명받기</a>` : ""}
+              ${(window.CONFIG && window.CONFIG.CREW_SIGN_URL) ? `<a class="btn btn--sm sf-quick" href="${window.CONFIG.CREW_SIGN_URL}" target="_blank" rel="noopener">✍️ 교육 서명 받기</a>` : ""}
               <button class="btn btn--primary btn--sm" onclick="GARDEN.trainingAddOpen()">＋ 이수 기록 추가</button>
             </div>
           </div>
@@ -3948,7 +3950,7 @@
     app.innerHTML = views[view]();
     crumb.textContent = crumbMap[view] || "MAIN / DASHBOARD";
     document.querySelectorAll(".nav__item").forEach((n) =>
-      n.classList.toggle("is-active", n.dataset.view === view));
+      n.classList.toggle("is-active", n.dataset.view === (view === "heat" ? "safety" : view)));
     // animate bars/donut after paint
     requestAnimationFrame(() => {
       document.querySelectorAll(".tbar__fill").forEach((b) => { b.style.width = b.dataset.pct + "%"; });

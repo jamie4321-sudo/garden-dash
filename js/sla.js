@@ -336,6 +336,14 @@
   /* ---------- 직접 고친 내용 합치기 ----------
      r.ev[code] = { sum, good, add: [{d, t, k}], hide: [자동 기록 키] } · r.pre[code] = [가채점 근거 줄] */
   const rowKey = (row) => row[0] + "|" + row[1];
+  // 숨기기 비교용 키 — 날마다 바뀌는 'N일째 · N일'과 괄호 속 메모는 빼고 '날짜|이름 퇴사/입사'만 본다 (예전에 숨긴 키도 같은 규칙으로 읽음)
+  const hideKey = (k) => {
+    const s = String(k || ""), i = s.indexOf("|"), d = i < 0 ? "" : s.slice(0, i);
+    let t = (i < 0 ? s : s.slice(i + 1)).replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/\s*·\s*\d+일(째)?/g, "").trim();
+    const m = t.match(/^(.+?\s(?:퇴사|입사))(?=[\s(]|$)/); if (m) t = m[1];
+    return d + "|" + t;
+  };
+  const isHidden = (hide, row) => { const k = hideKey(rowKey(row)); return (hide || []).some((h) => h === rowKey(row) || hideKey(h) === k); };
   const preOf = (it, r) => ((r.pre || {})[it.code]) || it.pre;
   const KINDS = { ok: "잘 지킴", warn: "확인 필요", bad: "감점 사유" };
   const CHIPK = { ok: "초록(잘 지킴)", info: "회색(참고)", warn: "노랑(확인 필요)", bad: "빨강(감점)" };
@@ -360,8 +368,8 @@
       sum: o.sum ? esc(o.sum) : ev.sum,
       good: "good" in o ? esc(o.good) : ev.good,
       edited: !!(o.sum || "good" in o),
-      auto: ev.rows.map((row, i) => ({ row: fixRow(it, row, o), i, fixed: !!fixOf(it, row, o) })).filter((x) => !hide.includes(rowKey(ev.rows[x.i]))),
-      hidden: hide.length, add,
+      auto: ev.rows.map((row, i) => ({ row: fixRow(it, row, o), i, fixed: !!fixOf(it, row, o) })).filter((x) => !isHidden(hide, ev.rows[x.i])),
+      hidden: new Set(hide.map(hideKey)).size, add,
       sug: (ev.sug || 0) + bad,
       sugWhy: [ev.sugWhy, bad ? `직접 기록한 감점 사유 ${bad}건` : ""].filter(Boolean).join(" · "),
     });
@@ -675,7 +683,7 @@
     },
     hide(i) {
       const r = rec(), it = ITEMS[S.sel], row = evidence(it, r).rows[i]; if (!row) return;
-      const o = evOf(r, it.code); o.hide = (o.hide || []).concat(rowKey(row)); save(r); paint();
+      const o = evOf(r, it.code); if (!isHidden(o.hide, row)) o.hide = (o.hide || []).concat(rowKey(row)); save(r); paint();
     },
     saveFix() {
       const r = rec(), it = ITEMS[S.sel], row = evidence(it, r).rows[S.ed.i]; if (!row) return;

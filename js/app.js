@@ -3544,7 +3544,7 @@
             <button class="btn btn--primary btn--sm" onclick="GARDEN.crewAddOpen()">＋ 크루 등록</button>
           </div>
           <div class="cm-iss"><span>VOL.${year} · ${MO[_now.getMonth()]} ISSUE</span><i></i><span>AGIT GARDEN CREW</span></div>
-          <h3 class="cm-hl">아지트 가든을 가꾸는 <em>가드너</em></h3>
+          <h3 class="cm-hl">아지트 가든을 가꾸는 <em>${active.length}명의</em> 가드너</h3>
           <div class="cm-st">
             <div><small>장애 크루</small><b>${disN}<span>명</span></b><em>재직자의 ${active.length ? Math.round((disN / active.length) * 100) : 0}%</em></div>
             <div><small>평균 근속</small><b>${avg}<span>개월</span></b><em>${Math.floor(avg / 12) ? Math.floor(avg / 12) + "년 " : ""}${avg % 12}개월 · 재직자 기준</em></div>

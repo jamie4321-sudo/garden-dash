@@ -1766,7 +1766,7 @@
           <button class="mb-go" onclick="GARDEN.mbCmtSend(${i})" aria-label="코멘트 보내기">${MB_IC_GO}</button></div>
       </div>`;
     else composer = `<button type="button" class="mb-cclosed" onclick="GARDEN.mbCmpOpen(${i})"><span class="mb-who${isKakaoName(me) ? "" : " is-lk"}">${esc(me)}</span><span class="mb-cclosed__ph">${mo}월 리뷰에 코멘트 남기기…</span><span class="mb-go is-sm" aria-hidden="true">${MB_IC_GO}</span></button>`;
-    return `<h4 class="mb-lbl"><span class="mb-kk">kakao</span>코멘트 ${cm.length}</h4>${list}${composer}`;
+    return `<h4 class="mb-lbl"><span class="mb-kk">kakao</span><span class="mb-lbl__n">${cm.length}</span></h4>${list}${composer}`;
   }
   function mbIssues(x, i) {
     if (_mbIssEdit === i) {
@@ -1825,7 +1825,7 @@
       <p class="mb-a4__meta">${x.meetingDate ? `<span>미팅 <b>${esc(x.meetingDate)}</b></span>` : ""}${x.attendees ? `<span>참석 <b>${esc(x.attendees)}</b></span>` : ""}</p>
       <h2 class="mb-a4__h"><i>01</i>운영 리뷰</h2>
       ${items.length ? `<ol class="mb-iss">${items.map((t) => `<li>${esc(t)}</li>`).join("")}</ol>` : `<p class="mb-empty">기록 없음</p>`}
-      <h2 class="mb-a4__h"><i>02</i><span class="mb-kk">kakao</span>코멘트</h2>
+      <h2 class="mb-a4__h"><i>02</i><span class="mb-kk">kakao</span></h2>
       ${cm.length ? `<div class="mb-fb">${cm.map((c) => `<blockquote class="mb-q"><div class="mb-q__t">${esc(c.text)}</div><footer><span class="mb-who">${esc(c.author) || "카카오"}</span>${c.at ? `<span class="mb-at">${esc(c.at)}</span>` : ""}</footer></blockquote>`).join("")}</div>` : `<p class="mb-empty">코멘트 없음</p>`}
       <p class="mb-a4__foot">AGIT GARDEN · 링키지랩 · 다음 쪽: ${+p.mo}월 운영 리포트</p>
     </section>`;

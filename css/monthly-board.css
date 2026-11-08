@@ -53,6 +53,7 @@
 .mb-cols { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.3fr); gap: 24px; }
 .mb-col { min-width: 0; }
 .mb-lbl { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; font-size: 12px; font-weight: 900; letter-spacing: .04em; color: var(--ink-3); }
+.mb-lbl__n { min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--panel-2); color: var(--ink-2); font-size: 11.5px; font-weight: 900; display: inline-grid; place-items: center; }
 .mb-lbl__ed { margin-left: auto; border: 0; background: none; color: var(--ink-3); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
 .mb-lbl__ed:hover { color: var(--ink); text-decoration: underline; }
 .mb-kk { display: inline-flex; align-items: center; justify-content: center; height: 24px; padding: 0 10px; border-radius: 999px; background: #16160f; color: #fee500; font-size: 11.5px; font-weight: 900; letter-spacing: 0; line-height: 1; white-space: nowrap; flex: none; }

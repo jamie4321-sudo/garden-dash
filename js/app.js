@@ -3499,71 +3499,91 @@
     },
 
     schedule() {
+      /* 2안 요일 칸반 — 월~금 기둥 · 영역별 카드 · 아래 다가오는 일정 / 지난 변동사항 */
       const b = getBoard();
-      const tk = todayKey();
+      const today = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
+      const dow = today.getDay();
+      const wkend = dow === 0 || dow === 6;
+      const mon = new Date(today);
+      mon.setDate(today.getDate() + (dow === 0 ? 1 : dow === 6 ? 2 : 1 - dow) + _skWeek * 7);
+      const dOf = (i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; };
+      const iso = (d) => `${d.getFullYear()}-${_pad(d.getMonth() + 1)}-${_pad(d.getDate())}`;
+      const md = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+      const focus = _skWeek === 0 ? (wkend ? 0 : dow - 1) : -1;
+      const exMap = {}; (b.exceptions || []).forEach((e) => { exMap[e.date] = e.label; });
+      const dot = (a) => `<i class="sk-dot" style="--ac:${a.color}"></i>`;
 
-      // 요일 헤더 (날짜 없음)
-      const headCols = b.days.map((d) =>
-        `<th class="wb-th ${d.key === tk ? "is-today" : ""}"><span class="wb-th__d">${d.label}</span></th>`
-      ).join("");
+      const legend = b.areas.map((a, ai) => `<span class="sk-leg">${dot(a)}<span class="sk-leg__t" contenteditable="true" spellcheck="false"
+          data-a="${ai}" onblur="GARDEN.wbArea(this)" onkeydown="GARDEN.wbKey(event,this)">${esc(a.name)}</span>${b.areas.length > 1 ? `<button class="sk-x" title="영역 삭제" onclick="GARDEN.wbDelArea(${ai})">×</button>` : ""}</span>`).join("");
 
-      // 영역 행
-      const rows = b.areas.map((area, ai) => {
-        const cells = b.days.map((d) => {
-          const items = (area.cells[d.key] || []);
-          const lis = items.map((t, ii) =>
-            `<div class="wbitem">
-              <span class="wbitem__t" contenteditable="true" spellcheck="false"
-                    data-a="${ai}" data-day="${d.key}" data-i="${ii}"
-                    onblur="GARDEN.wbEdit(this)" onkeydown="GARDEN.wbKey(event,this)">${esc(t)}</span>
-              <button class="wbitem__x" title="삭제" onclick="GARDEN.wbDel(${ai},'${d.key}',${ii})">×</button>
-            </div>`
-          ).join("");
-          return `<td class="wbcell ${d.key === tk ? "is-today" : ""}">
-            <div class="wbcell__body">${lis || '<span class="wbcell__empty">–</span>'}</div>
-            <button class="wbadd" title="항목 추가" onclick="GARDEN.wbAdd(${ai},'${d.key}')">＋ 추가</button>
-          </td>`;
+      const cols = b.days.map((d, di) => {
+        const dt = dOf(di), ds = iso(dt), on = di === focus;
+        const n = b.areas.reduce((s, a) => s + (a.cells[d.key] || []).length, 0);
+        const tags = [HOLIDAYS[ds] ? `<div class="sk-ev sk-ev--hol">${esc(HOLIDAYS[ds])}</div>` : "",
+          exMap[ds] ? `<button class="sk-ev" onclick="GARDEN.wbException('${ds}')" title="수정 / 삭제">📌 ${esc(exMap[ds])}</button>` : ""].join("");
+        const cards = b.areas.map((a, ai) => {
+          const it = a.cells[d.key] || [];
+          if (!it.length) return "";
+          return `<div class="sk-tk">
+            <div class="sk-tk__h">${dot(a)}<span>${esc(a.name)}</span><button class="sk-tk__add" title="${esc(a.name)}에 추가" onclick="GARDEN.wbAdd(${ai},'${d.key}')">＋</button></div>
+            <ul>${it.map((t, ii) => `<li class="wbitem"><span class="wbitem__t" contenteditable="true" spellcheck="false"
+                data-a="${ai}" data-day="${d.key}" data-i="${ii}" onblur="GARDEN.wbEdit(this)" onkeydown="GARDEN.wbKey(event,this)">${esc(t)}</span><button class="sk-x" title="삭제" onclick="GARDEN.wbDel(${ai},'${d.key}',${ii})">×</button></li>`).join("")}</ul>
+          </div>`;
         }).join("");
-        return `<tr>
-          <th class="wb-area" style="--ac:${area.color}">
-            <span class="wb-area__t" contenteditable="true" spellcheck="false"
-                  data-a="${ai}" onblur="GARDEN.wbArea(this)" onkeydown="GARDEN.wbKey(event,this)">${esc(area.name)}</span>
-            <button class="wb-area__x" title="영역 삭제" onclick="GARDEN.wbDelArea(${ai})">×</button>
-          </th>${cells}
-        </tr>`;
+        const adds = b.areas.map((a, ai) => (a.cells[d.key] || []).length ? "" :
+          `<button class="sk-add" onclick="GARDEN.wbAdd(${ai},'${d.key}')">＋ ${esc(a.name)}</button>`).join("");
+        return `<div class="sk-col ${on ? "is-on" : ""}">
+          <div class="sk-col__h"><div><b>${d.label}</b><small>${md(dt)}${on ? (wkend ? " · 다음 근무" : " · 오늘") : ""}</small></div><span class="sk-num">${n}</span></div>
+          ${tags}${cards}${adds ? `<div class="sk-adds">${adds}</div>` : ""}
+        </div>`;
       }).join("");
 
-      // 특이사항
-      const noteRow = `<tr>
-        <th class="wb-area wb-area--note">특이사항</th>
-        <td class="wbnote" colspan="${b.days.length}">
-          <span class="wbnote__t" contenteditable="true" spellcheck="false"
-                onblur="GARDEN.wbNote(this)">${esc(b.note || "")}</span>
-        </td>
-      </tr>`;
+      // 다가오는 일정 / 지난 변동사항
+      const tIso = iso(today);
+      const evs = (b.exceptions || []).map((e) => ({ d: e.date, t: e.label, ex: true }));
+      Object.keys(HOLIDAYS).forEach((k) => { if (!exMap[k]) evs.push({ d: k, t: HOLIDAYS[k], ex: false }); });
+      evs.sort((x, y) => (x.d < y.d ? -1 : x.d > y.d ? 1 : 0));
+      const dd = (s) => Math.round((new Date(s + "T00:00:00") - today) / 864e5);
+      const fut = evs.filter((e) => e.d >= tIso).slice(0, 5);
+      const past = evs.filter((e) => e.d < tIso && e.ex).slice(-3).reverse();
+      const evRow = (e, badge, hot, muted) => {
+        const inner = `<span class="sk-dd ${hot ? "is-hot" : ""}">${badge}</span><b>${e.d.slice(5).replace("-", "/")}</b><span class="${muted ? "is-muted" : ""} ${e.ex ? "" : "is-hol"}">${esc(e.t)}</span>`;
+        return e.ex ? `<li><button class="sk-row" onclick="GARDEN.wbException('${e.d}')" title="수정 / 삭제">${inner}</button></li>` : `<li><div class="sk-row">${inner}</div></li>`;
+      };
+      const upHtml = fut.length ? fut.map((e) => { const k = dd(e.d); return evRow(e, k === 0 ? "오늘" : "D-" + k, k <= 14, false); }).join("")
+        : `<li class="sk-empty">다가오는 일정이 없어요.</li>`;
+      const pastHtml = past.map((e) => evRow(e, -dd(e.d) + "일 전", false, true)).join("");
+      const wkName = _skWeek === 0 ? "이번 주" : _skWeek === 1 ? "다음 주" : _skWeek === -1 ? "지난 주" : (_skWeek > 0 ? _skWeek + "주 뒤" : -_skWeek + "주 전");
 
       return `
-        <section class="view">
+        <section class="view sk">
           <div class="page-head">
-            <div><p class="eyebrow">Operation</p><h2>월간 스케줄</h2></div>
+            <div><p class="eyebrow">Crew · Schedule</p><h2>업무 스케줄</h2></div>
             <div class="seg">
               <button class="btn btn--sm" onclick="GARDEN.wbReset()">초기화</button>
               <button class="btn btn--primary btn--sm" onclick="GARDEN.wbAddArea()">＋ 영역 추가</button>
             </div>
           </div>
-          <div class="wb-layout">
-            ${calendarCard(b)}
-            <div class="wb-board">
-              <div class="wb-board__head">
-                <h3>주간 기본 스케줄</h3>
-                <span class="wb-board__badge">월–금 · 상시</span>
-              </div>
-              <div class="wb-scroll">
-                <table class="wb-table">
-                  <thead><tr><th class="wb-corner">영역</th>${headCols}</tr></thead>
-                  <tbody>${rows}${noteRow}</tbody>
-                </table>
-              </div>
+          <div class="sk-wk">
+            <div class="sk-wk__nav">
+              <button onclick="GARDEN.skWeek(-1)" title="이전 주">‹</button>
+              <span class="sk-wk__rng">${wkName} ${md(dOf(0))} – ${md(dOf(4))}</span>
+              <button onclick="GARDEN.skWeek(1)" title="다음 주">›</button>
+              ${_skWeek !== 0 ? `<button class="sk-wk__now" onclick="GARDEN.skWeek(0)">이번 주로</button>` : ""}
+            </div>
+            <div class="sk-legs">${legend}</div>
+          </div>
+          <div class="sk-kb">${cols}</div>
+          <div class="sk-below">
+            <div class="sk-pan">
+              <div class="sk-pan__h"><p class="sk-lbl">다가오는 일정</p><button class="sk-pan__btn" onclick="GARDEN.skAddEx()">＋ 변동사항</button></div>
+              <ol class="sk-list">${upHtml}</ol>
+            </div>
+            <div class="sk-pan">
+              <div class="sk-pan__h"><p class="sk-lbl">지난 변동사항 · 특이사항</p></div>
+              <ol class="sk-list">${pastHtml}
+                <li><div class="sk-row"><span class="sk-dd sk-dd--memo">메모</span><b></b><span class="wbnote__t" contenteditable="true" spellcheck="false" data-ph="특이사항을 적어 주세요" onblur="GARDEN.wbNote(this)">${esc(b.note || "")}</span></div></li>
+              </ol>
             </div>
           </div>
         </section>`;
@@ -3994,6 +4014,7 @@
   ];
   const _now = new Date();
   let _calYM = { y: _now.getFullYear(), m: _now.getMonth() };
+  let _skWeek = 0; // 업무 스케줄 칸반: 0 = 이번 주(주말이면 다음 주)
   const _pad = (n) => (n < 10 ? "0" : "") + n;
   const todayKey = () => ({ 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri" }[_now.getDay()] || "");
 
@@ -4309,6 +4330,20 @@
     },
     wbKey(ev, elm) {
       if (ev.key === "Enter") { ev.preventDefault(); elm.blur(); }
+    },
+
+    /* --- 칸반 주 이동 · 변동사항 추가 --- */
+    skWeek(d) { _skWeek = d === 0 ? 0 : _skWeek + d; reBoard(); },
+    skAddEx() {
+      const t = new Date();
+      const v = window.prompt("변동사항 날짜 (예: 11/20 또는 2026-11-20)", `${t.getMonth() + 1}/${t.getDate()}`);
+      if (v === null) return;
+      const s = v.trim(); let y = t.getFullYear(), m, d;
+      let mm = s.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/);
+      if (mm) { y = +mm[1]; m = +mm[2]; d = +mm[3]; }
+      else { mm = s.match(/^(\d{1,2})[-./](\d{1,2})$/); if (mm) { m = +mm[1]; d = +mm[2]; } }
+      if (!m || !d || m > 12 || d > 31) { toast("날짜를 11/20 처럼 적어 주세요", true); return; }
+      this.wbException(`${y}-${_pad(m)}-${_pad(d)}`);
     },
 
     /* --- 달력 월 이동 --- */

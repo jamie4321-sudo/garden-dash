@@ -98,15 +98,10 @@
   }
   // 대시보드 첫머리 — 채용 키트처럼 링키지랩 캐릭터(두두·페피)가 인사
   function dashHello() {
-    const h = new Date().getHours();
-    const hi = h < 5 ? "늦은 시간까지 수고 많아요" : h < 11 ? "좋은 아침이에요" : h < 14 ? "점심은 맛있게 드셨어요?" : h < 18 ? "오후도 힘내요" : "오늘도 수고 많았어요";
-    let who = "";
-    try { who = localStorage.getItem("garden-entry-who") || ""; } catch (e) {}
     return `<div class="page-head dash-hello">
             <div>
               <p class="eyebrow">Overview · ${dashToday()}</p>
               <h2>운영 대시보드</h2>
-              <p class="dash-hello__hi">${who ? `<b>${esc(who)}님,</b> ` : ""}${hi} · 오늘도 아지트 가든을 함께 가꿔요</p>
             </div>
             <img class="dash-hello__char" src="img/duo-garden.webp" alt="모종삽과 물뿌리개를 든 링키지랩 가드너 두두와 페피" width="420" height="377">
           </div>`;
@@ -950,7 +945,6 @@
   const ISS_BUILDINGS = ["A동", "B동", "공용부", "외부"];
   const ISS_CATEGORIES = ["미화 관련", "유지관리 관련", "병해충", "관수/급수", "시설/환경", "기타"];
   const ISS_SOURCES = ["VOK", "LKG"]; // VOK=카카오 민원 · LKG=내부 셀프 확인
-  const GARDENER_URL = (window.CONFIG && window.CONFIG.GARDENER_URL) || "https://agit-gardener.pages.dev/"; // 아지트 가드너 현장 이슈 앱
   const ISSUE_DRIVE_URL = "https://drive.google.com/drive/folders/1h4a18kLTyOhLhg0FMWOUaJLtGR6R8gPr";
   let _issues = null, _issueQuery = "";
   // 채용 키트식 3단: 위쪽 탭(_issTab) · 동 필터(_issB) · 고른 이슈(_issSel = getIssues() 인덱스)
@@ -3789,15 +3783,14 @@
         <section class="view ik">
           <div class="page-head">
             <div><p class="eyebrow">Crew · 식물 관리</p><h2>식물 이슈 관리</h2></div>
-            <div class="seg">
-              <a class="btn btn--sm ik-app" href="${GARDENER_URL}" target="_blank" rel="noopener" title="가드너 현장 이슈 앱 새 창으로 열기">🌱 아지트 가드너 앱</a>
-              <a class="btn btn--sm" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">🔗 드라이브</a>
-              <button class="btn btn--primary btn--sm" onclick="GARDEN.issueAddOpen()">＋ 이슈 등록</button>
+            <div class="ik-hacts">
+              <span id="ikAg">${window.AGI ? AGI.chipHTML() : ""}</span>
+              <a class="ag-chip ik-hbtn" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">🔗 드라이브</a>
+              <button class="ag-chip ik-hbtn ik-hbtn--add" onclick="GARDEN.issueAddOpen()">＋ 이슈 등록</button>
             </div>
           </div>
           <div class="ik-top">
             <div class="ik-tabs" id="ikTabs">${issTabsHTML()}</div>
-            <span id="ikAg">${window.AGI ? AGI.chipHTML() : ""}</span>
             <div class="ik-bf">${["전체", "A동", "B동", "공용부"].map((b) => `<button class="${_issB === b ? "is-on" : ""}" onclick="GARDEN.issueB('${b}')">${b}</button>`).join("")}</div>
             <input class="searchbox ik-search" placeholder="자리 · 이슈 · 담당자 검색" value="${esc(_issueQuery)}" oninput="GARDEN.issueSearch(this.value)"/>
           </div>
@@ -5283,7 +5276,6 @@
     getSettle, getSwaps, getHeat, getMonthly, htFeel, eduTrainings: EDU_TRAININGS,
     role: () => currentRole(), go: (v) => { location.hash = "#" + v; },
   };
-
 
   /* ---------- theme ---------- */
   const root = document.documentElement;

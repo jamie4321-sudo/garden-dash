@@ -146,7 +146,7 @@
         <div class="ze-q"><b>${fmt(sum(zs, tot))}</b><small>${zs.length}구역</small></div>
       </div>`;
     }).join("");
-    return `<div class="zn-card ze-list"><div class="ze-lh"><h3>공간마다 이렇게 관리해요</h3><p class="zn-muted">공간의 쓰임에 맞춰 관리 중점을 달리해요 · 막대 = 관리 수량</p></div>${cards}</div>`;
+    return `<div class="zn-card ze-list"><div class="ze-lh"><h3>공간마다 이렇게 관리해요</h3></div>${cards}</div>`;
   }
 
   function kpi() {
@@ -202,8 +202,8 @@
     return `
       <div class="zn-card ze-hero">
         <div class="ze-l"><div class="ze-eye">AGIT GARDEN · ZONE STATUS</div>
-          <div class="ze-big">${fmt(K.total)}<small>개</small></div>
-          <h3 class="ze-h">카카오 아지트 <em>${fmt(K.total)}개</em> 식물을 관리하고 있어요</h3>
+          <div class="ze-big"><small class="ze-unit-pre">플랜트박스</small>${fmt(K.total)}<small>개</small></div>
+          <h3 class="ze-h">카카오 아지트의 공간 쓰임에 맞추어 식물을 관리하고 있어요</h3>
           <p class="ze-sub">A동·B동·공용부 ${Z.length}개 구역 · ${sp}종</p></div>
         <div class="ze-k">
           <div><b>${fmt(K.box)}</b><span>수납장 플랜트박스</span></div>

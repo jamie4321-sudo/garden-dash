@@ -2377,3 +2377,9 @@ button { font-family: inherit; }
 .ag-names button.is-on { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
 .ik-tag.is-lime { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent-text); }
 
+
+/* 담배꽁초 발견 보고서 (#cig-report) — 흰 종이 한 장을 화면 가운데에 */
+.cr-sub { margin: 6px 0 0; color: var(--ink-3); font-size: 13px; }
+.cr-paper { max-width: 860px; margin: 8px auto 40px; padding: 24px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.cr-paper iframe { display: block; width: 100%; height: 1123px; border: 0; border-radius: 6px; background: #fff; box-shadow: 0 10px 30px rgba(0,0,0,.08); }
+@media (max-width: 760px) { .cr-paper { padding: 10px; margin: 6px -4px 24px; } }

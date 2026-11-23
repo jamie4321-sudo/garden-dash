@@ -3871,7 +3871,6 @@
             <div class="ik-hacts">
               <span id="ikAg">${window.AGI ? AGI.chipHTML() : ""}</span>
               <a class="ag-chip ik-hbtn" href="${ISSUE_DRIVE_URL}" target="_blank" rel="noopener">🔗 드라이브</a>
-              <a class="ag-chip ik-hbtn" href="#cig-report">📄 담배꽁초 보고서</a>
               <button class="ag-chip ik-hbtn ik-hbtn--add" onclick="GARDEN.issueAddOpen()">＋ 이슈 등록</button>
             </div>
           </div>
@@ -3885,24 +3884,6 @@
             <div id="ikDetail">${issDetailHTML()}</div>
             <div id="ikInfo">${issInfoHTML()}</div>
           </div>`}
-        </section>`;
-    },
-
-    /* 담배꽁초 발견 보고서 (별도 주소 #cig-report · 한 장 보고서는 reports/ 폴더의 정적 페이지) */
-    "cig-report"() {
-      const base = "reports/cigarette-2026-11/";
-      return `
-        <section class="view cr-view">
-          <div class="page-head">
-            <div><p class="eyebrow">Crew · 식물 관리 · 보고서</p><h2>관리 화단 담배꽁초 발견 보고서</h2>
-              <p class="cr-sub">2026.10.20 ~ 11.20 · 7건 · 2026.11.23 작성</p></div>
-            <div class="ik-hacts">
-              <a class="ag-chip ik-hbtn" href="#issues">← 식물 이슈 관리</a>
-              <button class="ag-chip ik-hbtn" onclick="GARDEN.crCopy()">🔗 링크 복사</button>
-              <a class="ag-chip ik-hbtn ik-hbtn--add" href="${base}cigarette-report-2026-11.pdf" download="아지트_관리화단_담배꽁초_보고서_2026-11.pdf">PDF 받기</a>
-            </div>
-          </div>
-          <div class="cr-paper"><iframe id="crFrame" src="${base}" title="관리 화단 담배꽁초 발견 보고서" loading="eager"></iframe></div>
         </section>`;
     },
 
@@ -4057,7 +4038,6 @@
     report: "OPERATION / MONTHLY REPORT",
     swaps: "CREW / PLANT SWAPS",
     heat: "CREW / SAFETY / FEELS-LIKE TEMP",
-    "cig-report": "CREW / PLANT ISSUES / CIGARETTE REPORT",
     settings: "SYSTEM / SETTINGS",
     sales: "OPERATION / SALES",
   };
@@ -4068,7 +4048,7 @@
     app.innerHTML = views[view]();
     crumb.textContent = crumbMap[view] || "MAIN / DASHBOARD";
     document.querySelectorAll(".nav__item").forEach((n) =>
-      n.classList.toggle("is-active", n.dataset.view === (view === "heat" ? "safety" : view === "cig-report" ? "issues" : view)));
+      n.classList.toggle("is-active", n.dataset.view === (view === "heat" ? "safety" : view)));
     // animate bars/donut after paint
     requestAnimationFrame(() => {
       document.querySelectorAll(".tbar__fill").forEach((b) => { b.style.width = b.dataset.pct + "%"; });
@@ -4088,7 +4068,6 @@
   }
 
   function currentView() { return (location.hash || "#dashboard").replace("#", ""); }
-  window.addEventListener("message", (e) => { const f = document.getElementById("crFrame"); if (f && e.data && e.data.cigH) f.style.height = Math.ceil(e.data.cigH) + "px"; });
   window.addEventListener("hashchange", () => render(currentView()));
 
   /* ---------- weekBoard state (localStorage overlay) ---------- */
@@ -4283,7 +4262,6 @@
 
   /* ---------- crew filter + board editing ---------- */
   const GARDEN = {
-    crCopy() { const u = location.origin + location.pathname + "#cig-report"; navigator.clipboard.writeText(u).then(() => toast("보고서 링크를 복사했어요"), () => toast("복사가 안 돼요 — 주소창의 주소를 복사해 주세요", true)); },
     lock() {
       try { localStorage.removeItem("garden-entry-ok"); localStorage.removeItem("garden-entry-who"); localStorage.removeItem(ROLE_KEY); } catch (e) {}
       location.reload();

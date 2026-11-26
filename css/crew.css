@@ -140,3 +140,32 @@
   .cp-rt { padding: 20px 18px; }
   .cp-facts b { font-size: 16px; }
 }
+
+/* ===== 크루 로스터 1안 깔끔한 표 (2026-11-26) ===== */
+.ct-sum { display: flex; flex-wrap: wrap; gap: 28px; padding: 6px 0 18px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+.ct-sum div { display: flex; align-items: baseline; gap: 8px; }
+.ct-sum b { font-size: 22px; font-weight: 900; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ct-sum span { font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+.ct-wrap { background: var(--panel); border: 1px solid var(--line-soft); border-radius: 16px; overflow: hidden; }
+.ct { width: 100%; border-collapse: collapse; }
+.ct th { text-align: left; font-size: 11px; font-weight: 800; letter-spacing: .06em; color: var(--ink-3); padding: 12px 18px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.ct td { padding: 16px 18px; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; vertical-align: top; }
+.ct tbody tr:last-child td { border-bottom: 0; }
+.ct tbody tr { cursor: pointer; transition: background .15s; }
+.ct tbody tr:hover, .ct tbody tr:focus-visible { background: var(--panel-2); outline: 0; }
+.ct td small { display: block; font-size: 11.5px; color: var(--ink-3); margin-top: 2px; }
+.ct-nm { font-size: 16px; font-weight: 900; margin-right: 8px; }
+.ct-n { font-variant-numeric: tabular-nums; font-weight: 800; white-space: nowrap; }
+.ct-chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px; background: var(--panel-2); font-size: 11px; font-weight: 800; color: var(--ink-2); margin-right: 6px; }
+.ct-mb { border: 0; background: none; padding: 0; font: inherit; font-size: 11.5px; font-weight: 800; color: var(--accent-text, #5c7a08); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.ct-mt { display: none; margin-top: 6px; font-size: 12px; color: var(--ink-2); background: var(--panel-2); border-radius: 8px; padding: 6px 10px; }
+.ct-mt.is-open { display: block; }
+.ct tr.is-out td { color: var(--ink-3); }
+.ct tr.is-out .ct-nm { color: var(--ink-2); }
+.ct-sec { margin: 22px 0 10px; font-size: 13px; font-weight: 800; color: var(--ink-2); }
+.ct-view .rs-more { margin-top: 14px; }
+@media (max-width: 760px) {
+  .ct-m { display: none; }
+  .ct th, .ct td { padding: 12px 12px; }
+  .ct-sum { gap: 16px 22px; }
+}

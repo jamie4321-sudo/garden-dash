@@ -3555,64 +3555,53 @@
     },
 
     crew() {
-      /* 매거진 A+ — 한 줄 제목 · 숫자 3칸 · 크루 카드(얇은 라임 테두리) · 함께했던 크루 · 누르면 2안 팝업 */
+      /* 1안 깔끔한 표 — 숫자 한 줄 · 표 한 장(이름 누르면 팝업) · 메모는 눌러야 보임 · 함께했던 크루는 따로 */
       if (_booting && !getCrew().length) return crewSkeleton();
       const list = getCrew();
       const ix = list.map((c, i) => ({ c, i }));
-      const working = ix.filter(({ c }) => c.status !== "out").sort((a, b) => (a.c.status === "leave") - (b.c.status === "leave"));
+      const working = ix.filter(({ c }) => c.status !== "out").sort((a, b) => (a.c.status === "leave") - (b.c.status === "leave") || String(a.c.since || "").localeCompare(String(b.c.since || "")));
       const outs = ix.filter(({ c }) => c.status === "out").sort((a, b) => String(b.c.left || "").localeCompare(String(a.c.left || "")));
       const active = list.filter((c) => c.status === "active");
       const disN = active.filter(cmDis).length;
       const avg = active.length ? Math.round(active.reduce((s, c) => s + cmMonths(c), 0) / active.length) : 0;
-      const year = _now.getFullYear();
-      const inY = list.filter((c) => String(c.since || "").startsWith(String(year))).length;
-      const outY = list.filter((c) => c.status === "out" && String(c.left || "").startsWith(String(year))).length;
-      const MO = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
       const seg = _crewSeg;
 
-      const tile = ({ c, i }, k) => {
-        const a = cmAnniv(c);
+      const head = (out) => `<tr><th>이름</th><th>구분</th><th>장애유형</th><th class="ct-m">입사일</th><th>근속</th><th class="ct-m">${out ? "퇴사일" : "다음 입사 기념일"}</th></tr>`;
+      const row = ({ c, i }) => {
+        const out = c.status === "out", a = out ? null : cmAnniv(c);
         const tg = cmTags(c);
         const q = [c.name, c.role, c.store, c.disability, tg.join(" "), c.memo].join(" ").toLowerCase();
-        return `<article class="cm-tile" data-q="${esc(q)}" onclick="GARDEN.crewPop(${i})" tabindex="0" onkeydown="if(event.key==='Enter')GARDEN.crewPop(${i})">
-          <div class="cm-tile__tp"><span>No.${String(k + 1).padStart(2, "0")}</span><span>${esc(c.role || "")}</span></div>
-          <h4>${esc(c.name)}</h4>
-          <div class="cm-tile__chips">${c.status === "leave" ? `<span class="cm-chip cm-chip--leave">휴직</span>` : ""}${c.disability ? `<span class="cm-chip">${esc(c.disability)}</span>` : ""}${tg.map((t) => `<span class="cm-chip">${esc(t)}</span>`).join("")}${c.memo ? `<span class="cm-mdot">메모</span>` : ""}</div>
-          <div class="cm-tile__big"><b>${cmMonths(c)}</b><small>MONTHS<br>WITH US</small></div>
-          ${a ? `<div class="cm-tile__anv"><div><span>입사 ${a.n}주년 · ${a.d.getMonth() + 1}/${a.d.getDate()}</span><b>${a.left === 0 ? "오늘" : "D-" + a.left}</b></div><i><em style="width:${a.pct}%"></em></i></div>` : ""}
-        </article>`;
+        const memo = c.memo ? `<button class="ct-mb" onclick="event.stopPropagation();this.nextElementSibling.classList.toggle('is-open')">메모</button><span class="ct-mt">${esc(c.memo)}</span>` : "";
+        return `<tr class="${out ? "is-out" : ""}" data-q="${esc(q)}" onclick="GARDEN.crewPop(${i})" tabindex="0" onkeydown="if(event.key==='Enter')GARDEN.crewPop(${i})">
+          <td><b class="ct-nm">${esc(c.name)}</b>${c.status === "leave" ? `<span class="ct-chip">휴직</span>` : ""}${memo}</td>
+          <td>${esc(c.role || "-")}${tg.length ? `<small>${esc(tg.join(", "))}</small>` : ""}</td>
+          <td>${esc(c.disability || "-")}</td>
+          <td class="ct-n ct-m">${esc(cmDot(c.since))}</td>
+          <td class="ct-n">${cmTen(cmMonths(c))}</td>
+          <td class="ct-n ct-m">${out ? esc(cmDot(c.left)) : a ? `${a.n}주년 ${a.left === 0 ? "오늘" : "D-" + a.left}` : "-"}</td>
+        </tr>`;
       };
-      const credit = ({ c, i }) => {
-        const q = [c.name, c.role, c.disability, (c.tags || []).join(" "), c.memo].join(" ").toLowerCase();
-        return `<button class="cm-cr" data-q="${esc(q)}" onclick="GARDEN.crewPop(${i})">
-          <b>${esc(c.name)}</b><small>${esc(cmDot(c.since))} – ${esc(cmDot(c.left))} · ${cmTen(cmMonths(c))}</small>
-          <small>${esc([c.disability, (c.tags || []).join(", ")].filter(Boolean).join(" · "))}</small>
-        </button>`;
-      };
-      const showTiles = seg !== "out";
-      const showCredits = seg !== "work";
+      const table = (rows, id, out) => `<div class="ct-wrap"><table class="ct">${head(out)}<tbody id="${id}">${rows.map(row).join("")}</tbody></table></div>`;
 
       return `
-        <section class="view cm">
+        <section class="view ct-view">
           <div class="page-head">
             <div><p class="eyebrow">Crew</p><h2>크루 로스터</h2></div>
             <button class="btn btn--primary btn--sm" onclick="GARDEN.crewAddOpen()">＋ 크루 등록</button>
           </div>
-          <div class="cm-iss"><span>VOL.${year} · ${MO[_now.getMonth()]} ISSUE</span><i></i><span>AGIT GARDEN CREW</span></div>
-          <h3 class="cm-hl">아지트 가든을 가꾸는 <em>${active.length}명의</em> 가드너</h3>
-          <div class="cm-st">
-            <div><small>장애 크루</small><b>${disN}<span>명</span></b><em>재직자의 ${active.length ? Math.round((disN / active.length) * 100) : 0}%</em></div>
-            <div><small>평균 근속</small><b>${avg}<span>개월</span></b><em>${Math.floor(avg / 12) ? Math.floor(avg / 12) + "년 " : ""}${avg % 12}개월 · 재직자 기준</em></div>
-            <div><small>${year} 입사 · 퇴사</small><b>${inY}<span>/</span>${outY}</b><em>올해 들어오고 나간 크루</em></div>
+          <div class="ct-sum">
+            <div><b>${active.length}명</b><span>지금 근무</span></div>
+            <div><b>${disN}명</b><span>장애 크루 (${active.length ? Math.round((disN / active.length) * 100) : 0}%)</span></div>
+            <div><b>${avg}개월</b><span>평균 근속</span></div>
+            <div><b>${outs.length}명</b><span>함께했던 크루</span></div>
           </div>
           <div class="rs-tools">
             <div class="rs-seg">${[["work", `재직 ${working.length}`], ["out", `퇴사 ${outs.length}`], ["all", "전체"]].map(([k, t]) =>
               `<button class="${seg === k ? "is-on" : ""}" onclick="GARDEN.crewSeg('${k}')">${t}</button>`).join("")}</div>
-            <input class="searchbox" placeholder="이름 · 장애유형 · 계약 · 비고 검색" oninput="GARDEN.filterCrew(this.value)"/>
+            <input class="searchbox" placeholder="이름, 장애유형, 메모 검색" oninput="GARDEN.filterCrew(this.value)"/>
           </div>
-          ${showTiles ? (working.length ? `<div class="cm-grid" id="crewBody">${working.map(tile).join("")}</div>` : `<p class="muted">재직 중인 크루가 없어요.</p>`) : ""}
-          ${outs.length && showCredits ? `<div class="cm-secl"><b>THANK YOU, CREW</b><i></i><small>함께했던 크루 ${outs.length}명</small></div>
-            <div class="cm-credits" id="crewOutBody">${outs.map(credit).join("")}</div>` : ""}
+          ${seg !== "out" ? (working.length ? table(working, "crewBody", false) : `<p class="muted">재직 중인 크루가 없어요.</p>`) : ""}
+          ${outs.length && seg !== "work" ? `${seg === "all" ? `<p class="ct-sec">함께했던 크루 ${outs.length}명</p>` : ""}${table(outs, "crewOutBody", true)}` : ""}
           ${outs.length && seg === "work" ? `<button class="rs-more" onclick="GARDEN.crewSeg('all')">함께했던 크루 ${outs.length}명 보기 ▾</button>` : ""}
         </section>`;
     },

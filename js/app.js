@@ -1068,6 +1068,55 @@
   const issSrc = (s) => `<span class="iss-src iss-src--${s === "VOK" ? "vok" : "lkg"}">${esc(s || "LKG")}</span>`;
 
   const issMD = (d) => { const m = String(d || "").match(/\d{4}-(\d{2})-(\d{2})/); return m ? `${+m[1]}/${+m[2]}` : "—"; };
+  /* 가드너 앱 현장 이슈 → 리더(대시보드 관리자) 검토 후 식물 이슈 시트에 누적
+     옮긴 줄은 photoUrl 에 가드너 앱 원본 주소(?issue=id)를 넣어 두 번 들어가지 않게 함 */
+  const AG_REVIEW_FROM = "2026-11-12";
+  const AG_SKIP_KEY = "garden-ag-skip";
+  const agIdOf = (url) => { const m = String(url || "").match(/[?&]issue=([0-9a-f-]{36})/i); return m ? m[1].toLowerCase() : ""; };
+  function agImported() { const o = {}; getIssues().forEach((x, i) => { const id = agIdOf(x.photoUrl); if (id) o[id] = i; }); return o; }
+  function agSkips() { try { return JSON.parse(localStorage.getItem(AG_SKIP_KEY) || "[]"); } catch (e) { return []; } }
+  function agSkipSet(arr) { try { localStorage.setItem(AG_SKIP_KEY, JSON.stringify(arr)); } catch (e) {} }
+  const agCanReview = () => isAdminUser() && !!(window.AGI && AGI.on());
+  function agPending() {
+    if (!agCanReview()) return [];
+    const imp = agImported(), skip = agSkips();
+    return AGI.entries().filter((e) => e.date >= AG_REVIEW_FROM && !(e.raw.id in imp) && skip.indexOf(e.raw.id) < 0);
+  }
+  // 옮긴 뒤 가드너 앱에서 조치 완료되면 시트 줄도 완료로 맞춤
+  function agSyncDone() {
+    if (!agCanReview()) return;
+    const imp = agImported(), list = getIssues(); let n = 0;
+    AGI.entries().forEach((e) => {
+      const i = imp[e.raw.id]; if (i == null || !e.raw.done_at) return;
+      const x = list[i]; if (x.status === "완료") return;
+      x.status = "완료"; x.doneAt = String(e.raw.done_at).slice(0, 10);
+      if (!x.action && e.raw.done_note) x.action = e.raw.done_note;
+      if (!x.assignee && e.raw.done_name) x.assignee = e.raw.done_name;
+      n++;
+    });
+    if (n) { saveIssues(); toast(`가드너 앱에서 조치 완료된 ${n}건을 완료로 바꿨어요 ✓`); }
+  }
+  function agReviewFormHTML(e) {
+    const x = e.raw, sel = (id, opts, v) => `<select id="${id}">${opts.map((o) => `<option${o === v ? " selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+    const b = ISS_BUILDINGS.indexOf(e.b) >= 0 ? e.b : "공용부";
+    return `<div class="ik-info ag-rv">
+      <section><h6>리더 검토</h6><p class="ik-memo">내용을 확인하고 칸을 채운 뒤 기록하면 식물 이슈에 쌓여요.</p></section>
+      <section class="ag-rv__f">
+        <label class="fld"><span>동</span>${sel("rv_b", ISS_BUILDINGS, b)}</label>
+        <label class="fld"><span>상세 구역</span><input id="rv_loc" value="${esc(e.loc === "위치 정하지 않음" ? "" : e.loc.replace(/^[AB]동\s*/, "").replace(/\s*·\s*/g, " "))}"/></label>
+        <label class="fld"><span>이슈 분류</span>${sel("rv_cat", ISS_CATEGORIES, "병해충")}</label>
+        <label class="fld"><span>세부 내용</span><input id="rv_detail" value="${esc(e.title)}"/></label>
+        <label class="fld"><span>대상 식물</span><input id="rv_sp" placeholder="선택"/></label>
+        <div class="fld-row">
+          <label class="fld"><span>구분</span>${sel("rv_src", ["LKG", "VOK"], "LKG")}</label>
+          <label class="fld"><span>긴급도</span>${sel("rv_urg", ISS_URGENCY, "일반")}</label>
+        </div>
+        <label class="fld"><span>담당자</span><input id="rv_who" value="${esc(x.done_name || x.created_name || "")}"/></label>
+      </section>
+      <div class="ik-acts"><button class="btn btn--primary btn--sm" onclick="GARDEN.agReviewSave('${esc(x.id)}')">기록하기</button><button class="btn btn--sm" onclick="GARDEN.agReviewSkip('${esc(x.id)}')">제외</button></div>
+    </div>`;
+  }
+
   // 시트 이슈 + 가드너 앱 현장 이슈를 같은 모양(entry)으로 — key: "s:시트인덱스" | "a:가드너id"
   function issEntries() {
     const s = getIssues().map((x, i) => ({
@@ -1075,7 +1124,8 @@
       loc: x.location, title: x.detail || "제목 없음", recur: x.recur, urgent: x.urgency === "긴급",
       right: issOpen(x) ? x.status : `완료 ${issMD(x.doneAt || x.date)}`, placeKey: issPlaceKey(x),
     }));
-    const a = window.AGI && AGI.on() ? AGI.entries() : [];
+    let a = window.AGI && AGI.on() ? AGI.entries() : [];
+    if (a.length) { const imp = agImported(); a = a.filter((e) => !(e.raw.id in imp)); }
     return s.concat(a);
   }
   function issEntryMatch(e) {
@@ -1091,8 +1141,10 @@
   const issInTab = (e, tab) => tab === "open" ? e.open
     : tab === "recent" ? issRecent({ date: e.date })
     : tab === "year" ? String(e.date).startsWith(String(_now.getFullYear()))
-    : tab === "ag" ? e.src === "ag" : true;
+    : tab === "ag" ? e.src === "ag"
+    : tab === "review" ? false : true;
   function issTabList() {
+    if (_issTab === "review") return { list: agPending().filter(issEntryMatch).sort((a, b) => String(a.date).localeCompare(String(b.date))), rest: [] };
     const all = issEntries().filter(issEntryMatch);
     const byDate = (a, b) => String(b.date).localeCompare(String(a.date));
     if (_issTab === "open") return { list: all.filter((e) => e.open).sort(byDate), rest: all.filter((e) => !e.open).sort(byDate).slice(0, 8) };
@@ -1111,11 +1163,11 @@
     const shown = list.concat(rest);
     if (_issSel == null || !shown.some((e) => e.key === _issSel)) _issSel = shown.length ? shown[0].key : null;
     let h = list.length ? list.map(issRow).join("")
-      : `<p class="ik-empty">${_issTab === "open" ? "진행 중인 이슈가 없어요 👍" : _issTab === "ag" ? (window.AGI && AGI.on() ? "가드너 앱 이슈를 불러오고 있어요" : "위의 ‘가드너 앱 연결’을 누르면 현장 이슈가 보여요") : "해당하는 이슈가 없어요"}</p>`;
+      : `<p class="ik-empty">${_issTab === "review" ? "검토할 현장 이슈가 없어요 👍" : _issTab === "open" ? "진행 중인 이슈가 없어요 👍" : _issTab === "ag" ? (window.AGI && AGI.on() ? "가드너 앱 이슈를 불러오고 있어요" : "위의 ‘가드너 앱 연결’을 누르면 현장 이슈가 보여요") : "해당하는 이슈가 없어요"}</p>`;
     if (rest.length) h += `<p class="ik-g">최근 완료</p>` + rest.map(issRow).join("");
     return h;
   }
-  const issSelEntry = () => issEntries().find((e) => e.key === _issSel) || null;
+  const issSelEntry = () => (_issTab === "review" ? agPending() : issEntries()).find((e) => e.key === _issSel) || null;
   // 가운데 단계 흐름: 발견 → 조치 → 완료 (지금 단계만 펼침)
   function issStepsHTML(x, i) {
     const open = issOpen(x), now = open ? 2 : 4; // 완료면 세 단계 모두 체크
@@ -1151,6 +1203,7 @@
     const e = issSelEntry();
     if (!e) return "";
     const same = issEntries().filter((y) => y.key !== e.key && y.placeKey === e.placeKey).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    if (_issTab === "review" && e.src === "ag") return agReviewFormHTML(e);
     if (e.src === "ag") return AGI.infoHTML(e, same);
     const i = e.i, x = e.raw;
     const urgCls = x.urgency === "긴급" ? " is-red" : x.urgency === "주의" ? " is-warn" : "";
@@ -1172,9 +1225,11 @@
     const all = issEntries();
     const yr = String(_now.getFullYear());
     const tabs = [["open", "진행 중"], ["recent", "최근 한 달"], ["year", `${yr}년`], ["all", "전체"]];
+    if (agCanReview()) tabs.unshift(["review", "검토 대기"]);
     if (window.AGI && AGI.on()) tabs.push(["ag", "🌱 가드너 앱"]);
     if (window.IRP) tabs.push(["report", "📄 보고서"]); // 한 장 보고서(js/issue-report.js)
-    return tabs.map(([k, t]) => `<button class="${_issTab === k ? "is-on" : ""}" onclick="GARDEN.issueTab('${k}')">${t}${k === "report" ? "" : `<b>${all.filter((e) => issInTab(e, k)).length}</b>`}</button>`).join("");
+    const cnt = (k) => (k === "review" ? agPending().length : all.filter((e) => issInTab(e, k)).length);
+    return tabs.map(([k, t]) => `<button class="${_issTab === k ? "is-on" : ""}${k === "review" && cnt(k) ? " is-rv" : ""}" onclick="GARDEN.issueTab('${k}')">${t}${k === "report" ? "" : `<b>${cnt(k)}</b>`}</button>`).join("");
   }
 
   function issueDetailModal(i) {
@@ -3863,6 +3918,8 @@
     },
 
     issues() {
+      if (_issTab === "review" && !agCanReview()) _issTab = "open";
+      agSyncDone();
       const list = issListHTML(); // 고른 이슈 기본값을 먼저 정함
       return `
         <section class="view ik">
@@ -4770,10 +4827,34 @@
       const t = document.getElementById("ikTabs"), c = document.getElementById("ikAg");
       if (t) t.innerHTML = issTabsHTML();
       if (c && window.AGI) c.innerHTML = AGI.chipHTML();
-      if (_issTab === "ag" && !(window.AGI && AGI.on())) { _issTab = "open"; reIssues(); return; }
+      if ((_issTab === "ag" || _issTab === "review") && !(window.AGI && AGI.on())) { _issTab = "open"; reIssues(); return; }
+      agSyncDone();
       reIssBody();
     },
     issueB(b) { _issB = b; _issSel = null; reIssues(); },
+    agReviewSave(id) {
+      if (!agCanReview()) return;
+      const e = agPending().find((y) => y.raw.id === id); if (!e) return;
+      const x = e.raw, v = (k) => { const el = document.getElementById(k); return el ? el.value.trim() : ""; };
+      const detail = v("rv_detail");
+      if (!detail) { const d = document.getElementById("rv_detail"); if (d) { d.focus(); d.style.borderColor = "var(--red)"; } return; }
+      const day = e.date, done = !!x.done_at;
+      getIssues().push({
+        date: day, building: v("rv_b") || e.b, location: v("rv_loc"), category: v("rv_cat") || "병해충",
+        detail, species: v("rv_sp"), urgency: v("rv_urg") || "일반", status: done ? "완료" : "접수",
+        assignee: v("rv_who"), source: v("rv_src") || "LKG", action: x.done_note || "",
+        photoUrl: `${AGI.appUrl().replace(/\/?$/, "/")}?issue=${x.id}&day=${day}`, recur: false,
+        doneAt: done ? String(x.done_at).slice(0, 10) : "",
+        memo: `가드너 앱 현장 기록${x.created_name ? " (올린 사람 " + x.created_name + ")" : ""}`,
+      });
+      saveIssues(); _issSel = null; reIssues(); toast("식물 이슈에 기록했어요 ✓");
+    },
+    agReviewSkip(id) {
+      if (!agCanReview()) return;
+      if (!window.confirm("이 현장 이슈는 식물 이슈에 기록하지 않을까요?\n(이 기기에서 검토 대기 목록에서만 빠져요)")) return;
+      const s = agSkips(); if (s.indexOf(id) < 0) s.push(id); agSkipSet(s);
+      _issSel = null; reIssues(); toast("검토 대기에서 뺐어요");
+    },
     issueSel(k) {
       _issSel = k; reIssBody();
       const d = document.getElementById("ikDetail");

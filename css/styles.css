@@ -2377,3 +2377,10 @@ button { font-family: inherit; }
 .ag-names button.is-on { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
 .ik-tag.is-lime { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent-text); }
 
+
+/* 식물 이슈: 가드너 앱 현장 이슈 리더 검토 (검토 대기 탭) */
+.ik-tabs button.is-rv:not(.is-on) b { background: var(--accent); color: #16160f; border-radius: 999px; padding: 0 7px; }
+.ag-rv__f { display: flex; flex-direction: column; gap: 10px; }
+.ag-rv__f .fld { margin: 0; }
+.ag-rv__f .fld-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ag-rv__f select, .ag-rv__f input { width: 100%; }

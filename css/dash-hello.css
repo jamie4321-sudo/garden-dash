@@ -1,4 +1,4 @@
-/* 대시보드 첫머리 — 검은 LINKAGE LAB 아치 로고 · 아래 검은 공지 카드(3~4칸) 가운데에 맞춤 */
+/* 대시보드 첫머리 — 검은 LINKAGE LAB 아치 로고 · 아래 검은 공지 카드(3~4칸) 오른쪽 끝에 맞춤 */
 .dash-hello {
   display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 14px;
   align-items: end; margin-bottom: 14px;
@@ -7,7 +7,7 @@
 .dash-hello__hi { margin: 10px 0 0; font-size: 14px; color: var(--ink-2); }
 .dash-hello__hi b { color: var(--ink); font-weight: 800; }
 .dash-hello__logo {
-  grid-column: 3 / span 2; justify-self: center;
+  grid-column: 3 / span 2; justify-self: end;
   display: block; width: 240px; max-width: 100%; height: auto; margin-top: -24px;
 }
 :root:not([data-theme="light"]) .dash-hello__logo { filter: invert(1); }

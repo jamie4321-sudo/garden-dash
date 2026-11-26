@@ -1100,7 +1100,7 @@
     const x = e.raw, sel = (id, opts, v) => `<select id="${id}">${opts.map((o) => `<option${o === v ? " selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
     const b = ISS_BUILDINGS.indexOf(e.b) >= 0 ? e.b : "공용부";
     return `<div class="ik-info ag-rv">
-      <section><h6>리더 검토</h6><p class="ik-memo">내용을 확인하고 칸을 채운 뒤 기록하면 식물 이슈에 쌓여요.</p></section>
+      <section><h6>링키지랩 검토</h6><p class="ik-memo">지금은 링키지랩 담당자에게만 보여요. 칸을 채우고 확인을 누르면 식물 이슈에 올라가 카카오 담당자도 보게 돼요.</p></section>
       <section class="ag-rv__f">
         <label class="fld"><span>동</span>${sel("rv_b", ISS_BUILDINGS, b)}</label>
         <label class="fld"><span>상세 구역</span><input id="rv_loc" value="${esc(e.loc === "위치 정하지 않음" ? "" : e.loc.replace(/^[AB]동\s*/, "").replace(/\s*·\s*/g, " "))}"/></label>
@@ -1113,7 +1113,7 @@
         </div>
         <label class="fld"><span>담당자</span><input id="rv_who" value="${esc(x.done_name || x.created_name || "")}"/></label>
       </section>
-      <div class="ik-acts"><button class="btn btn--primary btn--sm" onclick="GARDEN.agReviewSave('${esc(x.id)}')">기록하기</button><button class="btn btn--sm" onclick="GARDEN.agReviewSkip('${esc(x.id)}')">제외</button></div>
+      <div class="ik-acts"><button class="btn btn--primary btn--sm" onclick="GARDEN.agReviewSave('${esc(x.id)}')">확인</button><button class="btn btn--sm" onclick="GARDEN.agReviewSkip('${esc(x.id)}')">제외</button></div>
     </div>`;
   }
 
@@ -1125,7 +1125,7 @@
       right: issOpen(x) ? x.status : `완료 ${issMD(x.doneAt || x.date)}`, placeKey: issPlaceKey(x),
     }));
     let a = window.AGI && AGI.on() ? AGI.entries() : [];
-    if (a.length) { const imp = agImported(); a = a.filter((e) => !(e.raw.id in imp)); }
+    if (a.length) { const imp = agImported(); a = a.filter((e) => !(e.raw.id in imp) && e.date < AG_REVIEW_FROM); } // 11/12 이후 건은 검토 대기에서 확인해야 목록에 올라감
     return s.concat(a);
   }
   function issEntryMatch(e) {
@@ -4836,7 +4836,7 @@
         doneAt: done ? String(x.done_at).slice(0, 10) : "",
         memo: `가드너 앱 현장 기록${x.created_name ? " (올린 사람 " + x.created_name + ")" : ""}`,
       });
-      saveIssues(); _issSel = null; reIssues(); toast("식물 이슈에 기록했어요 ✓");
+      saveIssues(); _issSel = null; reIssues(); toast("확인했어요. 식물 이슈에 올라갔어요 ✓");
     },
     agReviewSkip(id) {
       if (!agCanReview()) return;

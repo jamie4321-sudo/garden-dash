@@ -103,7 +103,7 @@
               <p class="eyebrow">Overview · ${dashToday()}</p>
               <h2>운영 대시보드</h2>
             </div>
-            <img class="dash-hello__char" src="img/duo-garden.webp" alt="모종삽과 물뿌리개를 든 링키지랩 가드너 두두와 페피" width="420" height="377">
+            <img class="dash-hello__logo" src="img/linkage-lab-arc.png" alt="LINKAGE LAB" width="418" height="164">
           </div>`;
   }
   function dashNoticeTile() {
